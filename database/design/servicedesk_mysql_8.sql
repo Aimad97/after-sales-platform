@@ -1,7 +1,7 @@
--- ServiceDesk / SAV production schema. Target: MySQL 8.0.21+ (InnoDB, utf8mb4).
+-- after_sales / SAV production schema. Target: MySQL 8.0.21+ (InnoDB, utf8mb4).
 -- Store application timestamps in UTC; translate in the application layer.
-CREATE DATABASE IF NOT EXISTS servicedesk CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
-USE servicedesk;
+CREATE DATABASE IF NOT EXISTS after_sales CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+USE after_sales;
 
 CREATE TABLE roles (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
