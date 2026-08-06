@@ -1,205 +1,56 @@
-<<<<<<< HEAD
-# After-Sales Service Platform (SAV)
+# ServiceDesk — SAV & Warranty Management
 
-A modern, real-time after-sales service and warranty management platform built with Laravel, React, and WebSockets.
+ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stage 1 provides the technical foundation only; business modules are intentionally not implemented yet.
 
-## 🏗️ Architecture
+## Stack
 
-```
-after-sales-platform/
-├── backend/                 # Laravel 12 API
-├── frontend/               # React + TypeScript
-├── docker/                 # Docker configurations
-└── docs/                   # Documentation
-```
+- PHP 8.3+, Laravel 12, MySQL 8, Sanctum, Reverb, Redis queues
+- React, TypeScript, Vite, Tailwind CSS, shadcn/ui-compatible setup
+- React Router, TanStack Query, Axios, React Hook Form, Zod, ApexCharts, Laravel Echo
 
-## 🛠️ Tech Stack
+## Prerequisites
 
-### Backend
-- **Framework**: Laravel 12
-- **Real-time**: Laravel Reverb (WebSockets)
-- **API**: RESTful + WebSocket events
-- **Database**: MySQL 8.0
-- **Queue**: Redis (async jobs)
-- **Authentication**: Laravel Sanctum (SPA)
+- PHP 8.3+ with MySQL and Redis extensions
+- Composer 2, Node.js 20+, MySQL 8+, Redis
 
-### Frontend
-- **Framework**: React 18 + TypeScript
-- **Styling**: Tailwind CSS + shadcn/ui
-- **State**: React Query + Zustand
-- **Charts**: ApexCharts
-- **Forms**: React Hook Form + Zod validation
-- **Real-time**: Socket.io-client
-
-### Infrastructure
-- **Containerization**: Docker + Docker Compose
-- **Web Server**: Nginx
-- **Database**: MySQL 8.0
-- **Cache**: Redis
-- **Queue Worker**: Laravel Horizon (optional)
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Docker & Docker Compose
-- Node.js 18+ (for frontend development)
-- PHP 8.3+ (for backend development)
-
-### Development Setup
+## Setup
 
 ```bash
-# Clone and setup
-git clone <repo>
-cd after-sales-platform
-
-# Start all services
-docker-compose up -d
-
-# Backend setup
-cd backend
-docker-compose exec app php artisan migrate:fresh --seed
-
-# Frontend setup
-cd ../frontend
+cd plateforme_SAV
+copy .env.example .env
+php artisan key:generate
+composer install
 npm install
+```
+
+Create a MySQL database named `plateforme_sav`, then update `DB_*`, Redis, Reverb, CORS, and `VITE_*` values in `.env`. The included defaults target a Laravel API at `http://localhost:8000`, a Vite client at `http://localhost:5173`, and Reverb at `localhost:8080`.
+
+```bash
+php artisan migrate
+npm run build
+```
+
+For local development, run these processes in separate terminals:
+
+```bash
+php artisan serve
+php artisan queue:work redis
+php artisan reverb:start
 npm run dev
 ```
 
-### Access Points
-- **Frontend**: http://localhost:3000
-- **API**: http://localhost:8000
-- **WebSocket**: ws://localhost:8080 (Reverb)
-- **MySQL**: localhost:3306
-- **Redis**: localhost:6379
+## Verification
 
-## 📋 Core Features
+```bash
+php artisan test
+vendor/bin/pint --test
+npm run build
+```
 
-### Service Management
-- Service request creation and tracking
-- Real-time status updates
-- Service history and timeline
-- Document attachments
+`GET /api/health` returns the API status without authentication.
 
-### Warranty Management
-- Warranty registration
-- Claim processing
-- Coverage verification
-- Warranty timeline tracking
+## Project organization
 
-### Technician Management
-- Assignment and scheduling
-- Location tracking (real-time)
-- Performance metrics
-- Availability management
+Laravel domain extensions live under `app/Domain`, `Services`, `Repositories`, `Events`, `Listeners`, `Notifications`, `Policies`, and `Enums`; HTTP API code is versioned under `app/Http/Controllers/Api/V1`.
 
-### Customer Portal
-- Self-service ticket creation
-- Real-time status tracking
-- Document upload/download
-- Communication history
-
-### Analytics & Reporting
-- Service metrics dashboard
-- Performance analytics
-- Response time analysis
-- Customer satisfaction reports
-
-## 🔐 Security
-
-- CORS configuration for SPA
-- CSRF protection
-- Rate limiting
-- Input validation & sanitization
-- SQL injection prevention (ORM)
-- XSS protection
-
-## 📦 Database Schema
-
-Key entities:
-- Users (Customers, Technicians, Admins)
-- Services (Requests, History, Status)
-- Warranties (Registration, Claims, Coverage)
-- Products (Serial numbers, Purchase info)
-- Documents (Attachments, Reports)
-- Notifications (Real-time events)
-
-## 🔄 Real-time Features
-
-- Live service status updates
-- Technician location tracking
-- Instant notifications
-- Live chat support
-- Collaborative dashboards
-
-## 📚 Documentation
-
-- [Backend Setup Guide](./docs/backend-setup.md)
-- [Frontend Setup Guide](./docs/frontend-setup.md)
-- [API Documentation](./docs/api.md)
-- [WebSocket Events](./docs/websocket-events.md)
-- [Deployment Guide](./docs/deployment.md)
-
-## 📄 License
-
-MIT
-=======
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
-
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
-
-## About Laravel
-
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
-
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
-
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-## Laravel Sponsors
-
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
-
-### Premium Partners
-
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
-
-## Contributing
-
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
-
-## Code of Conduct
-
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
-
-## Security Vulnerabilities
-
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
-
-## License
-
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
->>>>>>> f53f0c0 (first commit: plateforme after-sales)
+The React application is under `resources/js`. It includes the API client, realtime service, base layouts, and router foundation. Future modules should use `features/`, with shared code in `components/`, `hooks/`, `schemas/`, `stores/`, `types/`, and `utils/`.

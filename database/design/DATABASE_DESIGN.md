@@ -4,8 +4,7 @@
 
 ## ER diagram
 
-```mermaid
-erDiagram
+```mermaiderDiagram
   USERS ||--o{ USER_ROLES : receives
   ROLES ||--o{ USER_ROLES : assigned
   ROLES ||--o{ ROLE_PERMISSIONS : grants
