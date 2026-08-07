@@ -1,33 +1,131 @@
 import './bootstrap';
 import '../css/app.css';
 
-import { StrictMode } from 'react';
+import { StrictMode, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Link, NavLink, Navigate, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom';
+import { ForgotPasswordPage, LoginPage, ResetPasswordPage } from '@/features/auth/AuthPages';
+import { UserDetailsPage, UserFormPage, UsersPage } from '@/features/users/UsersPages';
+import { TechnicianDetailsPage, TechnicianFormPage, TechniciansPage } from '@/features/technicians/TechnicianPages';
+import { useAuth } from '@/hooks/useAuth';
+import { Can, usePermissions } from '@/hooks/usePermissions';
+import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
 
 const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 }, mutations: { retry: 0 } },
+    defaultOptions: {
+        queries: { retry: 1, refetchOnWindowFocus: false, staleTime: 30_000 },
+        mutations: { retry: 0 },
+    },
 });
 
-function FoundationPage({ audience }: { audience: 'Operations' | 'Client' }) {
-    return <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"><p className="text-sm font-semibold text-blue-600">{audience}</p><h1 className="mt-2 text-2xl font-bold">ServiceDesk foundation is ready</h1><p className="mt-3 text-slate-600">Authentication and SAV business workflows will be added in the next stages.</p></section>;
+function LoadingScreen() {
+    return <main className="grid min-h-screen place-items-center bg-slate-50 text-sm text-slate-600">Loading ServiceDesk...</main>;
+}
+
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+    const { isAuthenticated, isInitializing } = useAuth();
+    if (isInitializing) return <LoadingScreen />;
+    return isAuthenticated ? children : <Navigate to="/login" replace />;
+}
+
+function GuestRoute({ children }: { children: React.ReactNode }) {
+    const { isAuthenticated, isInitializing } = useAuth();
+    if (isInitializing) return <LoadingScreen />;
+    return isAuthenticated ? <Navigate to="/" replace /> : children;
+}
+
+function PermissionRoute({ permission, children }: { permission: string; children: React.ReactNode }) {
+    const { can, isLoading } = usePermissions();
+    if (isLoading) return <LoadingScreen />;
+    return can(permission) ? children : <Navigate to="/unauthorized" replace />;
 }
 
 function AdminLayout() {
-    return <div className="min-h-screen bg-slate-50 text-slate-900 lg:grid lg:grid-cols-[16rem_1fr]"><aside className="border-b bg-white p-5 lg:min-h-screen lg:border-r"><p className="text-lg font-bold">ServiceDesk</p><p className="mt-1 text-sm text-slate-500">SAV operations</p><nav className="mt-8 flex gap-2 lg:flex-col" aria-label="Main navigation"><NavLink className="rounded-md bg-blue-600 px-3 py-2 text-sm font-medium text-white" to="/admin">Dashboard</NavLink><span className="rounded-md px-3 py-2 text-sm text-slate-400">Tickets · coming soon</span></nav></aside><main className="p-4 sm:p-6"><FoundationPage audience="Operations" /></main></div>;
+    const { user, logout } = useAuth();
+    const navigationClass = ({ isActive }: { isActive: boolean }) => `rounded-md px-3 py-2 font-medium ${isActive ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`;
+
+    return (
+        <main className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-6">
+            <section className="mx-auto max-w-7xl">
+                <header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-4">
+                        <div><p className="text-sm font-semibold text-blue-600">ServiceDesk</p><h1 className="mt-1 text-2xl font-bold">Welcome, {user?.first_name}</h1></div>
+                        <button className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50" onClick={() => logout.mutate()}>Sign out</button>
+                    </div>
+                    <nav className="mt-5 flex flex-wrap gap-2 text-sm" aria-label="Workspace navigation">
+                        <Can permission="dashboard.view"><NavLink className={navigationClass} to="/admin" end>Dashboard</NavLink></Can>
+                        <Can permission="users.view"><NavLink className={navigationClass} to="/admin/users">Users</NavLink></Can>
+                        <Can permission="users.view"><NavLink className={navigationClass} to="/admin/technicians">Technicians</NavLink></Can>
+                        <Can permission="tickets.view"><span className="rounded-md px-3 py-2 text-slate-400">Tickets (coming soon)</span></Can>
+                    </nav>
+                </header>
+                <div className="mt-6"><Outlet /></div>
+            </section>
+        </main>
+    );
 }
 
 function ClientLayout() {
-    return <div className="min-h-screen bg-slate-50 text-slate-900"><header className="border-b bg-white px-6 py-4"><NavLink className="text-lg font-bold" to="/client">ServiceDesk</NavLink></header><main className="mx-auto max-w-6xl p-4 sm:p-6"><FoundationPage audience="Client" /></main></div>;
+    const { user, logout } = useAuth();
+    return <main className="min-h-screen bg-slate-50 p-6 text-slate-900"><section className="mx-auto max-w-4xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-semibold text-blue-600">ServiceDesk</p><h1 className="mt-1 text-2xl font-bold">Hello, {user?.first_name}</h1></div><button className="rounded-md border px-4 py-2 text-sm font-medium" onClick={() => logout.mutate()}>Sign out</button></div><nav className="mt-6 flex gap-3 text-sm" aria-label="Client navigation"><Can permission="tickets.view"><span className="rounded-md bg-blue-50 px-3 py-2 font-medium text-blue-700">My tickets</span></Can><Can permission="warranties.view"><span className="rounded-md px-3 py-2 text-slate-600">My warranties</span></Can></nav><p className="mt-5 text-slate-600">Your support requests and warranty information will appear here as the SAV modules are added.</p></section></main>;
+}
+
+function DashboardPage() {
+    return <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-2xl font-bold">Operations dashboard</h2><p className="mt-2 text-slate-600">User and technician management are ready. SAV operational dashboards will be added in a later stage.</p></section>;
+}
+
+function WorkspaceRedirect() {
+    const { user, isInitializing } = useAuth();
+    if (isInitializing) return <LoadingScreen />;
+    return <Navigate to={user?.roles.includes('client') ? '/client' : '/admin'} replace />;
 }
 
 function NotFoundPage() {
-    return <main className="grid min-h-screen place-items-center p-6 text-center"><section><p className="text-sm font-semibold text-blue-600">404</p><h1 className="mt-2 text-3xl font-bold">Page not found</h1><Link className="mt-5 inline-block rounded-md bg-blue-600 px-4 py-2 font-medium text-white" to="/admin">Go to dashboard</Link></section></main>;
+    return <main className="grid min-h-screen place-items-center p-6 text-center"><section><p className="text-sm font-semibold text-blue-600">404</p><h1 className="mt-2 text-3xl font-bold">Page not found</h1><Link className="mt-5 inline-block rounded-md bg-blue-600 px-4 py-2 font-medium text-white" to="/">Go home</Link></section></main>;
+}
+
+function AuthFailureHandler() {
+    const navigate = useNavigate();
+    useEffect(() => {
+        const handleUnauthorized = () => {
+            queryClient.setQueryData(['auth', 'user'], null);
+            navigate('/login');
+        };
+
+        window.addEventListener('auth:unauthenticated', handleUnauthorized);
+        return () => window.removeEventListener('auth:unauthenticated', handleUnauthorized);
+    }, [navigate]);
+
+    return null;
 }
 
 function App() {
-    return <BrowserRouter><Routes><Route path="/" element={<Navigate to="/admin" replace />} /><Route path="/admin" element={<AdminLayout />} /><Route path="/client" element={<ClientLayout />} /><Route path="*" element={<NotFoundPage />} /></Routes></BrowserRouter>;
+    return (
+        <BrowserRouter>
+            <AuthFailureHandler />
+            <Routes>
+                <Route path="/" element={<ProtectedRoute><WorkspaceRedirect /></ProtectedRoute>} />
+                <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />
+                <Route path="/forgot-password" element={<GuestRoute><ForgotPasswordPage /></GuestRoute>} />
+                <Route path="/reset-password" element={<GuestRoute><ResetPasswordPage /></GuestRoute>} />
+                <Route path="/unauthorized" element={<UnauthorizedPage />} />
+                <Route path="/admin" element={<ProtectedRoute><PermissionRoute permission="dashboard.view"><AdminLayout /></PermissionRoute></ProtectedRoute>}>
+                    <Route index element={<DashboardPage />} />
+                    <Route path="users" element={<PermissionRoute permission="users.view"><UsersPage /></PermissionRoute>} />
+                    <Route path="users/new" element={<PermissionRoute permission="users.create"><UserFormPage /></PermissionRoute>} />
+                    <Route path="users/:uuid" element={<PermissionRoute permission="users.view"><UserDetailsPage /></PermissionRoute>} />
+                    <Route path="users/:uuid/edit" element={<PermissionRoute permission="users.update"><UserFormPage /></PermissionRoute>} />
+                    <Route path="technicians" element={<PermissionRoute permission="users.view"><TechniciansPage /></PermissionRoute>} />
+                    <Route path="technicians/new" element={<PermissionRoute permission="users.create"><TechnicianFormPage /></PermissionRoute>} />
+                    <Route path="technicians/:id" element={<PermissionRoute permission="users.view"><TechnicianDetailsPage /></PermissionRoute>} />
+                    <Route path="technicians/:id/edit" element={<PermissionRoute permission="users.update"><TechnicianFormPage /></PermissionRoute>} />
+                </Route>
+                <Route path="/client" element={<ProtectedRoute><PermissionRoute permission="tickets.view"><ClientLayout /></PermissionRoute></ProtectedRoute>} />
+                <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+        </BrowserRouter>
+    );
 }
 
 const root = document.getElementById('app');

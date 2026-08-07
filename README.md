@@ -1,6 +1,6 @@
 # ServiceDesk — SAV & Warranty Management
 
-ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stage 1 provides the technical foundation only; business modules are intentionally not implemented yet.
+ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stages 1 through 4 provide the project foundation, Sanctum SPA authentication, server-enforced RBAC, and user/technician management.
 
 ## Stack
 
@@ -48,6 +48,37 @@ npm run build
 ```
 
 `GET /api/health` returns the API status without authentication.
+
+## Roles and permissions
+
+RBAC uses `spatie/laravel-permission` with the `web` guard used by Sanctum's stateful SPA requests. The roles are `super_admin`, `admin`, `sav_agent`, `technician`, and `client`. Permissions cover users, clients, products, tickets, repairs, warranties, reports, and dashboards.
+
+Apply the migration and seed the role matrix after deployment:
+
+```bash
+php artisan migrate
+php artisan db:seed --class=RolesAndPermissionsSeeder
+```
+
+To create the initial super administrator, set a strong password in your local environment and run its explicit seeder. A password is never committed to the repository.
+
+```powershell
+$env:SUPER_ADMIN_PASSWORD = 'use-a-long-unique-password'
+php artisan db:seed --class=SuperAdminSeeder
+```
+
+The seeder defaults to `superadmin@servicedesk.test`; override `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_FIRST_NAME`, and `SUPER_ADMIN_LAST_NAME` when needed. Backend routes must use Laravel policies or the `permission`, `role`, or `role_or_permission` middleware aliases. Hiding controls in the React UI is only a usability measure and is not authorization.
+
+## Users and technicians
+
+Users are exposed by public UUID and support server-side search, filtering, sorting, pagination, status changes, and soft deletion. Technician profiles are one-to-one with a user, require the `technician` role, and track an employee code, specialization, skill level (1–5), and availability (`available`, `busy`, `unavailable`, or `leave`).
+
+The authenticated management API provides:
+
+- `GET, POST /api/users`, `GET, PATCH, DELETE /api/users/{uuid}`, and `GET /api/users/roles`
+- `GET, POST /api/technicians` and `GET, PATCH, DELETE /api/technicians/{id}`
+
+Only a `super_admin` can assign or manage `admin` and `super_admin` accounts. The restriction is enforced in the server-side service layer as well as hidden in the UI.
 
 ## Project organization
 

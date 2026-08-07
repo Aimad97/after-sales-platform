@@ -11,5 +11,11 @@ export const apiClient = axios.create({
 
 apiClient.interceptors.response.use(
     (response) => response,
-    (error: AxiosError<ApiErrorResponse>) => Promise.reject(error),
+    (error: AxiosError<ApiErrorResponse>) => {
+        if (error.response?.status === 401) {
+            window.dispatchEvent(new Event('auth:unauthenticated'));
+        }
+
+        return Promise.reject(error);
+    },
 );

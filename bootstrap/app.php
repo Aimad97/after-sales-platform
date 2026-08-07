@@ -1,11 +1,15 @@
 <?php
 
+use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
+use Spatie\Permission\Middleware\PermissionMiddleware;
+use Spatie\Permission\Middleware\RoleMiddleware;
+use Spatie\Permission\Middleware\RoleOrPermissionMiddleware;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -18,6 +22,11 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();
+        $middleware->alias([
+            'permission' => PermissionMiddleware::class,
+            'role' => RoleMiddleware::class,
+            'role_or_permission' => RoleOrPermissionMiddleware::class,
+        ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         $exceptions->shouldRenderJsonWhen(
@@ -41,6 +50,14 @@ return Application::configure(basePath: dirname(__DIR__))
             }
 
             return response()->json(['message' => 'Unauthenticated.'], 401);
+        });
+
+        $exceptions->render(function (AuthorizationException $exception, Request $request) {
+            if (! $request->is('api/*')) {
+                return null;
+            }
+
+            return response()->json(['message' => 'This action is unauthorized.'], 403);
         });
 
         $exceptions->render(function (Throwable $exception, Request $request) {

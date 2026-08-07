@@ -24,8 +24,9 @@ return new class extends Migration
             $table->string('timezone')->default('Africa/Casablanca');
             $table->enum('status', [
                 'active',
-                'inactive',
-                'suspended'
+                'invited',
+                'suspended',
+                'archived',
             ])->default('active');
             $table->rememberToken();
             $table->timestamps();
