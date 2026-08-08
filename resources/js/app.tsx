@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom';
 import { ForgotPasswordPage, LoginPage, ResetPasswordPage } from '@/features/auth/AuthPages';
+import { ClientDetailsPage, ClientFormPage, ClientsPage } from '@/features/clients/ClientPages';
 import { UserDetailsPage, UserFormPage, UsersPage } from '@/features/users/UsersPages';
 import { TechnicianDetailsPage, TechnicianFormPage, TechniciansPage } from '@/features/technicians/TechnicianPages';
 import { useAuth } from '@/hooks/useAuth';
@@ -57,6 +58,7 @@ function AdminLayout() {
                         <Can permission="dashboard.view"><NavLink className={navigationClass} to="/admin" end>Dashboard</NavLink></Can>
                         <Can permission="users.view"><NavLink className={navigationClass} to="/admin/users">Users</NavLink></Can>
                         <Can permission="users.view"><NavLink className={navigationClass} to="/admin/technicians">Technicians</NavLink></Can>
+                        <Can permission="clients.view"><NavLink className={navigationClass} to="/admin/clients">Clients</NavLink></Can>
                         <Can permission="tickets.view"><span className="rounded-md px-3 py-2 text-slate-400">Tickets (coming soon)</span></Can>
                     </nav>
                 </header>
@@ -120,6 +122,10 @@ function App() {
                     <Route path="technicians/new" element={<PermissionRoute permission="users.create"><TechnicianFormPage /></PermissionRoute>} />
                     <Route path="technicians/:id" element={<PermissionRoute permission="users.view"><TechnicianDetailsPage /></PermissionRoute>} />
                     <Route path="technicians/:id/edit" element={<PermissionRoute permission="users.update"><TechnicianFormPage /></PermissionRoute>} />
+                    <Route path="clients" element={<PermissionRoute permission="clients.view"><ClientsPage /></PermissionRoute>} />
+                    <Route path="clients/new" element={<PermissionRoute permission="clients.create"><ClientFormPage /></PermissionRoute>} />
+                    <Route path="clients/:uuid" element={<PermissionRoute permission="clients.view"><ClientDetailsPage /></PermissionRoute>} />
+                    <Route path="clients/:uuid/edit" element={<PermissionRoute permission="clients.update"><ClientFormPage /></PermissionRoute>} />
                 </Route>
                 <Route path="/client" element={<ProtectedRoute><PermissionRoute permission="tickets.view"><ClientLayout /></PermissionRoute></ProtectedRoute>} />
                 <Route path="*" element={<NotFoundPage />} />

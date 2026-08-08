@@ -2,8 +2,10 @@
 
 namespace App\Providers;
 
+use App\Models\Client;
 use App\Models\Technician;
 use App\Models\User;
+use App\Policies\ClientPolicy;
 use App\Policies\TechnicianPolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -29,6 +31,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(Client::class, ClientPolicy::class);
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Technician::class, TechnicianPolicy::class);
 

@@ -1,6 +1,6 @@
 # ServiceDesk — SAV & Warranty Management
 
-ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stages 1 through 4 provide the project foundation, Sanctum SPA authentication, server-enforced RBAC, and user/technician management.
+ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stages 1 through 5 provide the project foundation, Sanctum SPA authentication, server-enforced RBAC, user/technician management, and client management.
 
 ## Stack
 
@@ -44,6 +44,7 @@ npm run dev
 ```bash
 php artisan test
 vendor/bin/pint --test
+npm run test:frontend
 npm run build
 ```
 
@@ -79,6 +80,18 @@ The authenticated management API provides:
 - `GET, POST /api/technicians` and `GET, PATCH, DELETE /api/technicians/{id}`
 
 Only a `super_admin` can assign or manage `admin` and `super_admin` accounts. The restriction is enforced in the server-side service layer as well as hidden in the UI.
+
+## Clients
+
+Clients reuse the existing `customers` and `customer_products` records, preserving current foreign keys from purchases and SAV tickets. Each client now has a public UUID, individual/company type, optional company tax identifier, notes, server-side search/filter/sort/pagination, and soft-delete archiving.
+
+The authenticated management API provides:
+
+- `GET, POST /api/clients`
+- `GET, PATCH, DELETE /api/clients/{uuid}`
+- `GET /api/clients/{uuid}/profile`
+
+The profile endpoint aggregates the client's identity and contact details, purchased products, active and expired warranty coverage, SAV ticket history, and recorded interventions. Access is enforced by the existing `clients.view`, `clients.create`, `clients.update`, and `clients.delete` permissions.
 
 ## Project organization
 

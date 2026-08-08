@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\ClientController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\TechnicianController;
 use App\Http\Controllers\Api\V1\UserController;
@@ -21,6 +22,8 @@ Route::prefix('auth')->group(function (): void {
 });
 
 Route::middleware('auth:sanctum')->group(function (): void {
+    Route::get('/clients/{client}/profile', [ClientController::class, 'profile']);
+    Route::apiResource('clients', ClientController::class);
     Route::get('/users/roles', [UserController::class, 'roles']);
     Route::apiResource('users', UserController::class);
     Route::apiResource('technicians', TechnicianController::class);
