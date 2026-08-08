@@ -2,9 +2,13 @@
 
 namespace App\Providers;
 
+use App\Models\Brand;
+use App\Models\Category;
 use App\Models\Client;
+use App\Models\Product;
 use App\Models\Technician;
 use App\Models\User;
+use App\Policies\CatalogPolicy;
 use App\Policies\ClientPolicy;
 use App\Policies\TechnicianPolicy;
 use App\Policies\UserPolicy;
@@ -31,6 +35,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::policy(Category::class, CatalogPolicy::class);
+        Gate::policy(Brand::class, CatalogPolicy::class);
+        Gate::policy(Product::class, CatalogPolicy::class);
         Gate::policy(Client::class, ClientPolicy::class);
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Technician::class, TechnicianPolicy::class);

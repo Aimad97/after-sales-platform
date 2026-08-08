@@ -1,6 +1,6 @@
 # ServiceDesk — SAV & Warranty Management
 
-ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stages 1 through 5 provide the project foundation, Sanctum SPA authentication, server-enforced RBAC, user/technician management, and client management.
+ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stages 1 through 6 provide the project foundation, Sanctum SPA authentication, server-enforced RBAC, user/technician management, client management, and product catalog management.
 
 ## Stack
 
@@ -92,6 +92,18 @@ The authenticated management API provides:
 - `GET /api/clients/{uuid}/profile`
 
 The profile endpoint aggregates the client's identity and contact details, purchased products, active and expired warranty coverage, SAV ticket history, and recorded interventions. Access is enforced by the existing `clients.view`, `clients.create`, `clients.update`, and `clients.delete` permissions.
+
+## Product catalog
+
+Categories, brands, and products are protected by the existing `products.view`, `products.create`, `products.update`, and `products.delete` permissions. Catalog records support server-side search, filters, sorting, pagination, unique slugs, and active/inactive status. Products use public UUIDs and have a unique SKU, category, brand, default warranty duration, and serial-number requirement.
+
+The authenticated management API provides:
+
+- `GET, POST /api/categories` and `GET, PATCH, DELETE /api/categories/{id}`
+- `GET, POST /api/brands` and `GET, PATCH, DELETE /api/brands/{id}`
+- `GET, POST /api/products` and `GET, PATCH, DELETE /api/products/{uuid}`
+
+Existing purchase/warranty records retain their product foreign keys. A category or brand cannot be deleted while products reference it, and a product cannot be deleted while purchase or warranty records reference it. `logo_path` is catalog metadata; asset upload/storage is intentionally handled by the future files module.
 
 ## Project organization
 

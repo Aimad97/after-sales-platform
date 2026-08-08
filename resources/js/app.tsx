@@ -6,6 +6,8 @@ import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom';
 import { ForgotPasswordPage, LoginPage, ResetPasswordPage } from '@/features/auth/AuthPages';
+import { BrandsPage, CategoriesPage } from '@/features/catalog/CatalogEntityPages';
+import { ProductDetailsPage, ProductFormPage, ProductsPage } from '@/features/catalog/ProductPages';
 import { ClientDetailsPage, ClientFormPage, ClientsPage } from '@/features/clients/ClientPages';
 import { UserDetailsPage, UserFormPage, UsersPage } from '@/features/users/UsersPages';
 import { TechnicianDetailsPage, TechnicianFormPage, TechniciansPage } from '@/features/technicians/TechnicianPages';
@@ -59,6 +61,9 @@ function AdminLayout() {
                         <Can permission="users.view"><NavLink className={navigationClass} to="/admin/users">Users</NavLink></Can>
                         <Can permission="users.view"><NavLink className={navigationClass} to="/admin/technicians">Technicians</NavLink></Can>
                         <Can permission="clients.view"><NavLink className={navigationClass} to="/admin/clients">Clients</NavLink></Can>
+                        <Can permission="products.view"><NavLink className={navigationClass} to="/admin/products">Products</NavLink></Can>
+                        <Can permission="products.view"><NavLink className={navigationClass} to="/admin/categories">Categories</NavLink></Can>
+                        <Can permission="products.view"><NavLink className={navigationClass} to="/admin/brands">Brands</NavLink></Can>
                         <Can permission="tickets.view"><span className="rounded-md px-3 py-2 text-slate-400">Tickets (coming soon)</span></Can>
                     </nav>
                 </header>
@@ -126,6 +131,12 @@ function App() {
                     <Route path="clients/new" element={<PermissionRoute permission="clients.create"><ClientFormPage /></PermissionRoute>} />
                     <Route path="clients/:uuid" element={<PermissionRoute permission="clients.view"><ClientDetailsPage /></PermissionRoute>} />
                     <Route path="clients/:uuid/edit" element={<PermissionRoute permission="clients.update"><ClientFormPage /></PermissionRoute>} />
+                    <Route path="products" element={<PermissionRoute permission="products.view"><ProductsPage /></PermissionRoute>} />
+                    <Route path="products/new" element={<PermissionRoute permission="products.create"><ProductFormPage /></PermissionRoute>} />
+                    <Route path="products/:uuid" element={<PermissionRoute permission="products.view"><ProductDetailsPage /></PermissionRoute>} />
+                    <Route path="products/:uuid/edit" element={<PermissionRoute permission="products.update"><ProductFormPage /></PermissionRoute>} />
+                    <Route path="categories" element={<PermissionRoute permission="products.view"><CategoriesPage /></PermissionRoute>} />
+                    <Route path="brands" element={<PermissionRoute permission="products.view"><BrandsPage /></PermissionRoute>} />
                 </Route>
                 <Route path="/client" element={<ProtectedRoute><PermissionRoute permission="tickets.view"><ClientLayout /></PermissionRoute></ProtectedRoute>} />
                 <Route path="*" element={<NotFoundPage />} />

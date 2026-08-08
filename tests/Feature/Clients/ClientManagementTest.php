@@ -109,18 +109,25 @@ class ClientManagementTest extends TestCase
 
         $brandId = DB::table('brands')->insertGetId([
             'name' => 'Atlas Tech',
+            'slug' => 'atlas-tech',
+            'active' => true,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
         $categoryId = DB::table('categories')->insertGetId([
             'name' => 'Appliances',
+            'slug' => 'appliances',
+            'active' => true,
             'created_at' => $now,
             'updated_at' => $now,
         ]);
         $productId = DB::table('products')->insertGetId([
+            'uuid' => (string) Str::uuid(),
+            'sku' => 'SW-100',
             'brand_id' => $brandId,
             'category_id' => $categoryId,
             'name' => 'Smart Washer',
+            'slug' => 'smart-washer',
             'model' => 'SW-100',
             'created_at' => $now,
             'updated_at' => $now,

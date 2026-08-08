@@ -2,6 +2,7 @@ import { humanize } from '@/utils/format';
 
 const styles: Record<string, string> = {
     active: 'bg-emerald-100 text-emerald-800',
+    inactive: 'bg-slate-200 text-slate-700',
     invited: 'bg-sky-100 text-sky-800',
     suspended: 'bg-rose-100 text-rose-800',
     archived: 'bg-slate-200 text-slate-700',
