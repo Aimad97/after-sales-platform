@@ -8,12 +8,14 @@ use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Product;
 use App\Models\Technician;
+use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Warranty;
 use App\Policies\CatalogPolicy;
 use App\Policies\ClientPolicy;
 use App\Policies\InvoicePolicy;
 use App\Policies\TechnicianPolicy;
+use App\Policies\TicketPolicy;
 use App\Policies\UserPolicy;
 use App\Policies\WarrantyPolicy;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -46,6 +48,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Invoice::class, InvoicePolicy::class);
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Technician::class, TechnicianPolicy::class);
+        Gate::policy(Ticket::class, TicketPolicy::class);
         Gate::policy(Warranty::class, WarrantyPolicy::class);
 
         Gate::before(fn (User $user): ?bool => $user->hasRole('super_admin') ? true : null);

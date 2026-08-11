@@ -68,13 +68,12 @@ class ClientProfileResource extends JsonResource
         return [
             'id' => $ticket->id,
             'uuid' => $ticket->uuid,
-            'subject' => $ticket->subject,
-            'description' => $ticket->description,
-            'status' => $ticket->status === null ? null : [
-                'id' => $ticket->status->id,
-                'name' => $ticket->status->name,
-            ],
-            'opened_at' => $ticket->opened_at?->toISOString(),
+            'ticket_number' => $ticket->ticket_number,
+            'title' => $ticket->title,
+            'problem_description' => $ticket->problem_description,
+            'priority' => $ticket->priority?->value,
+            'status' => $ticket->status?->value,
+            'received_at' => $ticket->received_at?->toISOString(),
             'closed_at' => $ticket->closed_at?->toISOString(),
         ];
     }

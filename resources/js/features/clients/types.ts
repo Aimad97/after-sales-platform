@@ -62,10 +62,12 @@ export interface ClientWarranty {
 export interface ClientTicket {
     id: number;
     uuid: string;
-    subject: string;
-    description: string;
-    status: { id: number; name: string } | null;
-    opened_at: string | null;
+    ticket_number: string;
+    title: string;
+    problem_description: string;
+    priority: 'low' | 'normal' | 'high' | 'urgent';
+    status: string;
+    received_at: string | null;
     closed_at: string | null;
 }
 

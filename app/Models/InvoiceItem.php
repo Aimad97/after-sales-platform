@@ -73,4 +73,10 @@ class InvoiceItem extends Model
     {
         return $this->hasMany(Warranty::class, 'invoice_item_id');
     }
+
+    /** @return HasMany<Ticket, $this> */
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
 }

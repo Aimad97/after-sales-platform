@@ -97,7 +97,7 @@ class Client extends Model
      */
     public function tickets(): HasMany
     {
-        return $this->hasMany(Ticket::class, 'customer_id');
+        return $this->hasMany(Ticket::class);
     }
 
     /**
@@ -105,7 +105,7 @@ class Client extends Model
      */
     public function repairHistory(): HasManyThrough
     {
-        return $this->hasManyThrough(Intervention::class, Ticket::class, 'customer_id', 'ticket_id');
+        return $this->hasManyThrough(Intervention::class, Ticket::class, 'client_id', 'ticket_id');
     }
 
     /** @return HasMany<Invoice, $this> */

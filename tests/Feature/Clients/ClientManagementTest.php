@@ -158,25 +158,28 @@ class ClientManagementTest extends TestCase
             'created_at' => $now,
             'updated_at' => $now,
         ]);
-        $statusId = DB::table('ticket_statuses')->insertGetId([
-            'name' => 'In progress',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
-        $priorityId = DB::table('ticket_priorities')->insertGetId([
-            'name' => 'High',
-            'created_at' => $now,
-            'updated_at' => $now,
-        ]);
+        $statusId = DB::table('ticket_statuses')->insertGetId(['name' => 'Opened', 'created_at' => $now, 'updated_at' => $now]);
+        $priorityId = DB::table('ticket_priorities')->insertGetId(['name' => 'High', 'created_at' => $now, 'updated_at' => $now]);
         $ticketId = DB::table('tickets')->insertGetId([
             'uuid' => (string) Str::uuid(),
+            'ticket_number' => 'TKT-PROFILE-001',
+            'client_id' => $client->id,
             'customer_id' => $client->id,
+            'product_id' => $productId,
+            'warranty_id' => $activeWarrantyId,
             'customer_product_id' => $activeWarrantyId,
             'status_id' => $statusId,
             'priority_id' => $priorityId,
             'created_by' => $admin->id,
+            'title' => 'Water leakage',
             'subject' => 'Water leakage',
+            'problem_description' => 'Water is leaking from the appliance.',
             'description' => 'Water is leaking from the appliance.',
+            'priority' => 'high',
+            'status' => 'diagnosing',
+            'source' => 'store',
+            'warranty_eligible' => true,
+            'received_at' => $now,
             'opened_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,
@@ -197,9 +200,9 @@ class ClientManagementTest extends TestCase
             ->assertJsonPath('data.purchased_products.0.product.name', 'Smart Washer')
             ->assertJsonPath('data.active_warranties.0.id', $activeWarrantyId)
             ->assertJsonPath('data.expired_warranties.0.id', $expiredWarrantyId)
-            ->assertJsonPath('data.tickets.0.subject', 'Water leakage')
+            ->assertJsonPath('data.tickets.0.title', 'Water leakage')
             ->assertJsonPath('data.repair_history.0.diagnostic', 'Damaged inlet hose.')
-            ->assertJsonPath('data.repair_history.0.ticket.status.name', 'In progress');
+            ->assertJsonPath('data.repair_history.0.ticket.status', 'diagnosing');
     }
 
     private function userWithRole(string $role): User

@@ -84,4 +84,10 @@ class Product extends Model
     {
         return $this->hasMany(InvoiceItem::class);
     }
+
+    /** @return HasMany<Ticket, $this> */
+    public function tickets(): HasMany
+    {
+        return $this->hasMany(Ticket::class);
+    }
 }

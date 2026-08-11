@@ -73,8 +73,8 @@ class ClientManagementService
             'purchasedProducts.product',
             'activeWarranties.product',
             'expiredWarranties.product',
-            'tickets' => fn ($query) => $query->with('status')->latest('opened_at')->latest('id'),
-            'repairHistory' => fn ($query) => $query->with('ticket.status')->latest('id'),
+            'tickets' => fn ($query) => $query->latest('received_at')->latest('id'),
+            'repairHistory' => fn ($query) => $query->with('ticket')->latest('id'),
         ]);
     }
 

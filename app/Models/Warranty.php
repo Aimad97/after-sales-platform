@@ -125,6 +125,6 @@ class Warranty extends Model
      */
     public function tickets(): HasMany
     {
-        return $this->hasMany(Ticket::class, 'customer_product_id');
+        return $this->hasMany(Ticket::class, 'warranty_id');
     }
 }

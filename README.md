@@ -1,6 +1,6 @@
 # ServiceDesk — SAV & Warranty Management
 
-ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stages 1 through 8 provide the project foundation, Sanctum SPA authentication, server-enforced RBAC, user/technician management, client management, product catalog management, invoice-backed sold-product tracking, and warranty lifecycle management.
+ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stages 1 through 9 provide the project foundation, Sanctum SPA authentication, server-enforced RBAC, user/technician management, client management, product catalog management, invoice-backed sold-product tracking, warranty lifecycle management, and SAV ticket workflow.
 
 ## Stack
 
@@ -130,6 +130,21 @@ The authenticated staff API provides:
 - `GET /api/clients/{uuid}/warranties`
 
 `WarrantyEligibilityService` returns whether coverage applies, an explanatory reason, coverage dates, and remaining days. Users with only the client role cannot browse global warranty records because the application has no client-user ownership mapping yet.
+
+## SAV tickets
+
+Tickets have a public UUID and a human-readable `TKT-YYYYMMDD-XXXXXX` number. They capture client, product, optional warranty and invoice-item context, intake source, priority, warranty eligibility snapshot, assigned technician profile, and a full immutable status timeline. Ticket creation and every transition are transactional.
+
+The authenticated staff API provides:
+
+- `GET, POST /api/tickets`
+- `GET, PATCH /api/tickets/{uuid}`
+- `POST /api/tickets/{uuid}/assign`
+- `POST /api/tickets/{uuid}/priority`
+- `POST /api/tickets/{uuid}/transition`
+- `POST /api/tickets/{uuid}/cancel`
+
+`TicketWorkflowService` is the sole authority for state changes. It permits the repair path from `opened` through `closed`, plus cancellation before a terminal state; direct status and priority updates are rejected. Each transition writes a `ticket_status_histories` record with the actor, timestamp, source state, target state, and optional note. Client-role users cannot access the global ticket API until a client-user ownership mapping exists; this prevents cross-client data exposure.
 
 ## Project organization
 

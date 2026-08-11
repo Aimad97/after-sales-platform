@@ -13,6 +13,7 @@ import { InvoiceDetailsPage, InvoiceFormPage, InvoicesPage } from '@/features/in
 import { WarrantyDetailsPage, WarrantiesPage } from '@/features/warranties/WarrantyPages';
 import { UserDetailsPage, UserFormPage, UsersPage } from '@/features/users/UsersPages';
 import { TechnicianDetailsPage, TechnicianFormPage, TechniciansPage } from '@/features/technicians/TechnicianPages';
+import { TicketDetailsPage, TicketFormPage, TicketsPage } from '@/features/tickets/TicketPages';
 import { useAuth } from '@/hooks/useAuth';
 import { Can, usePermissions } from '@/hooks/usePermissions';
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
@@ -68,7 +69,7 @@ function AdminLayout() {
                         <Can permission="products.view"><NavLink className={navigationClass} to="/admin/products">Products</NavLink></Can>
                         <Can permission="products.view"><NavLink className={navigationClass} to="/admin/categories">Categories</NavLink></Can>
                         <Can permission="products.view"><NavLink className={navigationClass} to="/admin/brands">Brands</NavLink></Can>
-                        <Can permission="tickets.view"><span className="rounded-md px-3 py-2 text-slate-400">Tickets (coming soon)</span></Can>
+                        <Can permission="tickets.view"><NavLink className={navigationClass} to="/admin/tickets">Tickets</NavLink></Can>
                     </nav>
                 </header>
                 <div className="mt-6"><Outlet /></div>
@@ -141,6 +142,9 @@ function App() {
                     <Route path="invoices/:id/edit" element={<PermissionRoute permission="invoices.update"><InvoiceFormPage /></PermissionRoute>} />
                     <Route path="warranties" element={<PermissionRoute permission="warranties.view"><WarrantiesPage /></PermissionRoute>} />
                     <Route path="warranties/:uuid" element={<PermissionRoute permission="warranties.view"><WarrantyDetailsPage /></PermissionRoute>} />
+                    <Route path="tickets" element={<PermissionRoute permission="tickets.view"><TicketsPage /></PermissionRoute>} />
+                    <Route path="tickets/new" element={<PermissionRoute permission="tickets.create"><TicketFormPage /></PermissionRoute>} />
+                    <Route path="tickets/:uuid" element={<PermissionRoute permission="tickets.view"><TicketDetailsPage /></PermissionRoute>} />
                     <Route path="products" element={<PermissionRoute permission="products.view"><ProductsPage /></PermissionRoute>} />
                     <Route path="products/new" element={<PermissionRoute permission="products.create"><ProductFormPage /></PermissionRoute>} />
                     <Route path="products/:uuid" element={<PermissionRoute permission="products.view"><ProductDetailsPage /></PermissionRoute>} />
