@@ -21,7 +21,7 @@ class TicketWorkflowService
         ],
         'awaiting_customer_approval' => [TicketStatus::Diagnosing],
         'awaiting_part' => [TicketStatus::Repairing],
-        'repairing' => [TicketStatus::Testing],
+        'repairing' => [TicketStatus::Testing, TicketStatus::AwaitingCustomerApproval],
         'testing' => [TicketStatus::Repaired],
         'repaired' => [TicketStatus::ReadyForPickup],
         'ready_for_pickup' => [TicketStatus::Delivered],

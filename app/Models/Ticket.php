@@ -110,4 +110,9 @@ class Ticket extends Model
     {
         return $this->hasMany(Intervention::class);
     }
+
+    public function repair(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Repair::class);
+    }
 }

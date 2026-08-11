@@ -1,0 +1,8 @@
+<?php
+namespace App\Http\Resources;
+use App\Models\Repair;
+use App\Models\RepairHistory;
+use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
+/** @mixin Repair */
+class RepairResource extends JsonResource { public function toArray(Request $request): array { return ['id'=>$this->id,'ticket_id'=>$this->ticket_id,'technician_id'=>$this->technician_id,'diagnosis'=>$this->diagnosis,'root_cause'=>$this->root_cause,'repair_action'=>$this->repair_action,'internal_notes'=>$this->internal_notes,'customer_notes'=>$this->customer_notes,'labor_cost'=>$this->labor_cost,'parts_cost'=>$this->parts_cost,'total_cost'=>$this->total_cost,'started_at'=>$this->started_at?->toISOString(),'completed_at'=>$this->completed_at?->toISOString(),'result'=>$this->result?->value,'ticket'=>$this->whenLoaded('ticket', fn()=>['uuid'=>$this->ticket->uuid,'ticket_number'=>$this->ticket->ticket_number,'title'=>$this->ticket->title,'status'=>$this->ticket->status?->value,'client'=>$this->ticket->client?->display_name,'product'=>$this->ticket->product?->name]),'technician'=>$this->whenLoaded('technician', fn()=>['id'=>$this->technician->id,'employee_code'=>$this->technician->employee_code,'name'=>$this->technician->user ? trim($this->technician->user->first_name.' '.$this->technician->user->last_name) : null]),'history'=>$this->whenLoaded('history', fn()=> $this->history->map(fn(RepairHistory $h)=>['id'=>$h->id,'event'=>$h->event,'changes'=>$h->changes,'occurred_at'=>$h->occurred_at?->toISOString(),'changed_by'=>$h->changedBy ? trim($h->changedBy->first_name.' '.$h->changedBy->last_name) : null])->values()),'created_at'=>$this->created_at?->toISOString(),'updated_at'=>$this->updated_at?->toISOString()]; } }

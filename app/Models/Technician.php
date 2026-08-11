@@ -49,4 +49,9 @@ class Technician extends Model
     {
         return $this->hasMany(Ticket::class, 'assigned_technician_id');
     }
+
+    public function repairs(): HasMany
+    {
+        return $this->hasMany(Repair::class);
+    }
 }
