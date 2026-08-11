@@ -49,6 +49,19 @@ export interface TicketStatusHistory {
     transitioned_by: TicketUser | null;
 }
 
+export interface TicketHistoryActor {
+    display_name: string;
+}
+
+export interface TicketHistory {
+    id: number;
+    event: string;
+    description: string;
+    metadata: unknown | null;
+    occurred_at: string | null;
+    actor: TicketHistoryActor | null;
+}
+
 export interface Ticket {
     id: number;
     uuid: string;
@@ -75,6 +88,7 @@ export interface Ticket {
     created_by_user: TicketUser | null;
     assigned_technician: TicketTechnician | null;
     status_history: TicketStatusHistory[];
+    ticket_history?: TicketHistory[];
     created_at: string | null;
     updated_at: string | null;
 }

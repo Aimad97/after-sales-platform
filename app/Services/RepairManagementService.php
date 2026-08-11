@@ -14,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 
 class RepairManagementService
 {
-    public function __construct(private readonly TicketWorkflowService $workflow) {}
+    public function __construct(private readonly TicketWorkflowService $workflow, private readonly TicketHistoryService $ticketHistory) {}
 
     public function paginate(array $filters, User $actor): LengthAwarePaginator
     {
@@ -41,6 +41,7 @@ class RepairManagementService
             $this->transitionTicket($ticket, TicketStatus::Diagnosing, $actor, 'Diagnosis started.');
             $repair = Repair::query()->create(['ticket_id' => $ticket->id, 'technician_id' => $ticket->assigned_technician_id]);
             $this->history($repair, 'diagnosis_started', [], $actor);
+            $this->ticketHistory->record($ticket, 'diagnosis_started', 'Technician started diagnosis.', $actor);
             return $this->load($repair);
         });
     }
@@ -52,6 +53,7 @@ class RepairManagementService
             $repair->fill(['diagnosis' => trim($data['diagnosis']), 'root_cause' => filled($data['root_cause'] ?? null) ? trim($data['root_cause']) : null, 'customer_notes' => filled($data['customer_notes'] ?? null) ? trim($data['customer_notes']) : $repair->customer_notes])->save();
             $this->history($repair, 'diagnosis_recorded', ['diagnosis' => true, 'next_status' => $data['next_status']], $actor);
             $this->transitionTicket($repair->ticket, TicketStatus::from($data['next_status']), $actor, 'Diagnosis recorded.');
+            $this->ticketHistory->record($repair->ticket, 'diagnosis_added', 'Diagnosis added to repair.', $actor);
             return $this->load($repair);
         });
     }
@@ -63,6 +65,7 @@ class RepairManagementService
             if ($repair->started_at !== null) throw ValidationException::withMessages(['repair' => 'Repair work has already started.']);
             $this->transitionTicket($repair->ticket, TicketStatus::Repairing, $actor, 'Repair work started.');
             $repair->started_at = now(); $repair->save(); $this->history($repair, 'repair_started', [], $actor);
+            $this->ticketHistory->record($repair->ticket, 'repair_started', 'Repair work started.', $actor);
             return $this->load($repair);
         });
     }
@@ -78,6 +81,7 @@ class RepairManagementService
             $changes['total_cost'] = $this->total($changes['labor_cost'] ?? $repair->labor_cost, $changes['parts_cost'] ?? $repair->parts_cost);
             $repair->fill($changes)->save();
             $this->history($repair, 'repair_updated', array_keys($changes), $actor);
+            $this->ticketHistory->record($repair->ticket, 'repair_updated', 'Repair notes or costs updated.', $actor);
             return $this->load($repair);
         });
     }
@@ -92,6 +96,7 @@ class RepairManagementService
             $repair->fill(['result' => $result, 'customer_notes' => filled($data['customer_notes'] ?? null) ? trim($data['customer_notes']) : $repair->customer_notes, 'completed_at' => now(), 'total_cost' => $this->total($repair->labor_cost, $repair->parts_cost)])->save();
             $this->history($repair, 'repair_completed', ['result' => $result->value, 'total_cost' => $repair->total_cost], $actor);
             $this->transitionTicket($repair->ticket, $target, $actor, "Repair completed: {$result->value}.");
+            $this->ticketHistory->record($repair->ticket, 'repair_completed', "Repair completed: {$result->value}.", $actor, ['result' => $result->value]);
             return $this->load($repair);
         });
     }

@@ -115,4 +115,9 @@ class Ticket extends Model
     {
         return $this->hasOne(Repair::class);
     }
+
+    public function history(): HasMany
+    {
+        return $this->hasMany(TicketHistory::class)->orderBy('occurred_at')->orderBy('id');
+    }
 }

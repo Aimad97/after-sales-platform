@@ -14,6 +14,7 @@ import { WarrantyDetailsPage, WarrantiesPage } from '@/features/warranties/Warra
 import { UserDetailsPage, UserFormPage, UsersPage } from '@/features/users/UsersPages';
 import { TechnicianDetailsPage, TechnicianFormPage, TechniciansPage } from '@/features/technicians/TechnicianPages';
 import { TicketDetailsPage, TicketFormPage, TicketsPage } from '@/features/tickets/TicketPages';
+import { AuditLogsPage } from '@/features/audit-logs/AuditLogsPage';
 import { useAuth } from '@/hooks/useAuth';
 import { Can, usePermissions } from '@/hooks/usePermissions';
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
@@ -70,6 +71,7 @@ function AdminLayout() {
                         <Can permission="products.view"><NavLink className={navigationClass} to="/admin/categories">Categories</NavLink></Can>
                         <Can permission="products.view"><NavLink className={navigationClass} to="/admin/brands">Brands</NavLink></Can>
                         <Can permission="tickets.view"><NavLink className={navigationClass} to="/admin/tickets">Tickets</NavLink></Can>
+                        <Can permission="audit_logs.view"><NavLink className={navigationClass} to="/admin/audit-logs">Audit logs</NavLink></Can>
                     </nav>
                 </header>
                 <div className="mt-6"><Outlet /></div>
@@ -145,6 +147,7 @@ function App() {
                     <Route path="tickets" element={<PermissionRoute permission="tickets.view"><TicketsPage /></PermissionRoute>} />
                     <Route path="tickets/new" element={<PermissionRoute permission="tickets.create"><TicketFormPage /></PermissionRoute>} />
                     <Route path="tickets/:uuid" element={<PermissionRoute permission="tickets.view"><TicketDetailsPage /></PermissionRoute>} />
+                    <Route path="audit-logs" element={<PermissionRoute permission="audit_logs.view"><AuditLogsPage /></PermissionRoute>} />
                     <Route path="products" element={<PermissionRoute permission="products.view"><ProductsPage /></PermissionRoute>} />
                     <Route path="products/new" element={<PermissionRoute permission="products.create"><ProductFormPage /></PermissionRoute>} />
                     <Route path="products/:uuid" element={<PermissionRoute permission="products.view"><ProductDetailsPage /></PermissionRoute>} />

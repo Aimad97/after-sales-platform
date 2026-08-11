@@ -21,6 +21,7 @@ class TicketManagementService
     public function __construct(
         private readonly TicketWorkflowService $workflow,
         private readonly WarrantyEligibilityService $warrantyEligibility,
+        private readonly TicketHistoryService $history,
     ) {}
 
     /**
@@ -109,6 +110,7 @@ class TicketManagementService
                 'notes' => 'Ticket created.',
                 'transitioned_at' => now(),
             ]);
+            $this->history->record($ticket, 'ticket_created', 'Ticket created.', $actor);
 
             return $this->loadTicket($ticket);
         });
@@ -126,6 +128,7 @@ class TicketManagementService
                 ...(array_key_exists('problem_description', $data) ? ['problem_description' => trim((string) $data['problem_description'])] : []),
                 ...(array_key_exists('source', $data) ? ['source' => $data['source']] : []),
             ])->save();
+            $this->history->record($ticket, 'ticket_updated', 'Ticket information updated.', request()->user());
 
             return $this->loadTicket($ticket);
         });
@@ -147,6 +150,7 @@ class TicketManagementService
 
             $ticket->assigned_technician_id = $technician->id;
             $ticket->save();
+            $this->history->record($ticket, 'technician_assigned', "Technician assigned: {$technician->user->first_name} {$technician->user->last_name}.", request()->user(), ['technician_id' => $technician->id]);
 
             return $this->loadTicket($ticket);
         });
@@ -159,6 +163,7 @@ class TicketManagementService
             $this->assertNotTerminal($ticket);
             $ticket->priority = $priority;
             $ticket->save();
+            $this->history->record($ticket, 'priority_changed', "Priority changed to {$priority->value}.", request()->user(), ['priority' => $priority->value]);
 
             return $this->loadTicket($ticket);
         });
@@ -183,6 +188,7 @@ class TicketManagementService
                 'notes' => filled($notes) ? trim($notes) : null,
                 'transitioned_at' => now(),
             ]);
+            $this->history->record($ticket, 'status_changed', "Status changed from {$from->value} to {$to->value}.", $actor, ['from' => $from->value, 'to' => $to->value]);
 
             return $this->loadTicket($ticket);
         });
@@ -204,6 +210,7 @@ class TicketManagementService
                 'notes' => trim($reason),
                 'transitioned_at' => now(),
             ]);
+            $this->history->record($ticket, 'ticket_cancelled', 'Ticket cancelled.', $actor, ['reason' => trim($reason)]);
 
             return $this->loadTicket($ticket);
         });
@@ -314,6 +321,7 @@ class TicketManagementService
             'creator',
             'assignedTechnician.user',
             'statusHistory.transitionedBy',
+            'history.actor',
         ]);
     }
 }

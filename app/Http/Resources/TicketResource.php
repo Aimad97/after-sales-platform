@@ -84,6 +84,7 @@ class TicketResource extends JsonResource
                         : null,
                 ])->values()
                 : [],
+            'ticket_history' => $this->relationLoaded('history') ? $this->history->map(fn ($entry): array => ['id' => $entry->id, 'event' => $entry->event, 'description' => $entry->description, 'metadata' => $entry->metadata, 'occurred_at' => $entry->occurred_at?->toISOString(), 'actor' => $entry->relationLoaded('actor') && $entry->actor !== null ? $this->user($entry->actor) : null])->values() : [],
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];

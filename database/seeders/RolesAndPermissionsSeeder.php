@@ -19,6 +19,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'repairs.view', 'repairs.update',
         'warranties.view', 'warranties.manage',
         'reports.view', 'dashboard.view',
+        'audit_logs.view',
     ];
 
     /** @var array<string, list<string>> */

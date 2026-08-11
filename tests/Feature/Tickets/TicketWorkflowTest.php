@@ -52,6 +52,8 @@ class TicketWorkflowTest extends TestCase
         $ticket = Ticket::query()->firstOrFail();
         $this->assertTrue(Str::isUuid($ticket->uuid));
         $this->assertMatchesRegularExpression('/^TKT-\d{8}-[A-Z0-9]{6}$/', $ticket->ticket_number);
+        $this->assertDatabaseHas('ticket_histories', ['ticket_id' => $ticket->id, 'event' => 'ticket_created']);
+        $this->assertDatabaseHas('audit_logs', ['entity_type' => Ticket::class, 'entity_id' => $ticket->id, 'action' => 'created']);
 
         $this->actingAs($agent)->getJson('/api/tickets?search=leak&status=opened&priority=high&source=phone')
             ->assertOk()
@@ -88,6 +90,9 @@ class TicketWorkflowTest extends TestCase
             'from_status' => 'received',
             'to_status' => 'awaiting_diagnosis',
         ]);
+        $this->actingAs($agent)->getJson('/api/audit-logs')->assertForbidden();
+        $admin = $this->userWithRole('admin');
+        $this->actingAs($admin)->getJson('/api/audit-logs?entity_type='.urlencode(Ticket::class))->assertOk()->assertJsonPath('data.0.entity_id', $ticket->id);
     }
 
     public function test_workflow_rejects_arbitrary_status_changes_and_preserves_history(): void

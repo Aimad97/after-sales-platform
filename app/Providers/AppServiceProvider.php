@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Brand;
+use App\Models\AuditLog;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\Invoice;
@@ -13,6 +14,7 @@ use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Warranty;
 use App\Policies\CatalogPolicy;
+use App\Policies\AuditLogPolicy;
 use App\Policies\ClientPolicy;
 use App\Policies\InvoicePolicy;
 use App\Policies\RepairPolicy;
@@ -20,6 +22,7 @@ use App\Policies\TechnicianPolicy;
 use App\Policies\TicketPolicy;
 use App\Policies\UserPolicy;
 use App\Policies\WarrantyPolicy;
+use App\Observers\AuditObserver;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -53,6 +56,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Ticket::class, TicketPolicy::class);
         Gate::policy(Warranty::class, WarrantyPolicy::class);
         Gate::policy(Repair::class, RepairPolicy::class);
+        Gate::policy(AuditLog::class, AuditLogPolicy::class);
+        Ticket::observe(AuditObserver::class);
+        Repair::observe(AuditObserver::class);
 
         Gate::before(fn (User $user): ?bool => $user->hasRole('super_admin') ? true : null);
 
