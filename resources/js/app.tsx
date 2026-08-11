@@ -9,6 +9,7 @@ import { ForgotPasswordPage, LoginPage, ResetPasswordPage } from '@/features/aut
 import { BrandsPage, CategoriesPage } from '@/features/catalog/CatalogEntityPages';
 import { ProductDetailsPage, ProductFormPage, ProductsPage } from '@/features/catalog/ProductPages';
 import { ClientDetailsPage, ClientFormPage, ClientsPage } from '@/features/clients/ClientPages';
+import { InvoiceDetailsPage, InvoiceFormPage, InvoicesPage } from '@/features/invoices/InvoicePages';
 import { UserDetailsPage, UserFormPage, UsersPage } from '@/features/users/UsersPages';
 import { TechnicianDetailsPage, TechnicianFormPage, TechniciansPage } from '@/features/technicians/TechnicianPages';
 import { useAuth } from '@/hooks/useAuth';
@@ -23,7 +24,7 @@ const queryClient = new QueryClient({
 });
 
 function LoadingScreen() {
-    return <main className="grid min-h-screen place-items-center bg-slate-50 text-sm text-slate-600">Loading ServiceDesk...</main>;
+    return <main className="grid min-h-screen place-items-center bg-slate-50 text-sm text-slate-600">Loading UltraPC_Desk...</main>;
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -61,6 +62,7 @@ function AdminLayout() {
                         <Can permission="users.view"><NavLink className={navigationClass} to="/admin/users">Users</NavLink></Can>
                         <Can permission="users.view"><NavLink className={navigationClass} to="/admin/technicians">Technicians</NavLink></Can>
                         <Can permission="clients.view"><NavLink className={navigationClass} to="/admin/clients">Clients</NavLink></Can>
+                        <Can permission="invoices.view"><NavLink className={navigationClass} to="/admin/invoices">Invoices</NavLink></Can>
                         <Can permission="products.view"><NavLink className={navigationClass} to="/admin/products">Products</NavLink></Can>
                         <Can permission="products.view"><NavLink className={navigationClass} to="/admin/categories">Categories</NavLink></Can>
                         <Can permission="products.view"><NavLink className={navigationClass} to="/admin/brands">Brands</NavLink></Can>
@@ -131,6 +133,10 @@ function App() {
                     <Route path="clients/new" element={<PermissionRoute permission="clients.create"><ClientFormPage /></PermissionRoute>} />
                     <Route path="clients/:uuid" element={<PermissionRoute permission="clients.view"><ClientDetailsPage /></PermissionRoute>} />
                     <Route path="clients/:uuid/edit" element={<PermissionRoute permission="clients.update"><ClientFormPage /></PermissionRoute>} />
+                    <Route path="invoices" element={<PermissionRoute permission="invoices.view"><InvoicesPage /></PermissionRoute>} />
+                    <Route path="invoices/new" element={<PermissionRoute permission="invoices.create"><InvoiceFormPage /></PermissionRoute>} />
+                    <Route path="invoices/:id" element={<PermissionRoute permission="invoices.view"><InvoiceDetailsPage /></PermissionRoute>} />
+                    <Route path="invoices/:id/edit" element={<PermissionRoute permission="invoices.update"><InvoiceFormPage /></PermissionRoute>} />
                     <Route path="products" element={<PermissionRoute permission="products.view"><ProductsPage /></PermissionRoute>} />
                     <Route path="products/new" element={<PermissionRoute permission="products.create"><ProductFormPage /></PermissionRoute>} />
                     <Route path="products/:uuid" element={<PermissionRoute permission="products.view"><ProductDetailsPage /></PermissionRoute>} />

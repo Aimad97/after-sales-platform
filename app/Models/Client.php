@@ -56,7 +56,7 @@ class Client extends Model
     public function products(): BelongsToMany
     {
         return $this->belongsToMany(Product::class, 'customer_products', 'customer_id', 'product_id')
-            ->withPivot(['id', 'serial_number', 'purchase_date', 'warranty_end'])
+            ->withPivot(['id', 'invoice_item_id', 'serial_number', 'quantity', 'purchase_date', 'warranty_end'])
             ->withTimestamps();
     }
 
@@ -108,11 +108,7 @@ class Client extends Model
         return $this->hasManyThrough(Intervention::class, Ticket::class, 'customer_id', 'ticket_id');
     }
 
-    /**
-     * Invoice persistence is introduced in its dedicated module.
-     *
-     * @return HasMany<Invoice, $this>
-     */
+    /** @return HasMany<Invoice, $this> */
     public function invoices(): HasMany
     {
         return $this->hasMany(Invoice::class, 'client_id');

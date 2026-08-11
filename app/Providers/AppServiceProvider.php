@@ -5,11 +5,13 @@ namespace App\Providers;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Client;
+use App\Models\Invoice;
 use App\Models\Product;
 use App\Models\Technician;
 use App\Models\User;
 use App\Policies\CatalogPolicy;
 use App\Policies\ClientPolicy;
+use App\Policies\InvoicePolicy;
 use App\Policies\TechnicianPolicy;
 use App\Policies\UserPolicy;
 use Illuminate\Auth\Notifications\ResetPassword;
@@ -39,6 +41,7 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Brand::class, CatalogPolicy::class);
         Gate::policy(Product::class, CatalogPolicy::class);
         Gate::policy(Client::class, ClientPolicy::class);
+        Gate::policy(Invoice::class, InvoicePolicy::class);
         Gate::policy(User::class, UserPolicy::class);
         Gate::policy(Technician::class, TechnicianPolicy::class);
 

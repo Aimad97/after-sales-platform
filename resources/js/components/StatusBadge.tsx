@@ -13,6 +13,9 @@ const styles: Record<string, string> = {
     individual: 'bg-sky-100 text-sky-800',
     company: 'bg-violet-100 text-violet-800',
     expired: 'bg-rose-100 text-rose-800',
+    draft: 'bg-amber-100 text-amber-800',
+    issued: 'bg-sky-100 text-sky-800',
+    void: 'bg-slate-200 text-slate-700',
 };
 
 export function StatusBadge({ value }: { value: string }) {

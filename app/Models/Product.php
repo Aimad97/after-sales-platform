@@ -65,7 +65,7 @@ class Product extends Model
     public function clients(): BelongsToMany
     {
         return $this->belongsToMany(Client::class, 'customer_products', 'product_id', 'customer_id')
-            ->withPivot(['id', 'serial_number', 'purchase_date', 'warranty_end'])
+            ->withPivot(['id', 'invoice_item_id', 'serial_number', 'quantity', 'purchase_date', 'warranty_end'])
             ->withTimestamps();
     }
 
@@ -75,5 +75,13 @@ class Product extends Model
     public function warranties(): HasMany
     {
         return $this->hasMany(Warranty::class, 'product_id');
+    }
+
+    /**
+     * @return HasMany<InvoiceItem, $this>
+     */
+    public function invoiceItems(): HasMany
+    {
+        return $this->hasMany(InvoiceItem::class);
     }
 }

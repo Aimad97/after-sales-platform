@@ -11,11 +11,25 @@ class Warranty extends Model
     protected $table = 'customer_products';
 
     /**
+     * @var list<string>
+     */
+    protected $fillable = [
+        'customer_id',
+        'product_id',
+        'invoice_item_id',
+        'serial_number',
+        'quantity',
+        'purchase_date',
+        'warranty_end',
+    ];
+
+    /**
      * @return array<string, string>
      */
     protected function casts(): array
     {
         return [
+            'quantity' => 'integer',
             'purchase_date' => 'date',
             'warranty_end' => 'date',
         ];
@@ -35,6 +49,14 @@ class Warranty extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * @return BelongsTo<InvoiceItem, $this>
+     */
+    public function invoiceItem(): BelongsTo
+    {
+        return $this->belongsTo(InvoiceItem::class);
     }
 
     /**

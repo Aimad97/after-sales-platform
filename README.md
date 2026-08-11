@@ -1,6 +1,6 @@
 # ServiceDesk — SAV & Warranty Management
 
-ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stages 1 through 6 provide the project foundation, Sanctum SPA authentication, server-enforced RBAC, user/technician management, client management, and product catalog management.
+ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stages 1 through 7 provide the project foundation, Sanctum SPA authentication, server-enforced RBAC, user/technician management, client management, product catalog management, and invoice-backed sold-product tracking.
 
 ## Stack
 
@@ -23,7 +23,7 @@ composer install
 npm install
 ```
 
-Create a MySQL database named `plateforme_sav`, then update `DB_*`, Redis, Reverb, CORS, and `VITE_*` values in `.env`. The included defaults target a Laravel API at `http://localhost:8000`, a Vite client at `http://localhost:5173`, and Reverb at `localhost:8080`.
+Create a MySQL database named `plateforme_sav`, then update `DB_*`, Redis, Reverb, CORS, `VITE_*`, and (if required) `INVOICE_DEFAULT_TAX_RATE` values in `.env`. The included defaults target a Laravel API at `http://localhost:8000`, a Vite client at `http://localhost:5173`, and Reverb at `localhost:8080`.
 
 ```bash
 php artisan migrate
@@ -104,6 +104,18 @@ The authenticated management API provides:
 - `GET, POST /api/products` and `GET, PATCH, DELETE /api/products/{uuid}`
 
 Existing purchase/warranty records retain their product foreign keys. A category or brand cannot be deleted while products reference it, and a product cannot be deleted while purchase or warranty records reference it. `logo_path` is catalog metadata; asset upload/storage is intentionally handled by the future files module.
+
+## Invoices and sold products
+
+Invoices are protected by the `invoices.view`, `invoices.create`, and `invoices.update` permissions. Super administrators, administrators, and SAV agents receive these permissions through the standard role seeder. Invoice numbers and non-null serial numbers are unique. The API calculates line totals, subtotal, tax, and final total on the server; client-supplied total fields are ignored.
+
+The authenticated management API provides:
+
+- `GET, POST /api/invoices`
+- `GET, PATCH /api/invoices/{id}`
+- `GET /api/clients/{uuid}/invoices`
+
+Each invoice item creates a linked entry in the existing `customer_products` ledger, associating the sold product with its client and warranty coverage. Creation and draft edits run inside a database transaction. Drafts may be edited; issued and void invoices remain immutable through this API.
 
 ## Project organization
 

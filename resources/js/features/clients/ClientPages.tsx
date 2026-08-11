@@ -9,6 +9,7 @@ import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
 import { archiveClient, createClient, getClient, getClientProfile, listClients, updateClient } from '@/features/clients/api';
 import type { Client, ClientFilters, ClientPayload, ClientProfile, ClientType, ClientWarranty } from '@/features/clients/types';
+import { ClientInvoiceHistory } from '@/features/invoices/InvoicePages';
 import { Can } from '@/hooks/usePermissions';
 import { formatDate } from '@/utils/format';
 
@@ -299,6 +300,7 @@ export function ClientDetailsPage() {
                 <WarrantySection title="Active warranties" description="Warranty coverage currently valid." warranties={profile.active_warranties} tone="active" />
                 <WarrantySection title="Expired warranties" description="Warranty coverage that has ended." warranties={profile.expired_warranties} tone="expired" />
             </div>
+            <Can permission="invoices.view"><ClientInvoiceHistory clientUuid={profile.client.uuid} /></Can>
             <TicketSection tickets={profile.tickets} />
             <RepairSection profile={profile} />
         </section>
@@ -310,7 +312,7 @@ function WarrantySection({ title, description, warranties, tone }: { title: stri
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <div className="flex items-start justify-between gap-4"><div><h3 className="text-lg font-bold text-slate-900">{title}</h3><p className="mt-1 text-sm text-slate-600">{description}</p></div>{tone && <StatusBadge value={tone} />}</div>
             {warranties.length === 0 ? <EmptyState message="No records available." /> : (
-                <div className="mt-4 overflow-x-auto"><table className="min-w-full text-sm"><thead className="border-b text-left text-slate-500"><tr><th className="pb-2 font-semibold">Product</th><th className="pb-2 font-semibold">Serial number</th><th className="pb-2 font-semibold">Purchased</th><th className="pb-2 font-semibold">Warranty end</th></tr></thead><tbody className="divide-y divide-slate-100">{warranties.map((warranty) => <tr key={warranty.id}><td className="py-3 font-medium text-slate-900">{warranty.product ? `${warranty.product.name} (${warranty.product.model})` : 'Unknown product'}</td><td className="py-3 text-slate-600">{warranty.serial_number}</td><td className="py-3 text-slate-600">{formatDateOnly(warranty.purchase_date)}</td><td className="py-3 text-slate-600">{formatDateOnly(warranty.warranty_end)}</td></tr>)}</tbody></table></div>
+                <div className="mt-4 overflow-x-auto"><table className="min-w-full text-sm"><thead className="border-b text-left text-slate-500"><tr><th className="pb-2 font-semibold">Product</th><th className="pb-2 font-semibold">Serial number</th><th className="pb-2 font-semibold">Quantity</th><th className="pb-2 font-semibold">Purchased</th><th className="pb-2 font-semibold">Warranty end</th></tr></thead><tbody className="divide-y divide-slate-100">{warranties.map((warranty) => <tr key={warranty.id}><td className="py-3 font-medium text-slate-900">{warranty.product ? `${warranty.product.name} (${warranty.product.model})` : 'Unknown product'}</td><td className="py-3 text-slate-600">{warranty.serial_number ?? 'â€”'}</td><td className="py-3 text-slate-600">{warranty.quantity}</td><td className="py-3 text-slate-600">{formatDateOnly(warranty.purchase_date)}</td><td className="py-3 text-slate-600">{formatDateOnly(warranty.warranty_end)}</td></tr>)}</tbody></table></div>
             )}
         </section>
     );

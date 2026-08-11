@@ -45,6 +45,7 @@ class ClientProfileResource extends JsonResource
         return [
             'id' => $warranty->id,
             'serial_number' => $warranty->serial_number,
+            'quantity' => $warranty->quantity,
             'purchase_date' => $warranty->purchase_date?->toDateString(),
             'warranty_end' => $warranty->warranty_end?->toDateString(),
             'product' => $warranty->product === null ? null : [

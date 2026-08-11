@@ -14,6 +14,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'users.view', 'users.create', 'users.update', 'users.delete',
         'clients.view', 'clients.create', 'clients.update', 'clients.delete',
         'products.view', 'products.create', 'products.update', 'products.delete',
+        'invoices.view', 'invoices.create', 'invoices.update',
         'tickets.view', 'tickets.create', 'tickets.update', 'tickets.assign', 'tickets.close',
         'repairs.view', 'repairs.update',
         'warranties.view', 'warranties.manage',
@@ -27,6 +28,7 @@ class RolesAndPermissionsSeeder extends Seeder
         'sav_agent' => [
             'clients.view', 'clients.create', 'clients.update',
             'products.view', 'tickets.view', 'tickets.create', 'tickets.update', 'tickets.assign', 'tickets.close',
+            'invoices.view', 'invoices.create', 'invoices.update',
             'repairs.view', 'warranties.view', 'dashboard.view',
         ],
         'technician' => ['tickets.view', 'tickets.update', 'repairs.view', 'repairs.update', 'warranties.view', 'dashboard.view'],

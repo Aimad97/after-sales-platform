@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\BrandController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ClientController;
 use App\Http\Controllers\Api\V1\HealthController;
+use App\Http\Controllers\Api\V1\InvoiceController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\TechnicianController;
 use App\Http\Controllers\Api\V1\UserController;
@@ -29,7 +30,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('brands', BrandController::class);
     Route::apiResource('products', ProductController::class);
     Route::get('/clients/{client}/profile', [ClientController::class, 'profile']);
+    Route::get('/clients/{client}/invoices', [InvoiceController::class, 'clientHistory']);
     Route::apiResource('clients', ClientController::class);
+    Route::apiResource('invoices', InvoiceController::class)->except(['destroy']);
     Route::get('/users/roles', [UserController::class, 'roles']);
     Route::apiResource('users', UserController::class);
     Route::apiResource('technicians', TechnicianController::class);
