@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { archiveClient, createClient, getClient, getClientProfile, listClients, updateClient } from '@/features/clients/api';
 import type { Client, ClientFilters, ClientPayload, ClientProfile, ClientType, ClientWarranty } from '@/features/clients/types';
 import { ClientInvoiceHistory } from '@/features/invoices/InvoicePages';
+import { ClientWarrantyHistory } from '@/features/warranties/WarrantyPages';
 import { Can } from '@/hooks/usePermissions';
 import { formatDate } from '@/utils/format';
 
@@ -301,6 +302,7 @@ export function ClientDetailsPage() {
                 <WarrantySection title="Expired warranties" description="Warranty coverage that has ended." warranties={profile.expired_warranties} tone="expired" />
             </div>
             <Can permission="invoices.view"><ClientInvoiceHistory clientUuid={profile.client.uuid} /></Can>
+            <Can permission="warranties.view"><ClientWarrantyHistory clientUuid={profile.client.uuid} /></Can>
             <TicketSection tickets={profile.tickets} />
             <RepairSection profile={profile} />
         </section>

@@ -8,6 +8,7 @@ use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class CatalogManagementTest extends TestCase
@@ -108,11 +109,15 @@ class CatalogManagementTest extends TestCase
 
         $client = Client::factory()->create();
         DB::table('customer_products')->insert([
+            'uuid' => (string) Str::uuid(),
             'customer_id' => $client->id,
             'product_id' => $product->id,
             'serial_number' => 'CATALOG-TEST-001',
             'purchase_date' => now()->subMonth()->toDateString(),
             'warranty_end' => now()->addMonth()->toDateString(),
+            'starts_at' => now()->subMonth()->toDateString(),
+            'expires_at' => now()->addMonth()->toDateString(),
+            'status' => 'active',
             'created_at' => now(),
             'updated_at' => now(),
         ]);

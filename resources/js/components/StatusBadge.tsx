@@ -16,6 +16,7 @@ const styles: Record<string, string> = {
     draft: 'bg-amber-100 text-amber-800',
     issued: 'bg-sky-100 text-sky-800',
     void: 'bg-slate-200 text-slate-700',
+    replaced: 'bg-violet-100 text-violet-800',
 };
 
 export function StatusBadge({ value }: { value: string }) {

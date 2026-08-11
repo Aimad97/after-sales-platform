@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class InvoiceItem extends Model
@@ -63,5 +64,13 @@ class InvoiceItem extends Model
     public function purchasedProduct(): HasOne
     {
         return $this->hasOne(Warranty::class, 'invoice_item_id');
+    }
+
+    /**
+     * @return HasMany<Warranty, $this>
+     */
+    public function warranties(): HasMany
+    {
+        return $this->hasMany(Warranty::class, 'invoice_item_id');
     }
 }

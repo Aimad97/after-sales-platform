@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\InvoiceStatus;
+use App\Enums\WarrantyStatus;
 use App\Models\Invoice;
 use App\Models\InvoiceItem;
 use App\Models\Product;
@@ -315,15 +316,23 @@ class InvoiceManagementService
         foreach ($items as $itemData) {
             $item = $invoice->items()->create($itemData);
 
-            Warranty::query()->create([
-                'customer_id' => $invoice->client_id,
-                'product_id' => $item->product_id,
-                'invoice_item_id' => $item->id,
-                'serial_number' => $item->serial_number,
-                'quantity' => $item->quantity,
-                'purchase_date' => $invoice->invoice_date->toDateString(),
-                'warranty_end' => $item->warranty_end_date->toDateString(),
-            ]);
+            for ($unit = 0; $unit < $item->quantity; $unit++) {
+                Warranty::query()->create([
+                    'uuid' => (string) Str::uuid(),
+                    'customer_id' => $invoice->client_id,
+                    'product_id' => $item->product_id,
+                    'invoice_item_id' => $item->id,
+                    'serial_number' => $unit === 0 ? $item->serial_number : null,
+                    'quantity' => 1,
+                    'purchase_date' => $invoice->invoice_date->toDateString(),
+                    'warranty_end' => $item->warranty_end_date->toDateString(),
+                    'starts_at' => $item->warranty_start_date->toDateString(),
+                    'expires_at' => $item->warranty_end_date->toDateString(),
+                    'status' => $item->warranty_end_date->isBefore(today())
+                        ? WarrantyStatus::Expired
+                        : WarrantyStatus::Active,
+                ]);
+            }
         }
     }
 

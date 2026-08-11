@@ -64,14 +64,17 @@ class InvoiceManagementTest extends TestCase
             'tax_amount' => 40,
             'total_amount' => 240,
         ]);
-        $purchase = Warranty::query()->where('invoice_item_id', $invoiceItemId)->firstOrFail();
+        $purchases = Warranty::query()->where('invoice_item_id', $invoiceItemId)->get();
+        $purchase = $purchases->firstOrFail();
+        $this->assertCount(2, $purchases);
+        $this->assertTrue($purchases->every(fn (Warranty $warranty): bool => $warranty->quantity === 1));
         $this->assertSame('2026-01-15', $purchase->purchase_date?->toDateString());
         $this->assertSame('2028-01-15', $purchase->warranty_end?->toDateString());
         $this->assertDatabaseHas('customer_products', [
             'customer_id' => $client->id,
             'product_id' => $product->id,
             'invoice_item_id' => $invoiceItemId,
-            'quantity' => 2,
+            'quantity' => 1,
         ]);
 
         $this->actingAs($admin)

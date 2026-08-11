@@ -81,7 +81,7 @@ class Client extends Model
      */
     public function activeWarranties(): HasMany
     {
-        return $this->warranties()->whereDate('warranty_end', '>=', today());
+        return $this->warranties()->active();
     }
 
     /**
@@ -89,7 +89,7 @@ class Client extends Model
      */
     public function expiredWarranties(): HasMany
     {
-        return $this->warranties()->whereDate('warranty_end', '<', today());
+        return $this->warranties()->expired();
     }
 
     /**

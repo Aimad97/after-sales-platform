@@ -1,6 +1,6 @@
 # ServiceDesk — SAV & Warranty Management
 
-ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stages 1 through 7 provide the project foundation, Sanctum SPA authentication, server-enforced RBAC, user/technician management, client management, product catalog management, and invoice-backed sold-product tracking.
+ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stages 1 through 8 provide the project foundation, Sanctum SPA authentication, server-enforced RBAC, user/technician management, client management, product catalog management, invoice-backed sold-product tracking, and warranty lifecycle management.
 
 ## Stack
 
@@ -116,6 +116,20 @@ The authenticated management API provides:
 - `GET /api/clients/{uuid}/invoices`
 
 Each invoice item creates a linked entry in the existing `customer_products` ledger, associating the sold product with its client and warranty coverage. Creation and draft edits run inside a database transaction. Drafts may be edited; issued and void invoices remain immutable through this API.
+
+## Warranty management
+
+The established `customer_products` purchase ledger is also the warranty store, preserving ticket and invoice foreign keys while exposing warranties through public UUIDs. New invoice quantities create individual warranty records. A warranty has server-evaluated `active`, `expired`, `void`, or `replaced` status; expiration is based on the current date, and voiding requires a reason.
+
+The authenticated staff API provides:
+
+- `GET /api/warranties` with serial/client/product/status filters and pagination
+- `GET /api/warranties/lookup?serial_number={serial}`
+- `GET /api/warranties/{uuid}` and `GET /api/warranties/{uuid}/eligibility`
+- `PATCH /api/warranties/{uuid}` for `warranties.manage` users
+- `GET /api/clients/{uuid}/warranties`
+
+`WarrantyEligibilityService` returns whether coverage applies, an explanatory reason, coverage dates, and remaining days. Users with only the client role cannot browse global warranty records because the application has no client-user ownership mapping yet.
 
 ## Project organization
 

@@ -133,20 +133,28 @@ class ClientManagementTest extends TestCase
             'updated_at' => $now,
         ]);
         $activeWarrantyId = DB::table('customer_products')->insertGetId([
+            'uuid' => (string) Str::uuid(),
             'customer_id' => $client->id,
             'product_id' => $productId,
             'serial_number' => 'SN-ACTIVE-001',
             'purchase_date' => $now->copy()->subMonth()->toDateString(),
             'warranty_end' => $now->copy()->addMonth()->toDateString(),
+            'starts_at' => $now->copy()->subMonth()->toDateString(),
+            'expires_at' => $now->copy()->addMonth()->toDateString(),
+            'status' => 'active',
             'created_at' => $now,
             'updated_at' => $now,
         ]);
         $expiredWarrantyId = DB::table('customer_products')->insertGetId([
+            'uuid' => (string) Str::uuid(),
             'customer_id' => $client->id,
             'product_id' => $productId,
             'serial_number' => 'SN-EXPIRED-001',
             'purchase_date' => $now->copy()->subYears(2)->toDateString(),
             'warranty_end' => $now->copy()->subDay()->toDateString(),
+            'starts_at' => $now->copy()->subYears(2)->toDateString(),
+            'expires_at' => $now->copy()->subDay()->toDateString(),
+            'status' => 'expired',
             'created_at' => $now,
             'updated_at' => $now,
         ]);

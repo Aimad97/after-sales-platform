@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\InvoiceController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\TechnicianController;
 use App\Http\Controllers\Api\V1\UserController;
+use App\Http\Controllers\Api\V1\WarrantyController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/health', HealthController::class)->name('api.health');
@@ -29,8 +30,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('brands', BrandController::class);
     Route::apiResource('products', ProductController::class);
+    Route::get('/warranties/lookup', [WarrantyController::class, 'lookup']);
+    Route::get('/warranties/{warranty}/eligibility', [WarrantyController::class, 'eligibility']);
+    Route::apiResource('warranties', WarrantyController::class)->only(['index', 'show', 'update']);
     Route::get('/clients/{client}/profile', [ClientController::class, 'profile']);
     Route::get('/clients/{client}/invoices', [InvoiceController::class, 'clientHistory']);
+    Route::get('/clients/{client}/warranties', [WarrantyController::class, 'clientWarranties']);
     Route::apiResource('clients', ClientController::class);
     Route::apiResource('invoices', InvoiceController::class)->except(['destroy']);
     Route::get('/users/roles', [UserController::class, 'roles']);

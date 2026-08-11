@@ -10,6 +10,7 @@ import { BrandsPage, CategoriesPage } from '@/features/catalog/CatalogEntityPage
 import { ProductDetailsPage, ProductFormPage, ProductsPage } from '@/features/catalog/ProductPages';
 import { ClientDetailsPage, ClientFormPage, ClientsPage } from '@/features/clients/ClientPages';
 import { InvoiceDetailsPage, InvoiceFormPage, InvoicesPage } from '@/features/invoices/InvoicePages';
+import { WarrantyDetailsPage, WarrantiesPage } from '@/features/warranties/WarrantyPages';
 import { UserDetailsPage, UserFormPage, UsersPage } from '@/features/users/UsersPages';
 import { TechnicianDetailsPage, TechnicianFormPage, TechniciansPage } from '@/features/technicians/TechnicianPages';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,6 +64,7 @@ function AdminLayout() {
                         <Can permission="users.view"><NavLink className={navigationClass} to="/admin/technicians">Technicians</NavLink></Can>
                         <Can permission="clients.view"><NavLink className={navigationClass} to="/admin/clients">Clients</NavLink></Can>
                         <Can permission="invoices.view"><NavLink className={navigationClass} to="/admin/invoices">Invoices</NavLink></Can>
+                        <Can permission="warranties.view"><NavLink className={navigationClass} to="/admin/warranties">Warranties</NavLink></Can>
                         <Can permission="products.view"><NavLink className={navigationClass} to="/admin/products">Products</NavLink></Can>
                         <Can permission="products.view"><NavLink className={navigationClass} to="/admin/categories">Categories</NavLink></Can>
                         <Can permission="products.view"><NavLink className={navigationClass} to="/admin/brands">Brands</NavLink></Can>
@@ -137,6 +139,8 @@ function App() {
                     <Route path="invoices/new" element={<PermissionRoute permission="invoices.create"><InvoiceFormPage /></PermissionRoute>} />
                     <Route path="invoices/:id" element={<PermissionRoute permission="invoices.view"><InvoiceDetailsPage /></PermissionRoute>} />
                     <Route path="invoices/:id/edit" element={<PermissionRoute permission="invoices.update"><InvoiceFormPage /></PermissionRoute>} />
+                    <Route path="warranties" element={<PermissionRoute permission="warranties.view"><WarrantiesPage /></PermissionRoute>} />
+                    <Route path="warranties/:uuid" element={<PermissionRoute permission="warranties.view"><WarrantyDetailsPage /></PermissionRoute>} />
                     <Route path="products" element={<PermissionRoute permission="products.view"><ProductsPage /></PermissionRoute>} />
                     <Route path="products/new" element={<PermissionRoute permission="products.create"><ProductFormPage /></PermissionRoute>} />
                     <Route path="products/:uuid" element={<PermissionRoute permission="products.view"><ProductDetailsPage /></PermissionRoute>} />

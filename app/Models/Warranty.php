@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\WarrantyStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -14,6 +16,7 @@ class Warranty extends Model
      * @var list<string>
      */
     protected $fillable = [
+        'uuid',
         'customer_id',
         'product_id',
         'invoice_item_id',
@@ -21,6 +24,11 @@ class Warranty extends Model
         'quantity',
         'purchase_date',
         'warranty_end',
+        'starts_at',
+        'expires_at',
+        'status',
+        'void_reason',
+        'notes',
     ];
 
     /**
@@ -32,7 +40,60 @@ class Warranty extends Model
             'quantity' => 'integer',
             'purchase_date' => 'date',
             'warranty_end' => 'date',
+            'starts_at' => 'date',
+            'expires_at' => 'date',
+            'status' => WarrantyStatus::class,
         ];
+    }
+
+    public function getRouteKeyName(): string
+    {
+        return 'uuid';
+    }
+
+    public function effectiveStatus(): WarrantyStatus
+    {
+        if ($this->status->isTerminal()) {
+            return $this->status;
+        }
+
+        return $this->expires_at->isBefore(today())
+            ? WarrantyStatus::Expired
+            : WarrantyStatus::Active;
+    }
+
+    public function isUnderWarranty(): bool
+    {
+        return $this->effectiveStatus() === WarrantyStatus::Active
+            && ! $this->starts_at->isAfter(today())
+            && ! $this->expires_at->isBefore(today());
+    }
+
+    /**
+     * @param  Builder<Warranty>  $query
+     * @return Builder<Warranty>
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query
+            ->where('status', WarrantyStatus::Active->value)
+            ->whereDate('starts_at', '<=', today())
+            ->whereDate('expires_at', '>=', today());
+    }
+
+    /**
+     * @param  Builder<Warranty>  $query
+     * @return Builder<Warranty>
+     */
+    public function scopeExpired(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query->where('status', WarrantyStatus::Expired->value)
+                ->orWhere(function (Builder $query): void {
+                    $query->where('status', WarrantyStatus::Active->value)
+                        ->whereDate('expires_at', '<', today());
+                });
+        });
     }
 
     /**

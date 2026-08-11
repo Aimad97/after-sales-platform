@@ -48,8 +48,12 @@ export interface ClientProduct {
 
 export interface ClientWarranty {
     id: number;
+    uuid: string;
     serial_number: string | null;
     quantity: number;
+    starts_at: string | null;
+    expires_at: string | null;
+    status: 'active' | 'expired' | 'void' | 'replaced';
     purchase_date: string | null;
     warranty_end: string | null;
     product: ClientProduct | null;
