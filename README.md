@@ -53,6 +53,28 @@ npm run build
 
 `GET /api/health` returns the API status without authentication.
 
+## Real-time updates
+
+Real-time delivery uses Laravel Reverb with the `reverb` broadcast connection and queued broadcast events. Set matching server and Vite values in `.env`; `BROADCAST_CONNECTION` must be `reverb` (not `log` or `null`), and `VITE_REVERB_APP_KEY` must match `REVERB_APP_KEY`.
+
+```dotenv
+BROADCAST_CONNECTION=reverb
+REVERB_APP_ID=servicedesk-local
+REVERB_APP_KEY=servicedesk-local-key
+REVERB_APP_SECRET=change-this-local-secret
+REVERB_HOST=localhost
+REVERB_PORT=8080
+REVERB_SCHEME=http
+VITE_REVERB_APP_KEY="${REVERB_APP_KEY}"
+VITE_REVERB_HOST="${REVERB_HOST}"
+VITE_REVERB_PORT="${REVERB_PORT}"
+VITE_REVERB_SCHEME="${REVERB_SCHEME}"
+```
+
+Run `php artisan reverb:start` and a queue worker that includes `default` (for example, `php artisan queue:work redis --queue=mail,default`). The `composer dev` command now starts Reverb as well. Laravel Echo authorizes `private-user.{userId}` and `private-ticket.{ticketId}` through `POST /api/broadcasting/auth` with Sanctum. Reconnection is automatic; on reconnect the SPA refreshes active ticket, repair, notification, and future dashboard queries without reloading the page.
+
+Ticket, technician assignment, repair, and notification broadcasts are private. Staff ticket access uses the same server-side ticket policy as the REST API. Client-role users are deliberately denied ticket channels until a client-user ownership relationship exists, preventing cross-client disclosure.
+
 ## Roles and permissions
 
 RBAC uses `spatie/laravel-permission` with the `web` guard used by Sanctum's stateful SPA requests. The roles are `super_admin`, `admin`, `sav_agent`, `technician`, and `client`. Permissions cover users, clients, products, tickets, repairs, warranties, reports, and dashboards.

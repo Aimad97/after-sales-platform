@@ -8,6 +8,7 @@ import { StatusBadge } from '@/components/StatusBadge';
 import { getRepair, listRepairs } from '@/features/repairs/api';
 import type { Repair, RepairFilters } from '@/features/repairs/types';
 import { usePermissions } from '@/hooks/usePermissions';
+import { useTicketRealtime } from '@/hooks/useRealtime';
 import { formatDate, humanize } from '@/utils/format';
 
 const inputClassName = 'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
@@ -66,6 +67,7 @@ export function RepairDetailsPage() {
     const repairQuery = useQuery({ queryKey: ['repairs', repairId], queryFn: () => getRepair(repairId), enabled: Number.isInteger(repairId) && repairId > 0 });
     const { can } = usePermissions();
     const repair = repairQuery.data;
+    useTicketRealtime(repair?.ticket_id ?? null);
 
     if (repairQuery.isLoading) return <p className="text-sm text-slate-600">Loading repair...</p>;
     if (!repair) return <ErrorMessage error={repairQuery.error ?? new Error('Repair not found.')} />;
@@ -102,4 +104,3 @@ export function RepairDetailsPage() {
         </section>
     );
 }
-

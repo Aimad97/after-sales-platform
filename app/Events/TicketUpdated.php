@@ -10,7 +10,7 @@ use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class TicketCreated implements ShouldBroadcast
+class TicketUpdated implements ShouldBroadcast
 {
     use Dispatchable, SerializesModels;
 
@@ -21,13 +21,13 @@ class TicketCreated implements ShouldBroadcast
     public function __construct(
         public readonly Ticket $ticket,
         public readonly User $actor,
-        private readonly array $recipientUserIds = [],
-        private readonly array $ticketPayload = [],
+        private readonly array $recipientUserIds,
+        private readonly array $ticketPayload,
     ) {}
 
     public function broadcastAs(): string
     {
-        return 'ticket.created';
+        return 'ticket.updated';
     }
 
     /**

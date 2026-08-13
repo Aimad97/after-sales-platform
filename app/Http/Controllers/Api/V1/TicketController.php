@@ -63,7 +63,7 @@ class TicketController extends Controller
 
         return response()->json([
             'message' => 'Ticket updated successfully.',
-            'data' => new TicketResource($this->tickets->update($ticket, $request->validated())),
+            'data' => new TicketResource($this->tickets->update($ticket, $request->validated(), $request->user())),
         ]);
     }
 
@@ -87,7 +87,11 @@ class TicketController extends Controller
 
         return response()->json([
             'message' => 'Ticket priority updated successfully.',
-            'data' => new TicketResource($this->tickets->changePriority($ticket, TicketPriority::from($request->validated('priority')))),
+            'data' => new TicketResource($this->tickets->changePriority(
+                $ticket,
+                TicketPriority::from($request->validated('priority')),
+                $request->user(),
+            )),
         ]);
     }
 

@@ -7,6 +7,7 @@ use App\Enums\TicketStatus;
 use App\Events\TechnicianAssigned;
 use App\Events\TicketCreated;
 use App\Events\TicketStatusChanged;
+use App\Events\TicketUpdated;
 use App\Models\Client;
 use App\Models\InvoiceItem;
 use App\Models\Product;
@@ -25,6 +26,8 @@ class TicketManagementService
         private readonly TicketWorkflowService $workflow,
         private readonly WarrantyEligibilityService $warrantyEligibility,
         private readonly TicketHistoryService $history,
+        private readonly RealtimeAudienceService $realtimeAudience,
+        private readonly RealtimePayloadService $realtimePayloads,
     ) {}
 
     /**
@@ -118,7 +121,12 @@ class TicketManagementService
             return $this->loadTicket($ticket);
         });
 
-        TicketCreated::dispatch($ticket, $actor);
+        TicketCreated::dispatch(
+            $ticket,
+            $actor,
+            $this->realtimeAudience->ticketRecipientUserIds($ticket),
+            $this->realtimePayloads->ticket($ticket),
+        );
 
         return $ticket;
     }
@@ -126,19 +134,28 @@ class TicketManagementService
     /**
      * @param  array<string, mixed>  $data
      */
-    public function update(Ticket $ticket, array $data): Ticket
+    public function update(Ticket $ticket, array $data, User $actor): Ticket
     {
-        return DB::transaction(function () use ($ticket, $data): Ticket {
+        $updatedTicket = DB::transaction(function () use ($ticket, $data, $actor): Ticket {
             $ticket = $this->lockedTicket($ticket);
             $ticket->fill([
                 ...(array_key_exists('title', $data) ? ['title' => trim((string) $data['title'])] : []),
                 ...(array_key_exists('problem_description', $data) ? ['problem_description' => trim((string) $data['problem_description'])] : []),
                 ...(array_key_exists('source', $data) ? ['source' => $data['source']] : []),
             ])->save();
-            $this->history->record($ticket, 'ticket_updated', 'Ticket information updated.', request()->user());
+            $this->history->record($ticket, 'ticket_updated', 'Ticket information updated.', $actor);
 
             return $this->loadTicket($ticket);
         });
+
+        TicketUpdated::dispatch(
+            $updatedTicket,
+            $actor,
+            $this->realtimeAudience->ticketRecipientUserIds($updatedTicket),
+            $this->realtimePayloads->ticket($updatedTicket),
+        );
+
+        return $updatedTicket;
     }
 
     public function assignTechnician(Ticket $ticket, int $technicianId, User $actor): Ticket
@@ -167,22 +184,37 @@ class TicketManagementService
             throw new \LogicException('The assigned technician could not be resolved.');
         }
 
-        TechnicianAssigned::dispatch($updatedTicket, $technician, $actor);
+        TechnicianAssigned::dispatch(
+            $updatedTicket,
+            $technician,
+            $actor,
+            $this->realtimeAudience->ticketRecipientUserIds($updatedTicket),
+            $this->realtimePayloads->ticket($updatedTicket),
+        );
 
         return $updatedTicket;
     }
 
-    public function changePriority(Ticket $ticket, TicketPriority $priority): Ticket
+    public function changePriority(Ticket $ticket, TicketPriority $priority, User $actor): Ticket
     {
-        return DB::transaction(function () use ($ticket, $priority): Ticket {
+        $updatedTicket = DB::transaction(function () use ($ticket, $priority, $actor): Ticket {
             $ticket = $this->lockedTicket($ticket);
             $this->assertNotTerminal($ticket);
             $ticket->priority = $priority;
             $ticket->save();
-            $this->history->record($ticket, 'priority_changed', "Priority changed to {$priority->value}.", request()->user(), ['priority' => $priority->value]);
+            $this->history->record($ticket, 'priority_changed', "Priority changed to {$priority->value}.", $actor, ['priority' => $priority->value]);
 
             return $this->loadTicket($ticket);
         });
+
+        TicketUpdated::dispatch(
+            $updatedTicket,
+            $actor,
+            $this->realtimeAudience->ticketRecipientUserIds($updatedTicket),
+            $this->realtimePayloads->ticket($updatedTicket),
+        );
+
+        return $updatedTicket;
     }
 
     public function transition(Ticket $ticket, TicketStatus $to, User $actor, ?string $notes = null): Ticket
@@ -214,7 +246,14 @@ class TicketManagementService
             throw new \LogicException('The previous ticket status could not be resolved.');
         }
 
-        TicketStatusChanged::dispatch($updatedTicket, $from, $to, $actor);
+        TicketStatusChanged::dispatch(
+            $updatedTicket,
+            $from,
+            $to,
+            $actor,
+            $this->realtimeAudience->ticketRecipientUserIds($updatedTicket),
+            $this->realtimePayloads->ticket($updatedTicket),
+        );
 
         return $updatedTicket;
     }
@@ -245,7 +284,14 @@ class TicketManagementService
             throw new \LogicException('The previous ticket status could not be resolved.');
         }
 
-        TicketStatusChanged::dispatch($updatedTicket, $from, TicketStatus::Cancelled, $actor);
+        TicketStatusChanged::dispatch(
+            $updatedTicket,
+            $from,
+            TicketStatus::Cancelled,
+            $actor,
+            $this->realtimeAudience->ticketRecipientUserIds($updatedTicket),
+            $this->realtimePayloads->ticket($updatedTicket),
+        );
 
         return $updatedTicket;
     }

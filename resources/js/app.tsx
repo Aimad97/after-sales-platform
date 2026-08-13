@@ -20,6 +20,7 @@ import { NotificationBell } from '@/components/NotificationBell';
 import { NotificationsPage } from '@/features/notifications/NotificationPages';
 import { useAuth } from '@/hooks/useAuth';
 import { Can, usePermissions } from '@/hooks/usePermissions';
+import { useRealtime } from '@/hooks/useRealtime';
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
 
 const queryClient = new QueryClient({
@@ -118,10 +119,17 @@ function AuthFailureHandler() {
     return null;
 }
 
+function RealtimeSync() {
+    useRealtime();
+
+    return null;
+}
+
 function App() {
     return (
         <BrowserRouter>
             <AuthFailureHandler />
+            <RealtimeSync />
             <Routes>
                 <Route path="/" element={<ProtectedRoute><WorkspaceRedirect /></ProtectedRoute>} />
                 <Route path="/login" element={<GuestRoute><LoginPage /></GuestRoute>} />

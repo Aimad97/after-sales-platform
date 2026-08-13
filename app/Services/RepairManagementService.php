@@ -6,6 +6,7 @@ use App\Enums\RepairResult;
 use App\Enums\TicketStatus;
 use App\Events\DiagnosisCompleted;
 use App\Events\RepairCompleted;
+use App\Events\RepairUpdated;
 use App\Events\TicketStatusChanged;
 use App\Models\Repair;
 use App\Models\Technician;
@@ -17,7 +18,12 @@ use Illuminate\Validation\ValidationException;
 
 class RepairManagementService
 {
-    public function __construct(private readonly TicketWorkflowService $workflow, private readonly TicketHistoryService $ticketHistory) {}
+    public function __construct(
+        private readonly TicketWorkflowService $workflow,
+        private readonly TicketHistoryService $ticketHistory,
+        private readonly RealtimeAudienceService $realtimeAudience,
+        private readonly RealtimePayloadService $realtimePayloads,
+    ) {}
 
     public function paginate(array $filters, User $actor): LengthAwarePaginator
     {
@@ -53,7 +59,8 @@ class RepairManagementService
             throw new \LogicException('The previous ticket status could not be resolved.');
         }
 
-        TicketStatusChanged::dispatch($repair->ticket, $from, TicketStatus::Diagnosing, $actor);
+        $this->broadcastTicketStatusChanged($repair, $from, TicketStatus::Diagnosing, $actor);
+        $this->broadcastRepairUpdated($repair, $actor);
 
         return $repair;
     }
@@ -76,7 +83,8 @@ class RepairManagementService
         }
 
         DiagnosisCompleted::dispatch($updatedRepair, $actor);
-        TicketStatusChanged::dispatch($updatedRepair->ticket, $from, $to, $actor);
+        $this->broadcastTicketStatusChanged($updatedRepair, $from, $to, $actor);
+        $this->broadcastRepairUpdated($updatedRepair, $actor);
 
         return $updatedRepair;
     }
@@ -97,14 +105,15 @@ class RepairManagementService
             throw new \LogicException('The previous ticket status could not be resolved.');
         }
 
-        TicketStatusChanged::dispatch($updatedRepair->ticket, $from, TicketStatus::Repairing, $actor);
+        $this->broadcastTicketStatusChanged($updatedRepair, $from, TicketStatus::Repairing, $actor);
+        $this->broadcastRepairUpdated($updatedRepair, $actor);
 
         return $updatedRepair;
     }
 
     public function update(Repair $repair, array $data, User $actor): Repair
     {
-        return DB::transaction(function () use ($repair, $data, $actor): Repair {
+        $updatedRepair = DB::transaction(function () use ($repair, $data, $actor): Repair {
             $repair = Repair::query()->lockForUpdate()->findOrFail($repair->id);
             if ($repair->completed_at !== null) throw ValidationException::withMessages(['repair' => 'Completed repairs cannot be changed.']);
             $fields = ['repair_action', 'internal_notes', 'customer_notes', 'labor_cost', 'parts_cost'];
@@ -116,6 +125,10 @@ class RepairManagementService
             $this->ticketHistory->record($repair->ticket, 'repair_updated', 'Repair notes or costs updated.', $actor);
             return $this->load($repair);
         });
+
+        $this->broadcastRepairUpdated($updatedRepair, $actor);
+
+        return $updatedRepair;
     }
 
     public function complete(Repair $repair, array $data, User $actor): Repair
@@ -139,7 +152,8 @@ class RepairManagementService
         }
 
         RepairCompleted::dispatch($updatedRepair, $actor);
-        TicketStatusChanged::dispatch($updatedRepair->ticket, $from, $target, $actor);
+        $this->broadcastTicketStatusChanged($updatedRepair, $from, $target, $actor);
+        $this->broadcastRepairUpdated($updatedRepair, $actor);
 
         return $updatedRepair;
     }
@@ -150,6 +164,35 @@ class RepairManagementService
         $ticket->statusHistory()->create(['from_status' => $from, 'to_status' => $to, 'transitioned_by' => $actor->id, 'notes' => $notes, 'transitioned_at' => now()]);
 
         return $from;
+    }
+
+    private function broadcastTicketStatusChanged(Repair $repair, TicketStatus $from, TicketStatus $to, User $actor): void
+    {
+        $ticket = $repair->ticket;
+        $recipientUserIds = $this->realtimeAudience->ticketRecipientUserIds($ticket);
+
+        TicketStatusChanged::dispatch(
+            $ticket,
+            $from,
+            $to,
+            $actor,
+            $recipientUserIds,
+            $this->realtimePayloads->ticket($ticket),
+        );
+    }
+
+    private function broadcastRepairUpdated(Repair $repair, User $actor): void
+    {
+        $ticket = $repair->ticket;
+        $recipientUserIds = $this->realtimeAudience->repairRecipientUserIds($repair);
+
+        RepairUpdated::dispatch(
+            $repair,
+            $actor,
+            $recipientUserIds,
+            $this->realtimePayloads->repair($repair),
+            $this->realtimePayloads->ticket($ticket),
+        );
     }
     private function assertAssigned(Ticket $ticket): void { if ($ticket->assigned_technician_id === null) throw ValidationException::withMessages(['ticket' => 'Assign a technician before diagnosis can begin.']); }
     private function total(mixed $labor, mixed $parts): string { return number_format((float) $labor + (float) $parts, 2, '.', ''); }

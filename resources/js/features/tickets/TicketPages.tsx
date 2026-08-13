@@ -24,6 +24,7 @@ import {
 } from '@/features/tickets/api';
 import type { Ticket, TicketFilters, TicketPayload, TicketPriority, TicketSource, TicketStatus, TicketUpdatePayload } from '@/features/tickets/types';
 import { Can, usePermissions } from '@/hooks/usePermissions';
+import { useTicketRealtime } from '@/hooks/useRealtime';
 import { formatDate, humanize } from '@/utils/format';
 
 const inputClassName = 'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
@@ -171,6 +172,7 @@ export function TicketDetailsPage() {
     const transitionMutation = useMutation({ mutationFn: () => transitionTicket(uuid ?? '', nextStatus as TicketStatus, transitionNotes || null), onSuccess: (ticket) => { setTransitionNotes(''); refresh(ticket); } });
     const cancelMutation = useMutation({ mutationFn: () => cancelTicket(uuid ?? '', cancelReason), onSuccess: (ticket) => { setCancelReason(''); refresh(ticket); } });
     const ticket = ticketQuery.data;
+    useTicketRealtime(ticket?.id ?? null);
 
     if (ticketQuery.isLoading) return <p className="text-sm text-slate-600">Loading ticket...</p>;
     if (!ticket) return <ErrorMessage error={ticketQuery.error ?? new Error('Ticket not found.')} />;
