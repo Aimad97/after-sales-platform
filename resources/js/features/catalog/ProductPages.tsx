@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { z } from 'zod';
+import { AttachmentPanel } from '@/components/AttachmentPanel';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
 import { Pagination } from '@/components/Pagination';
@@ -18,7 +19,7 @@ import {
     updateProduct,
 } from '@/features/catalog/api';
 import type { Product, ProductFilters, ProductPayload } from '@/features/catalog/types';
-import { Can } from '@/hooks/usePermissions';
+import { Can, usePermissions } from '@/hooks/usePermissions';
 import { formatDate } from '@/utils/format';
 
 const inputClassName = 'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
@@ -173,6 +174,7 @@ export function ProductFormPage() {
 
 export function ProductDetailsPage() {
     const { uuid } = useParams<{ uuid: string }>();
+    const { can } = usePermissions();
     const productQuery = useQuery({ queryKey: ['catalog', 'products', uuid], queryFn: () => getProduct(uuid ?? ''), enabled: uuid !== undefined });
     const product = productQuery.data;
 
@@ -182,6 +184,7 @@ export function ProductDetailsPage() {
     return (
         <section className="max-w-4xl space-y-6">
             <PageHeader title={product.name} description={`${product.sku} · ${product.model}`} action={<Can permission="products.update"><Link className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white" to={`/admin/products/${product.uuid}/edit`}>Edit product</Link></Can>} />
+            <AttachmentPanel resourceType="products" resourceKey={product.uuid} canUpload={can('products.update')} canDelete={can('products.update')} />
             <section className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 md:grid-cols-2 lg:grid-cols-3">
                 <Detail label="Status" value={<StatusBadge value={product.active ? 'active' : 'inactive'} />} />
                 <Detail label="Slug" value={`/${product.slug}`} />

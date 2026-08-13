@@ -38,7 +38,7 @@ class ProductController extends Controller
     {
         $this->authorize('view', $product);
 
-        return new ProductResource($product->load(['category', 'brand']));
+        return new ProductResource($product->load(['category', 'brand', 'attachments.uploadedBy']));
     }
 
     public function update(UpdateProductRequest $request, Product $product): JsonResponse

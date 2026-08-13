@@ -53,6 +53,7 @@ class TicketController extends Controller
             'assignedTechnician.user',
             'statusHistory.transitionedBy',
             'history.actor',
+            'attachments.uploadedBy',
         ]));
     }
 

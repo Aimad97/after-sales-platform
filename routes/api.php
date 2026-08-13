@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\AuditLogController;
+use App\Http\Controllers\Api\V1\AttachmentController;
 use App\Http\Controllers\Api\V1\BrandController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ClientController;
@@ -31,6 +32,17 @@ Route::prefix('auth')->group(function (): void {
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/audit-logs', [AuditLogController::class, 'index']);
+    Route::get('/attachments/{attachment}/preview', [AttachmentController::class, 'preview'])->name('attachments.preview');
+    Route::get('/attachments/{attachment}/download', [AttachmentController::class, 'download'])->name('attachments.download');
+    Route::delete('/attachments/{attachment}', [AttachmentController::class, 'destroy']);
+    Route::get('/tickets/{ticket}/attachments', [AttachmentController::class, 'ticketIndex']);
+    Route::get('/products/{product}/attachments', [AttachmentController::class, 'productIndex']);
+    Route::get('/repairs/{repair}/attachments', [AttachmentController::class, 'repairIndex']);
+    Route::middleware('throttle:attachment-upload')->group(function (): void {
+        Route::post('/tickets/{ticket}/attachments', [AttachmentController::class, 'ticketStore']);
+        Route::post('/products/{product}/attachments', [AttachmentController::class, 'productStore']);
+        Route::post('/repairs/{repair}/attachments', [AttachmentController::class, 'repairStore']);
+    });
     Route::apiResource('categories', CategoryController::class);
     Route::apiResource('brands', BrandController::class);
     Route::apiResource('products', ProductController::class);

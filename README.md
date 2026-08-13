@@ -1,6 +1,6 @@
 # ServiceDesk — SAV & Warranty Management
 
-ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, and customer communication. Stages 1 through 9 provide the project foundation, Sanctum SPA authentication, server-enforced RBAC, user/technician management, client management, product catalog management, invoice-backed sold-product tracking, warranty lifecycle management, and SAV ticket workflow.
+ServiceDesk is a Laravel 12 and React/TypeScript platform for managing after-sales support, warranties, repairs, customer communication, traceability, and secure files. The implemented modules are documented below; each API action is protected by server-side authorization.
 
 ## Stack
 
@@ -24,6 +24,8 @@ npm install
 ```
 
 Create a MySQL database named `plateforme_sav`, then update `DB_*`, Redis, Reverb, CORS, `VITE_*`, and (if required) `INVOICE_DEFAULT_TAX_RATE` values in `.env`. The included defaults target a Laravel API at `http://localhost:8000`, a Vite client at `http://localhost:5173`, and Reverb at `localhost:8080`.
+
+For uploads, set PHP's `upload_max_filesize` and `post_max_size` above `ATTACHMENTS_MAX_SIZE_KB` (plus request overhead), then restart PHP/FPM or Apache. The application enforces its own lower configurable limit as well.
 
 ```bash
 php artisan migrate
@@ -145,6 +147,27 @@ The authenticated staff API provides:
 - `POST /api/tickets/{uuid}/cancel`
 
 `TicketWorkflowService` is the sole authority for state changes. It permits the repair path from `opened` through `closed`, plus cancellation before a terminal state; direct status and priority updates are rejected. Each transition writes a `ticket_status_histories` record with the actor, timestamp, source state, target state, and optional note. Client-role users cannot access the global ticket API until a client-user ownership mapping exists; this prevents cross-client data exposure.
+
+## Secure attachments
+
+Attachments are polymorphic records for tickets, products, and repairs. File metadata is audited, and ticket/repair file changes also create business-visible ticket-history entries. Files use randomized UUID filenames and are stored on a dedicated private disk; the database never exposes a raw storage path.
+
+The default disk is `attachments`, rooted at `storage/app/private/attachments`. Do not set `ATTACHMENTS_DISK` to `public`. For S3, install dependencies with Composer (already included in this project), set `ATTACHMENTS_DISK=attachments_s3`, configure `ATTACHMENTS_AWS_BUCKET`, and keep the bucket private—access should be granted only to the application's credentials, not through a public bucket policy.
+
+The maximum upload size is set by `ATTACHMENTS_MAX_SIZE_KB` (10 MB by default). Allowed files are JPEG, PNG, WebP, PDF, TXT, CSV, DOC/DOCX, and XLS/XLSX. Both the original extension and server-detected MIME type are checked; executable files are rejected. Uploads are rate-limited per authenticated user and IP address.
+
+The authenticated API provides:
+
+- `GET, POST /api/tickets/{uuid}/attachments`
+- `GET, POST /api/products/{uuid}/attachments`
+- `GET, POST /api/repairs/{id}/attachments`
+- `GET /api/attachments/{uuid}/preview` for authorized image previews
+- `GET /api/attachments/{uuid}/download`
+- `DELETE /api/attachments/{uuid}`
+
+Every collection, upload, preview, download, and deletion action delegates to the owning ticket, product, or repair policy. The React `AttachmentPanel` provides drag-and-drop uploads with per-file progress, image previews, downloads, and confirmed deletion; it is mounted on ticket and product details and can be reused by the repair workspace.
+
+The historical `ticket_attachments` table is retained non-destructively. The attachment migration backfills its metadata into the polymorphic table using `ATTACHMENTS_LEGACY_DISK` (default `local`); verify that disk setting before migrating a deployment with historical files.
 
 ## Project organization
 

@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\Brand;
 use App\Models\AuditLog;
+use App\Models\Attachment;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\Invoice;
@@ -15,6 +16,7 @@ use App\Models\User;
 use App\Models\Warranty;
 use App\Policies\CatalogPolicy;
 use App\Policies\AuditLogPolicy;
+use App\Policies\AttachmentPolicy;
 use App\Policies\ClientPolicy;
 use App\Policies\InvoicePolicy;
 use App\Policies\RepairPolicy;
@@ -23,6 +25,7 @@ use App\Policies\TicketPolicy;
 use App\Policies\UserPolicy;
 use App\Policies\WarrantyPolicy;
 use App\Observers\AuditObserver;
+use App\Observers\AttachmentOwnerObserver;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -57,8 +60,13 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Warranty::class, WarrantyPolicy::class);
         Gate::policy(Repair::class, RepairPolicy::class);
         Gate::policy(AuditLog::class, AuditLogPolicy::class);
+        Gate::policy(Attachment::class, AttachmentPolicy::class);
         Ticket::observe(AuditObserver::class);
         Repair::observe(AuditObserver::class);
+        Attachment::observe(AuditObserver::class);
+        Ticket::observe(AttachmentOwnerObserver::class);
+        Product::observe(AttachmentOwnerObserver::class);
+        Repair::observe(AttachmentOwnerObserver::class);
 
         Gate::before(fn (User $user): ?bool => $user->hasRole('super_admin') ? true : null);
 
@@ -74,6 +82,10 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('password-reset', function (Request $request): Limit {
             return Limit::perMinute(3)->by(Str::lower((string) $request->input('email')).'|'.$request->ip());
+        });
+
+        RateLimiter::for('attachment-upload', function (Request $request): Limit {
+            return Limit::perMinute(30)->by(($request->user()?->getAuthIdentifier() ?? 'guest').'|'.$request->ip());
         });
     }
 }

@@ -6,6 +6,7 @@ use App\Enums\RepairResult;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Repair extends Model
 {
@@ -19,4 +20,8 @@ class Repair extends Model
     public function ticket(): BelongsTo { return $this->belongsTo(Ticket::class); }
     public function technician(): BelongsTo { return $this->belongsTo(Technician::class); }
     public function history(): HasMany { return $this->hasMany(RepairHistory::class)->orderBy('occurred_at')->orderBy('id'); }
+    public function attachments(): MorphMany
+    {
+        return $this->morphMany(Attachment::class, 'attachable')->latest();
+    }
 }

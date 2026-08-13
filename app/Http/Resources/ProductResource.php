@@ -40,6 +40,9 @@ class ProductResource extends JsonResource
                 'logo_path' => $this->brand->logo_path,
                 'active' => $this->brand->active,
             ]),
+            'attachments' => $this->relationLoaded('attachments')
+                ? AttachmentResource::collection($this->attachments)
+                : [],
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
         ];
