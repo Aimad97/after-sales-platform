@@ -5,8 +5,9 @@ namespace App\Models;
 use App\Enums\UserStatus;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -25,6 +26,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'uuid',
+        'client_id',
         'first_name',
         'last_name',
         'email',
@@ -72,6 +74,12 @@ class User extends Authenticatable
     public function technician(): HasOne
     {
         return $this->hasOne(Technician::class);
+    }
+
+    /** @return BelongsTo<Client, $this> */
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
     }
 
     /** @return HasMany<Ticket, $this> */

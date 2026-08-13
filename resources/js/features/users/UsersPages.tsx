@@ -65,6 +65,7 @@ interface UserFormValues {
     status: UserStatus;
     locale: string;
     timezone: string;
+    client_id: number | null;
     password: string;
     password_confirmation: string;
     roles: string[];
@@ -86,6 +87,7 @@ export function UserFormPage() {
         status: z.enum(['active', 'invited', 'suspended', 'archived']),
         locale: z.string().min(2).max(10),
         timezone: z.string().min(1),
+        client_id: z.number().int().positive().nullable(),
         password: z.string(),
         password_confirmation: z.string(),
         roles: z.array(z.string()).min(1, 'Select at least one role.'),
@@ -94,11 +96,11 @@ export function UserFormPage() {
         if (values.password.length > 0 && values.password.length < 12) context.addIssue({ code: z.ZodIssueCode.custom, path: ['password'], message: 'Use at least 12 characters.' });
         if (values.password !== values.password_confirmation) context.addIssue({ code: z.ZodIssueCode.custom, path: ['password_confirmation'], message: 'Passwords do not match.' });
     }), [isEditing]);
-    const form = useForm<UserFormValues>({ resolver: zodResolver(schema), defaultValues: { first_name: '', last_name: '', email: '', phone: '', status: 'invited', locale: 'fr', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Casablanca', password: '', password_confirmation: '', roles: [] } });
+    const form = useForm<UserFormValues>({ resolver: zodResolver(schema), defaultValues: { first_name: '', last_name: '', email: '', phone: '', status: 'invited', locale: 'fr', timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Africa/Casablanca', client_id: null, password: '', password_confirmation: '', roles: [] } });
 
     useEffect(() => {
         if (!userQuery.data) return;
-        form.reset({ first_name: userQuery.data.first_name, last_name: userQuery.data.last_name, email: userQuery.data.email, phone: userQuery.data.phone ?? '', status: userQuery.data.status, locale: userQuery.data.locale, timezone: userQuery.data.timezone, password: '', password_confirmation: '', roles: userQuery.data.roles });
+        form.reset({ first_name: userQuery.data.first_name, last_name: userQuery.data.last_name, email: userQuery.data.email, phone: userQuery.data.phone ?? '', status: userQuery.data.status, locale: userQuery.data.locale, timezone: userQuery.data.timezone, client_id: userQuery.data.client_id, password: '', password_confirmation: '', roles: userQuery.data.roles });
     }, [form, userQuery.data]);
 
     const saveMutation = useMutation({

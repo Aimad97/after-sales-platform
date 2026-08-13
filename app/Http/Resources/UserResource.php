@@ -24,6 +24,12 @@ class UserResource extends JsonResource
             'phone' => $this->phone,
             'locale' => $this->locale,
             'timezone' => $this->timezone,
+            'client_id' => $this->client_id,
+            'client' => $this->whenLoaded('client', fn (): ?array => $this->client === null ? null : [
+                'id' => $this->client->id,
+                'uuid' => $this->client->uuid,
+                'display_name' => $this->client->display_name,
+            ]),
             'status' => $this->status instanceof UserStatus ? $this->status->value : $this->status,
             'last_login_at' => $this->last_login_at?->toISOString(),
             'roles' => $this->getRoleNames()->values(),

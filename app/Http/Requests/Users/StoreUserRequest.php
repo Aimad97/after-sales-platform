@@ -27,6 +27,7 @@ class StoreUserRequest extends FormRequest
             'status' => ['required', Rule::enum(UserStatus::class)],
             'locale' => ['required', 'string', 'max:10'],
             'timezone' => ['required', 'timezone'],
+            'client_id' => ['nullable', 'integer', 'exists:customers,id'],
             'password' => ['required', 'confirmed', Password::defaults()],
             'roles' => ['required', 'array', 'min:1'],
             'roles.*' => ['required', 'string', 'distinct', Rule::exists('roles', 'name')->where('guard_name', 'web')],

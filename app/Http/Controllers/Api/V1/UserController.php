@@ -53,7 +53,7 @@ class UserController extends Controller
     {
         $this->authorize('view', $user);
 
-        return new UserResource($user->load(['roles.permissions', 'technician']));
+        return new UserResource($user->load(['roles.permissions', 'technician', 'client']));
     }
 
     public function update(UpdateUserRequest $request, User $user): JsonResponse

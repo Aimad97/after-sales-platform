@@ -31,6 +31,7 @@ class UpdateUserRequest extends FormRequest
             'status' => ['sometimes', 'required', Rule::enum(UserStatus::class)],
             'locale' => ['sometimes', 'required', 'string', 'max:10'],
             'timezone' => ['sometimes', 'required', 'timezone'],
+            'client_id' => ['sometimes', 'nullable', 'integer', 'exists:customers,id'],
             'password' => ['nullable', 'confirmed', Password::defaults()],
             'roles' => ['sometimes', 'required', 'array', 'min:1'],
             'roles.*' => ['required', 'string', 'distinct', Rule::exists('roles', 'name')->where('guard_name', 'web')],

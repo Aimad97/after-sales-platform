@@ -2,9 +2,9 @@
 
 namespace App\Providers;
 
-use App\Models\Brand;
-use App\Models\AuditLog;
 use App\Models\Attachment;
+use App\Models\AuditLog;
+use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Client;
 use App\Models\Invoice;
@@ -14,18 +14,20 @@ use App\Models\Technician;
 use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Warranty;
-use App\Policies\CatalogPolicy;
-use App\Policies\AuditLogPolicy;
+use App\Observers\AttachmentOwnerObserver;
+use App\Observers\AuditObserver;
+use App\Observers\DashboardMetricsCacheObserver;
 use App\Policies\AttachmentPolicy;
+use App\Policies\AuditLogPolicy;
+use App\Policies\CatalogPolicy;
 use App\Policies\ClientPolicy;
+use App\Policies\DashboardPolicy;
 use App\Policies\InvoicePolicy;
 use App\Policies\RepairPolicy;
 use App\Policies\TechnicianPolicy;
 use App\Policies\TicketPolicy;
 use App\Policies\UserPolicy;
 use App\Policies\WarrantyPolicy;
-use App\Observers\AuditObserver;
-use App\Observers\AttachmentOwnerObserver;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -61,12 +63,19 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Repair::class, RepairPolicy::class);
         Gate::policy(AuditLog::class, AuditLogPolicy::class);
         Gate::policy(Attachment::class, AttachmentPolicy::class);
+        Gate::define('view-dashboard', [DashboardPolicy::class, 'view']);
         Ticket::observe(AuditObserver::class);
         Repair::observe(AuditObserver::class);
         Attachment::observe(AuditObserver::class);
         Ticket::observe(AttachmentOwnerObserver::class);
         Product::observe(AttachmentOwnerObserver::class);
         Repair::observe(AttachmentOwnerObserver::class);
+        Ticket::observe(DashboardMetricsCacheObserver::class);
+        Repair::observe(DashboardMetricsCacheObserver::class);
+        Warranty::observe(DashboardMetricsCacheObserver::class);
+        Product::observe(DashboardMetricsCacheObserver::class);
+        Technician::observe(DashboardMetricsCacheObserver::class);
+        User::observe(DashboardMetricsCacheObserver::class);
 
         Gate::before(fn (User $user): ?bool => $user->hasRole('super_admin') ? true : null);
 

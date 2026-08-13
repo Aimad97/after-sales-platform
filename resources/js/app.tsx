@@ -18,6 +18,7 @@ import { RepairDetailsPage, RepairsPage } from '@/features/repairs/RepairPages';
 import { AuditLogsPage } from '@/features/audit-logs/AuditLogsPage';
 import { NotificationBell } from '@/components/NotificationBell';
 import { NotificationsPage } from '@/features/notifications/NotificationPages';
+import { DashboardPage } from '@/features/dashboard/DashboardPages';
 import { useAuth } from '@/hooks/useAuth';
 import { Can, usePermissions } from '@/hooks/usePermissions';
 import { useRealtime } from '@/hooks/useRealtime';
@@ -87,11 +88,7 @@ function AdminLayout() {
 
 function ClientLayout() {
     const { user, logout } = useAuth();
-    return <main className="min-h-screen bg-slate-50 p-6 text-slate-900"><section className="mx-auto max-w-4xl rounded-xl border border-slate-200 bg-white p-6 shadow-sm"><div className="flex items-center justify-between gap-4"><div><p className="text-sm font-semibold text-blue-600">ServiceDesk</p><h1 className="mt-1 text-2xl font-bold">Hello, {user?.first_name}</h1></div><button className="rounded-md border px-4 py-2 text-sm font-medium" onClick={() => logout.mutate()}>Sign out</button></div><nav className="mt-6 flex gap-3 text-sm" aria-label="Client navigation"><Can permission="tickets.view"><span className="rounded-md bg-blue-50 px-3 py-2 font-medium text-blue-700">My tickets</span></Can><Can permission="warranties.view"><span className="rounded-md px-3 py-2 text-slate-600">My warranties</span></Can></nav><p className="mt-5 text-slate-600">Your support requests and warranty information will appear here as the SAV modules are added.</p></section></main>;
-}
-
-function DashboardPage() {
-    return <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="text-2xl font-bold">Operations dashboard</h2><p className="mt-2 text-slate-600">User and technician management are ready. SAV operational dashboards will be added in a later stage.</p></section>;
+    return <main className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-6"><section className="mx-auto max-w-6xl"><header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-sm font-semibold text-blue-600">ServiceDesk</p><h1 className="mt-1 text-2xl font-bold">Hello, {user?.first_name}</h1></div><div className="flex items-center gap-2"><NotificationBell /><button className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50" onClick={() => logout.mutate()}>Sign out</button></div></div></header><div className="mt-6"><DashboardPage /></div></section></main>;
 }
 
 function WorkspaceRedirect() {
@@ -170,7 +167,7 @@ function App() {
                     <Route path="categories" element={<PermissionRoute permission="products.view"><CategoriesPage /></PermissionRoute>} />
                     <Route path="brands" element={<PermissionRoute permission="products.view"><BrandsPage /></PermissionRoute>} />
                 </Route>
-                <Route path="/client" element={<ProtectedRoute><PermissionRoute permission="tickets.view"><ClientLayout /></PermissionRoute></ProtectedRoute>} />
+                <Route path="/client" element={<ProtectedRoute><ClientLayout /></ProtectedRoute>} />
                 <Route path="*" element={<NotFoundPage />} />
             </Routes>
         </BrowserRouter>

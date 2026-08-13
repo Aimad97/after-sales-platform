@@ -15,6 +15,8 @@ export interface ManagedUser {
     phone: string | null;
     locale: string;
     timezone: string;
+    client_id: number | null;
+    client?: { id: number; uuid: string; display_name: string } | null;
     status: UserStatus;
     last_login_at: string | null;
     roles: string[];
@@ -41,6 +43,7 @@ export interface UserPayload {
     status: UserStatus;
     locale: string;
     timezone: string;
+    client_id?: number | null;
     roles: string[];
     password?: string;
     password_confirmation?: string;
