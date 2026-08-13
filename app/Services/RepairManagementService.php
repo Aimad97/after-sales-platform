@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Enums\RepairResult;
 use App\Enums\TicketStatus;
+use App\Events\DiagnosisCompleted;
+use App\Events\RepairCompleted;
+use App\Events\TicketStatusChanged;
 use App\Models\Repair;
 use App\Models\Technician;
 use App\Models\Ticket;
@@ -34,40 +37,69 @@ class RepairManagementService
 
     public function startDiagnosis(Ticket $ticket, User $actor): Repair
     {
-        return DB::transaction(function () use ($ticket, $actor): Repair {
+        $from = null;
+        $repair = DB::transaction(function () use ($ticket, $actor, &$from): Repair {
             $ticket = Ticket::query()->with('assignedTechnician')->lockForUpdate()->findOrFail($ticket->id);
             $this->assertAssigned($ticket);
             if ($ticket->repair()->exists()) throw ValidationException::withMessages(['ticket' => 'This ticket already has a repair record.']);
-            $this->transitionTicket($ticket, TicketStatus::Diagnosing, $actor, 'Diagnosis started.');
+            $from = $this->transitionTicket($ticket, TicketStatus::Diagnosing, $actor, 'Diagnosis started.');
             $repair = Repair::query()->create(['ticket_id' => $ticket->id, 'technician_id' => $ticket->assigned_technician_id]);
             $this->history($repair, 'diagnosis_started', [], $actor);
             $this->ticketHistory->record($ticket, 'diagnosis_started', 'Technician started diagnosis.', $actor);
             return $this->load($repair);
         });
+
+        if (! $from instanceof TicketStatus) {
+            throw new \LogicException('The previous ticket status could not be resolved.');
+        }
+
+        TicketStatusChanged::dispatch($repair->ticket, $from, TicketStatus::Diagnosing, $actor);
+
+        return $repair;
     }
 
     public function recordDiagnosis(Repair $repair, array $data, User $actor): Repair
     {
-        return DB::transaction(function () use ($repair, $data, $actor): Repair {
+        $from = null;
+        $to = TicketStatus::from($data['next_status']);
+        $updatedRepair = DB::transaction(function () use ($repair, $data, $actor, $to, &$from): Repair {
             $repair = Repair::query()->with('ticket')->lockForUpdate()->findOrFail($repair->id);
             $repair->fill(['diagnosis' => trim($data['diagnosis']), 'root_cause' => filled($data['root_cause'] ?? null) ? trim($data['root_cause']) : null, 'customer_notes' => filled($data['customer_notes'] ?? null) ? trim($data['customer_notes']) : $repair->customer_notes])->save();
             $this->history($repair, 'diagnosis_recorded', ['diagnosis' => true, 'next_status' => $data['next_status']], $actor);
-            $this->transitionTicket($repair->ticket, TicketStatus::from($data['next_status']), $actor, 'Diagnosis recorded.');
+            $from = $this->transitionTicket($repair->ticket, $to, $actor, 'Diagnosis recorded.');
             $this->ticketHistory->record($repair->ticket, 'diagnosis_added', 'Diagnosis added to repair.', $actor);
             return $this->load($repair);
         });
+
+        if (! $from instanceof TicketStatus) {
+            throw new \LogicException('The previous ticket status could not be resolved.');
+        }
+
+        DiagnosisCompleted::dispatch($updatedRepair, $actor);
+        TicketStatusChanged::dispatch($updatedRepair->ticket, $from, $to, $actor);
+
+        return $updatedRepair;
     }
 
     public function startRepair(Repair $repair, User $actor): Repair
     {
-        return DB::transaction(function () use ($repair, $actor): Repair {
+        $from = null;
+        $updatedRepair = DB::transaction(function () use ($repair, $actor, &$from): Repair {
             $repair = Repair::query()->with('ticket')->lockForUpdate()->findOrFail($repair->id);
             if ($repair->started_at !== null) throw ValidationException::withMessages(['repair' => 'Repair work has already started.']);
-            $this->transitionTicket($repair->ticket, TicketStatus::Repairing, $actor, 'Repair work started.');
+            $from = $this->transitionTicket($repair->ticket, TicketStatus::Repairing, $actor, 'Repair work started.');
             $repair->started_at = now(); $repair->save(); $this->history($repair, 'repair_started', [], $actor);
             $this->ticketHistory->record($repair->ticket, 'repair_started', 'Repair work started.', $actor);
             return $this->load($repair);
         });
+
+        if (! $from instanceof TicketStatus) {
+            throw new \LogicException('The previous ticket status could not be resolved.');
+        }
+
+        TicketStatusChanged::dispatch($updatedRepair->ticket, $from, TicketStatus::Repairing, $actor);
+
+        return $updatedRepair;
     }
 
     public function update(Repair $repair, array $data, User $actor): Repair
@@ -88,23 +120,36 @@ class RepairManagementService
 
     public function complete(Repair $repair, array $data, User $actor): Repair
     {
-        return DB::transaction(function () use ($repair, $data, $actor): Repair {
+        $from = null;
+        $target = null;
+        $updatedRepair = DB::transaction(function () use ($repair, $data, $actor, &$from, &$target): Repair {
             $repair = Repair::query()->with('ticket')->lockForUpdate()->findOrFail($repair->id);
             if ($repair->started_at === null) throw ValidationException::withMessages(['repair' => 'Start repair work before completing it.']);
             $result = RepairResult::from($data['result']);
             $target = in_array($result, [RepairResult::Repaired, RepairResult::PartiallyRepaired], true) ? TicketStatus::Testing : TicketStatus::AwaitingCustomerApproval;
             $repair->fill(['result' => $result, 'customer_notes' => filled($data['customer_notes'] ?? null) ? trim($data['customer_notes']) : $repair->customer_notes, 'completed_at' => now(), 'total_cost' => $this->total($repair->labor_cost, $repair->parts_cost)])->save();
             $this->history($repair, 'repair_completed', ['result' => $result->value, 'total_cost' => $repair->total_cost], $actor);
-            $this->transitionTicket($repair->ticket, $target, $actor, "Repair completed: {$result->value}.");
+            $from = $this->transitionTicket($repair->ticket, $target, $actor, "Repair completed: {$result->value}.");
             $this->ticketHistory->record($repair->ticket, 'repair_completed', "Repair completed: {$result->value}.", $actor, ['result' => $result->value]);
             return $this->load($repair);
         });
+
+        if (! $from instanceof TicketStatus || ! $target instanceof TicketStatus) {
+            throw new \LogicException('The repair completion transition could not be resolved.');
+        }
+
+        RepairCompleted::dispatch($updatedRepair, $actor);
+        TicketStatusChanged::dispatch($updatedRepair->ticket, $from, $target, $actor);
+
+        return $updatedRepair;
     }
 
-    private function transitionTicket(Ticket $ticket, TicketStatus $to, User $actor, string $notes): void
+    private function transitionTicket(Ticket $ticket, TicketStatus $to, User $actor, string $notes): TicketStatus
     {
         $from = $ticket->status; $this->workflow->assertTransition($from, $to); $ticket->status = $to; $ticket->save();
         $ticket->statusHistory()->create(['from_status' => $from, 'to_status' => $to, 'transitioned_by' => $actor->id, 'notes' => $notes, 'transitioned_at' => now()]);
+
+        return $from;
     }
     private function assertAssigned(Ticket $ticket): void { if ($ticket->assigned_technician_id === null) throw ValidationException::withMessages(['ticket' => 'Assign a technician before diagnosis can begin.']); }
     private function total(mixed $labor, mixed $parts): string { return number_format((float) $labor + (float) $parts, 2, '.', ''); }

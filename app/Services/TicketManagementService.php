@@ -4,6 +4,9 @@ namespace App\Services;
 
 use App\Enums\TicketPriority;
 use App\Enums\TicketStatus;
+use App\Events\TechnicianAssigned;
+use App\Events\TicketCreated;
+use App\Events\TicketStatusChanged;
 use App\Models\Client;
 use App\Models\InvoiceItem;
 use App\Models\Product;
@@ -74,7 +77,7 @@ class TicketManagementService
      */
     public function create(array $data, User $actor): Ticket
     {
-        return DB::transaction(function () use ($data, $actor): Ticket {
+        $ticket = DB::transaction(function () use ($data, $actor): Ticket {
             $context = $this->resolveContext($data);
             $openedAt = now();
             $ticket = Ticket::query()->create([
@@ -114,6 +117,10 @@ class TicketManagementService
 
             return $this->loadTicket($ticket);
         });
+
+        TicketCreated::dispatch($ticket, $actor);
+
+        return $ticket;
     }
 
     /**
@@ -134,9 +141,10 @@ class TicketManagementService
         });
     }
 
-    public function assignTechnician(Ticket $ticket, int $technicianId): Ticket
+    public function assignTechnician(Ticket $ticket, int $technicianId, User $actor): Ticket
     {
-        return DB::transaction(function () use ($ticket, $technicianId): Ticket {
+        $technician = null;
+        $updatedTicket = DB::transaction(function () use ($ticket, $technicianId, $actor, &$technician): Ticket {
             $ticket = $this->lockedTicket($ticket);
             $this->assertNotTerminal($ticket);
 
@@ -150,10 +158,18 @@ class TicketManagementService
 
             $ticket->assigned_technician_id = $technician->id;
             $ticket->save();
-            $this->history->record($ticket, 'technician_assigned', "Technician assigned: {$technician->user->first_name} {$technician->user->last_name}.", request()->user(), ['technician_id' => $technician->id]);
+            $this->history->record($ticket, 'technician_assigned', "Technician assigned: {$technician->user->first_name} {$technician->user->last_name}.", $actor, ['technician_id' => $technician->id]);
 
             return $this->loadTicket($ticket);
         });
+
+        if (! $technician instanceof Technician) {
+            throw new \LogicException('The assigned technician could not be resolved.');
+        }
+
+        TechnicianAssigned::dispatch($updatedTicket, $technician, $actor);
+
+        return $updatedTicket;
     }
 
     public function changePriority(Ticket $ticket, TicketPriority $priority): Ticket
@@ -171,7 +187,8 @@ class TicketManagementService
 
     public function transition(Ticket $ticket, TicketStatus $to, User $actor, ?string $notes = null): Ticket
     {
-        return DB::transaction(function () use ($ticket, $to, $actor, $notes): Ticket {
+        $from = null;
+        $updatedTicket = DB::transaction(function () use ($ticket, $to, $actor, $notes, &$from): Ticket {
             $ticket = $this->lockedTicket($ticket);
             $from = $ticket->status;
             $this->workflow->assertTransition($from, $to);
@@ -192,11 +209,20 @@ class TicketManagementService
 
             return $this->loadTicket($ticket);
         });
+
+        if (! $from instanceof TicketStatus) {
+            throw new \LogicException('The previous ticket status could not be resolved.');
+        }
+
+        TicketStatusChanged::dispatch($updatedTicket, $from, $to, $actor);
+
+        return $updatedTicket;
     }
 
     public function cancel(Ticket $ticket, User $actor, string $reason): Ticket
     {
-        return DB::transaction(function () use ($ticket, $actor, $reason): Ticket {
+        $from = null;
+        $updatedTicket = DB::transaction(function () use ($ticket, $actor, $reason, &$from): Ticket {
             $ticket = $this->lockedTicket($ticket);
             $from = $ticket->status;
             $this->workflow->assertCanCancel($from);
@@ -214,6 +240,14 @@ class TicketManagementService
 
             return $this->loadTicket($ticket);
         });
+
+        if (! $from instanceof TicketStatus) {
+            throw new \LogicException('The previous ticket status could not be resolved.');
+        }
+
+        TicketStatusChanged::dispatch($updatedTicket, $from, TicketStatus::Cancelled, $actor);
+
+        return $updatedTicket;
     }
 
     private function lockedTicket(Ticket $ticket): Ticket

@@ -73,7 +73,11 @@ class TicketController extends Controller
 
         return response()->json([
             'message' => 'Technician assigned successfully.',
-            'data' => new TicketResource($this->tickets->assignTechnician($ticket, (int) $request->validated('assigned_technician_id'))),
+            'data' => new TicketResource($this->tickets->assignTechnician(
+                $ticket,
+                (int) $request->validated('assigned_technician_id'),
+                $request->user(),
+            )),
         ]);
     }
 

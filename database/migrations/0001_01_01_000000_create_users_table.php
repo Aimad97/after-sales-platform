@@ -18,7 +18,7 @@ return new class extends Migration
             $table->string('last_name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
-            $table->string('phone')->nullable();
+            $table->integer('phone')->nullable();
             $table->string('password');
             $table->string('locale')->default('fr');
             $table->string('timezone')->default('Africa/Casablanca');

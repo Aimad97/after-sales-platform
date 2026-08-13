@@ -16,6 +16,8 @@ import { TechnicianDetailsPage, TechnicianFormPage, TechniciansPage } from '@/fe
 import { TicketDetailsPage, TicketFormPage, TicketsPage } from '@/features/tickets/TicketPages';
 import { RepairDetailsPage, RepairsPage } from '@/features/repairs/RepairPages';
 import { AuditLogsPage } from '@/features/audit-logs/AuditLogsPage';
+import { NotificationBell } from '@/components/NotificationBell';
+import { NotificationsPage } from '@/features/notifications/NotificationPages';
 import { useAuth } from '@/hooks/useAuth';
 import { Can, usePermissions } from '@/hooks/usePermissions';
 import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
@@ -59,7 +61,7 @@ function AdminLayout() {
                 <header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <div><p className="text-sm font-semibold text-blue-600">ServiceDesk</p><h1 className="mt-1 text-2xl font-bold">Welcome, {user?.first_name}</h1></div>
-                        <button className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50" onClick={() => logout.mutate()}>Sign out</button>
+                        <div className="flex items-center gap-2"><NotificationBell /><button className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50" onClick={() => logout.mutate()}>Sign out</button></div>
                     </div>
                     <nav className="mt-5 flex flex-wrap gap-2 text-sm" aria-label="Workspace navigation">
                         <Can permission="dashboard.view"><NavLink className={navigationClass} to="/admin" end>Dashboard</NavLink></Can>
@@ -151,6 +153,7 @@ function App() {
                     <Route path="tickets/:uuid" element={<PermissionRoute permission="tickets.view"><TicketDetailsPage /></PermissionRoute>} />
                     <Route path="repairs" element={<PermissionRoute permission="repairs.view"><RepairsPage /></PermissionRoute>} />
                     <Route path="repairs/:id" element={<PermissionRoute permission="repairs.view"><RepairDetailsPage /></PermissionRoute>} />
+                    <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="audit-logs" element={<PermissionRoute permission="audit_logs.view"><AuditLogsPage /></PermissionRoute>} />
                     <Route path="products" element={<PermissionRoute permission="products.view"><ProductsPage /></PermissionRoute>} />
                     <Route path="products/new" element={<PermissionRoute permission="products.create"><ProductFormPage /></PermissionRoute>} />

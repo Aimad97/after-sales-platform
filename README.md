@@ -36,7 +36,8 @@ For local development, run these processes in separate terminals:
 
 ```bash
 php artisan serve
-php artisan queue:work redis
+php artisan queue:work redis --queue=mail,default
+php artisan schedule:work
 php artisan reverb:start
 npm run dev
 ```
@@ -168,6 +169,19 @@ The authenticated API provides:
 Every collection, upload, preview, download, and deletion action delegates to the owning ticket, product, or repair policy. The React `AttachmentPanel` provides drag-and-drop uploads with per-file progress, image previews, downloads, and confirmed deletion; it is mounted on ticket and product details and can be reused by the repair workspace.
 
 The historical `ticket_attachments` table is retained non-destructively. The attachment migration backfills its metadata into the polymorphic table using `ATTACHMENTS_LEGACY_DISK` (default `local`); verify that disk setting before migrating a deployment with historical files.
+
+## Notifications
+
+Ticket creation, technician assignment, ticket status transitions, diagnosis completion, repair completion, customer-approval requests, and ready-for-pickup status emit reusable notifications. Authenticated operational users receive database notifications for the SPA bell and inbox; email is queued on `NOTIFICATIONS_MAIL_QUEUE` so mail delivery never happens in the HTTP request. The ticket client is also emailed directly using the client email address until a client-user ownership mapping is introduced.
+
+The authenticated API provides:
+
+- `GET /api/notifications?unread=true&per_page=20`
+- `GET /api/notifications/unread-count`
+- `PATCH /api/notifications/{id}/read`
+- `POST /api/notifications/mark-all-read`
+
+To enable warranty-expiration reminders, set `NOTIFY_WARRANTY_EXPIRATION=true` and configure `WARRANTY_EXPIRATION_NOTICE_DAYS` (default `30`). `php artisan notifications:send-warranty-expiration` is scheduled daily at `WARRANTY_EXPIRATION_NOTICE_SCHEDULE`; run a queue worker and Laravel scheduler in production. The expiration log makes each warranty/day reminder idempotent.
 
 ## Project organization
 

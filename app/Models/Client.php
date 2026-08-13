@@ -28,7 +28,7 @@ class Client extends Model
         'first_name',
         'last_name',
         'email',
-        'phone',
+        'phone' => 'required|numeric|min:10|max:10',
         'address',
         'city',
         'tax_identifier',

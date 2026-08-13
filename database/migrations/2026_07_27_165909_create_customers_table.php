@@ -23,7 +23,7 @@ return new class extends Migration
 
             $table->string('email')->nullable();
 
-            $table->string('phone');
+            $table->integer('phone')->nullable();
 
             $table->string('city')->nullable();
 
