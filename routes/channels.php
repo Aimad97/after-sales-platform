@@ -12,5 +12,8 @@ Broadcast::channel('user.{userId}', function (User $user, int $userId): bool {
 Broadcast::channel('ticket.{ticketId}', function (User $user, int $ticketId): bool {
     $ticket = Ticket::query()->find($ticketId);
 
-    return $ticket !== null && Gate::forUser($user)->allows('view', $ticket);
+    return $ticket !== null && (
+        Gate::forUser($user)->allows('view', $ticket)
+        || Gate::forUser($user)->allows('viewPortal', $ticket)
+    );
 }, ['guards' => ['sanctum']]);

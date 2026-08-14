@@ -1,4 +1,4 @@
-export type AttachmentResourceType = 'tickets' | 'repairs' | 'products';
+export type AttachmentResourceType = 'tickets' | 'repairs' | 'products' | 'client/tickets';
 
 export interface AttachmentUploader {
     id: number;

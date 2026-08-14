@@ -87,4 +87,20 @@ class User extends Authenticatable
     {
         return $this->hasMany(Ticket::class, 'created_by');
     }
+
+    public function isClientPortalUser(): bool
+    {
+        return $this->hasRole('client')
+            && ! $this->hasAnyRole(['super_admin', 'admin', 'sav_agent', 'technician']);
+    }
+
+    public function hasClientPortalAccess(): bool
+    {
+        return $this->client_id !== null && $this->isClientPortalUser();
+    }
+
+    public function belongsToClient(int $clientId): bool
+    {
+        return $this->hasClientPortalAccess() && (int) $this->client_id === $clientId;
+    }
 }

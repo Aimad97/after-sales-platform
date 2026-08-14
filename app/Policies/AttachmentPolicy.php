@@ -7,12 +7,23 @@ use App\Models\Product;
 use App\Models\Repair;
 use App\Models\Ticket;
 use App\Models\User;
+use Illuminate\Auth\Access\Response;
 
 class AttachmentPolicy
 {
-    public function view(User $user, Attachment $attachment): bool
+    public function view(User $user, Attachment $attachment): Response|bool
     {
-        return $this->canViewTarget($user, $attachment->attachable);
+        if ($this->canViewTarget($user, $attachment->attachable)) {
+            return true;
+        }
+
+        if (! $user->hasClientPortalAccess()) {
+            return false;
+        }
+
+        return $this->isClientOwnedTicketAttachment($user, $attachment)
+            ? Response::allow()
+            : Response::denyAsNotFound();
     }
 
     public function delete(User $user, Attachment $attachment): bool
@@ -35,6 +46,13 @@ class AttachmentPolicy
         return $user->can('update', $repair);
     }
 
+    public function uploadToPortalTicket(User $user, Ticket $ticket): Response
+    {
+        return $user->belongsToClient($ticket->client_id) && ! $ticket->status->isTerminal()
+            ? Response::allow()
+            : Response::denyAsNotFound();
+    }
+
     private function canViewTarget(User $user, mixed $target): bool
     {
         return match (true) {
@@ -53,5 +71,17 @@ class AttachmentPolicy
             $target instanceof Repair => $user->can('update', $target),
             default => false,
         };
+    }
+
+    private function isClientOwnedTicketAttachment(User $user, Attachment $attachment): bool
+    {
+        if (! $attachment->attachable instanceof Ticket || ! $user->belongsToClient($attachment->attachable->client_id)) {
+            return false;
+        }
+
+        $attachment->loadMissing('uploadedBy');
+
+        return $attachment->uploadedBy !== null
+            && $attachment->uploadedBy->belongsToClient($attachment->attachable->client_id);
     }
 }

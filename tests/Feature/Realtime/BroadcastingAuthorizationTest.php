@@ -64,13 +64,16 @@ class BroadcastingAuthorizationTest extends TestCase
         ])->assertUnauthorized();
     }
 
-    public function test_ticket_channel_uses_the_ticket_policy_and_never_exposes_tickets_to_clients(): void
+    public function test_ticket_channel_allows_only_staff_or_the_linked_ticket_client(): void
     {
         $agent = $this->user('sav_agent');
         $client = Client::factory()->create();
         $ticket = $this->ticket($client, $agent);
         $unprivilegedUser = User::factory()->create();
         $clientUser = $this->user('client');
+        $clientUser->update(['client_id' => $client->id]);
+        $otherClientUser = $this->user('client');
+        $otherClientUser->update(['client_id' => Client::factory()->create()->id]);
 
         Sanctum::actingAs($agent);
         $this->postJson('/api/broadcasting/auth', [
@@ -91,7 +94,13 @@ class BroadcastingAuthorizationTest extends TestCase
             'socket_id' => '1234.5678',
             'channel_name' => "private-ticket.{$ticket->id}",
         ])
-            ->assertForbidden();
+            ->assertOk();
+
+        Sanctum::actingAs($otherClientUser);
+        $this->postJson('/api/broadcasting/auth', [
+            'socket_id' => '1234.5678',
+            'channel_name' => "private-ticket.{$ticket->id}",
+        ])->assertForbidden();
     }
 
     public function test_realtime_ticket_event_uses_private_ticket_and_recipient_channels(): void

@@ -8,15 +8,18 @@ import {
     markAllNotificationsAsRead,
     markNotificationAsRead,
 } from '@/features/notifications/api';
-import type { AppNotification } from '@/features/notifications/types';
+import { notificationActionUrl, type AppNotification } from '@/features/notifications/types';
+import { useAuth } from '@/hooks/useAuth';
 import { formatDate } from '@/utils/format';
 
 function NotificationItem({
     notification,
     onRead,
+    isClient,
 }: {
     notification: AppNotification;
     onRead: (notification: AppNotification) => void;
+    isClient: boolean;
 }) {
     const content = (
         <>
@@ -29,8 +32,9 @@ function NotificationItem({
         </>
     );
 
-    if (notification.action_url) {
-        return <Link className="block p-4 hover:bg-slate-50" to={notification.action_url} onClick={() => onRead(notification)}>{content}</Link>;
+    const actionUrl = notificationActionUrl(notification, isClient);
+    if (actionUrl) {
+        return <Link className="block p-4 hover:bg-slate-50" to={actionUrl} onClick={() => onRead(notification)}>{content}</Link>;
     }
 
     return <button className="block w-full p-4 text-left hover:bg-slate-50" type="button" onClick={() => onRead(notification)}>{content}</button>;
@@ -39,6 +43,8 @@ function NotificationItem({
 export function NotificationBell() {
     const queryClient = useQueryClient();
     const [isOpen, setIsOpen] = useState(false);
+    const { user } = useAuth();
+    const isClient = user?.roles.includes('client') ?? false;
     const countQuery = useQuery({
         queryKey: ['notifications', 'unread-count'],
         queryFn: getUnreadNotificationCount,
@@ -93,9 +99,9 @@ export function NotificationBell() {
                         {notificationsQuery.isLoading && <p className="p-4 text-sm text-slate-600">Loading notifications...</p>}
                         {notificationsQuery.error && <p className="m-4 rounded-md bg-rose-50 p-3 text-sm text-rose-700">Unable to load notifications.</p>}
                         {!notificationsQuery.isLoading && !notificationsQuery.error && (notificationsQuery.data?.data.length ?? 0) === 0 && <p className="p-4 text-sm text-slate-600">You are all caught up.</p>}
-                        {notificationsQuery.data?.data.map((notification) => <NotificationItem key={notification.id} notification={notification} onRead={markRead} />)}
+                        {notificationsQuery.data?.data.map((notification) => <NotificationItem key={notification.id} notification={notification} onRead={markRead} isClient={isClient} />)}
                     </div>
-                    <Link className="block border-t border-slate-200 px-4 py-3 text-center text-sm font-semibold text-blue-700 hover:bg-blue-50" to="/admin/notifications" onClick={() => setIsOpen(false)}>View all notifications</Link>
+                    <Link className="block border-t border-slate-200 px-4 py-3 text-center text-sm font-semibold text-blue-700 hover:bg-blue-50" to={isClient ? '/client/notifications' : '/admin/notifications'} onClick={() => setIsOpen(false)}>View all notifications</Link>
                 </section>
             )}
         </div>

@@ -59,6 +59,7 @@ class UserManagementService
             unset($data['password_confirmation']);
 
             $this->ensureRolesAreAssignable($actor, $roles);
+            $this->normalizeClientPortalLink($data, $roles);
 
             $data['uuid'] = (string) Str::uuid();
             $data['email'] = Str::lower((string) $data['email']);
@@ -88,6 +89,9 @@ class UserManagementService
             if (array_key_exists('email', $data)) {
                 $data['email'] = Str::lower((string) $data['email']);
             }
+
+            $effectiveRoles = $roles ?? $user->getRoleNames()->all();
+            $this->normalizeClientPortalLink($data, $effectiveRoles, $user);
 
             $user->fill($data)->save();
 
@@ -144,6 +148,36 @@ class UserManagementService
         if ($user->hasAnyRole(self::PRIVILEGED_ROLES) && ! $actor->hasRole('super_admin')) {
             throw new AuthorizationException('Only a super administrator can manage privileged accounts.');
         }
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @param  list<string>  $roles
+     */
+    private function normalizeClientPortalLink(array &$data, array $roles, ?User $user = null): void
+    {
+        $isClient = in_array('client', $roles, true);
+
+        if ($isClient && count($roles) !== 1) {
+            throw ValidationException::withMessages([
+                'roles' => 'The client role cannot be combined with staff roles.',
+            ]);
+        }
+
+        if (! $isClient) {
+            $data['client_id'] = null;
+
+            return;
+        }
+
+        $clientId = $data['client_id'] ?? $user?->client_id;
+        if ($clientId === null) {
+            throw ValidationException::withMessages([
+                'client_id' => 'A client profile is required for client portal accounts.',
+            ]);
+        }
+
+        $data['client_id'] = (int) $clientId;
     }
 
     private function loadRelations(User $user): User

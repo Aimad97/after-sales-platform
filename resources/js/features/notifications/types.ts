@@ -28,3 +28,15 @@ export interface NotificationFilters {
 export interface UnreadNotificationCount {
     count: number;
 }
+
+export function notificationActionUrl(notification: AppNotification, isClient: boolean): string | null {
+    if (!isClient) return notification.action_url;
+
+    const ticketUuid = notification.context.ticket_uuid;
+    if (typeof ticketUuid === 'string') return `/client/tickets/${ticketUuid}`;
+
+    const warrantyUuid = notification.context.warranty_uuid;
+    if (typeof warrantyUuid === 'string') return `/client/products/${warrantyUuid}`;
+
+    return notification.action_url?.startsWith('/client/') ? notification.action_url : null;
+}

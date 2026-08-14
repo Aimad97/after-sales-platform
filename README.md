@@ -73,7 +73,7 @@ VITE_REVERB_SCHEME="${REVERB_SCHEME}"
 
 Run `php artisan reverb:start` and a queue worker that includes `reports`, `mail`, and `default` (for example, `php artisan queue:work --queue=reports,mail,default`). The `composer dev` command now starts Reverb as well. Laravel Echo authorizes `private-user.{userId}` and `private-ticket.{ticketId}` through `POST /api/broadcasting/auth` with Sanctum. Reconnection is automatic; on reconnect the SPA refreshes active ticket, repair, notification, and future dashboard queries without reloading the page.
 
-Ticket, technician assignment, repair, and notification broadcasts are private. Staff ticket access uses the same server-side ticket policy as the REST API. Client-role users are deliberately denied ticket channels until a client-user ownership relationship exists, preventing cross-client disclosure.
+Ticket, technician assignment, repair, and notification broadcasts are private. Staff ticket access uses the staff policy while linked client-role users may authorize only channels for tickets owned by their client profile. Client-facing broadcast payloads contain no internal notes, costs, actor details, or staff-only history.
 
 ## Roles and permissions
 
@@ -154,7 +154,7 @@ The authenticated staff API provides:
 - `PATCH /api/warranties/{uuid}` for `warranties.manage` users
 - `GET /api/clients/{uuid}/warranties`
 
-`WarrantyEligibilityService` returns whether coverage applies, an explanatory reason, coverage dates, and remaining days. Users with only the client role cannot browse global warranty records because the application has no client-user ownership mapping yet.
+`WarrantyEligibilityService` returns whether coverage applies, an explanatory reason, coverage dates, and remaining days. Client-role users cannot browse the global warranty API; the client portal exposes only purchase and warranty records owned by the authenticated user's linked client profile.
 
 ## SAV tickets
 
@@ -169,7 +169,7 @@ The authenticated staff API provides:
 - `POST /api/tickets/{uuid}/transition`
 - `POST /api/tickets/{uuid}/cancel`
 
-`TicketWorkflowService` is the sole authority for state changes. It permits the repair path from `opened` through `closed`, plus cancellation before a terminal state; direct status and priority updates are rejected. Each transition writes a `ticket_status_histories` record with the actor, timestamp, source state, target state, and optional note. Client-role users cannot access the global ticket API until a client-user ownership mapping exists; this prevents cross-client data exposure.
+`TicketWorkflowService` is the sole authority for state changes. It permits the repair path from `opened` through `closed`, plus cancellation before a terminal state; direct status and priority updates are rejected. Each transition writes a `ticket_status_histories` record with the actor, timestamp, source state, target state, and optional note. Client-role users remain blocked from the global ticket API and use sanitized portal endpoints scoped to their linked client profile.
 
 ## Secure attachments
 
@@ -194,7 +194,7 @@ The historical `ticket_attachments` table is retained non-destructively. The att
 
 ## Notifications
 
-Ticket creation, technician assignment, ticket status transitions, diagnosis completion, repair completion, customer-approval requests, and ready-for-pickup status emit reusable notifications. Authenticated operational users receive database notifications for the SPA bell and inbox; email is queued on `NOTIFICATIONS_MAIL_QUEUE` so mail delivery never happens in the HTTP request. The ticket client is also emailed directly using the client email address until a client-user ownership mapping is introduced.
+Ticket creation, technician assignment, ticket status transitions, diagnosis completion, repair completion, customer-approval requests, and ready-for-pickup status emit reusable notifications. Authenticated operational users and active client accounts linked to the ticket's client receive database notifications for the SPA bell and inbox; email is queued on `NOTIFICATIONS_MAIL_QUEUE` so mail delivery never happens in the HTTP request. The client email remains a fallback when no linked portal account uses that address.
 
 The authenticated API provides:
 
@@ -204,6 +204,20 @@ The authenticated API provides:
 - `POST /api/notifications/mark-all-read`
 
 To enable warranty-expiration reminders, set `NOTIFY_WARRANTY_EXPIRATION=true` and configure `WARRANTY_EXPIRATION_NOTICE_DAYS` (default `30`). `php artisan notifications:send-warranty-expiration` is scheduled daily at `WARRANTY_EXPIRATION_NOTICE_SCHEDULE`; run a queue worker and Laravel scheduler in production. The expiration log makes each warranty/day reminder idempotent.
+
+## Client portal
+
+Client portal accounts use the exclusive `client` role and must have `users.client_id` linked to a non-archived client record. Administrators create or update that link in user management. The React workspace at `/client` provides the client's profile, purchased products and warranty status, SAV request submission and history, private customer attachments, real-time progress, notifications, and customer-safe repair outcomes.
+
+The authenticated portal API provides:
+
+- `GET /api/client/profile`
+- `GET /api/client/products` and `GET /api/client/products/{warrantyUuid}`
+- `GET /api/client/warranties/{warrantyUuid}`
+- `GET, POST /api/client/tickets` and `GET /api/client/tickets/{ticketUuid}`
+- `GET, POST /api/client/tickets/{ticketUuid}/attachments`
+
+Every list query starts from the authenticated user's linked client record. Object endpoints additionally enforce portal-specific policy abilities and return `404` for foreign records. Portal resources omit client administration notes, status-transition notes and actors, ticket audit history, repair history, technician internal notes, root-cause analysis, and repair costs. Client downloads are limited to ticket files uploaded by accounts linked to that same client; staff-only ticket attachments are not exposed.
 
 ## Reports and exports
 

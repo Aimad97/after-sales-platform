@@ -9,26 +9,31 @@ class CatalogPolicy
 {
     public function viewAny(User $user): bool
     {
-        return $user->can('products.view');
+        return $this->staffCan($user, 'products.view');
     }
 
     public function view(User $user, Model $catalogItem): bool
     {
-        return $user->can('products.view');
+        return $this->staffCan($user, 'products.view');
     }
 
     public function create(User $user): bool
     {
-        return $user->can('products.create');
+        return $this->staffCan($user, 'products.create');
     }
 
     public function update(User $user, Model $catalogItem): bool
     {
-        return $user->can('products.update');
+        return $this->staffCan($user, 'products.update');
     }
 
     public function delete(User $user, Model $catalogItem): bool
     {
-        return $user->can('products.delete');
+        return $this->staffCan($user, 'products.delete');
+    }
+
+    private function staffCan(User $user, string $permission): bool
+    {
+        return ! $user->hasRole('client') && $user->can($permission);
     }
 }

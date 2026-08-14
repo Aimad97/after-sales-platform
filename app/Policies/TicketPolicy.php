@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\Ticket;
 use App\Models\User;
+use Illuminate\Auth\Access\Response;
 
 class TicketPolicy
 {
@@ -40,6 +41,18 @@ class TicketPolicy
     public function cancel(User $user, Ticket $ticket): bool
     {
         return $this->staffCan($user, 'tickets.close');
+    }
+
+    public function viewPortal(User $user, Ticket $ticket): Response
+    {
+        return $user->belongsToClient($ticket->client_id)
+            ? Response::allow()
+            : Response::denyAsNotFound();
+    }
+
+    public function createPortal(User $user): bool
+    {
+        return $user->hasClientPortalAccess();
     }
 
     private function staffCan(User $user, string $permission): bool

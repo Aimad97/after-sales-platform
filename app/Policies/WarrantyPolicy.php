@@ -4,6 +4,7 @@ namespace App\Policies;
 
 use App\Models\User;
 use App\Models\Warranty;
+use Illuminate\Auth\Access\Response;
 
 class WarrantyPolicy
 {
@@ -20,5 +21,12 @@ class WarrantyPolicy
     public function update(User $user, Warranty $warranty): bool
     {
         return $user->can('warranties.manage') && ! $user->hasRole('client');
+    }
+
+    public function viewPortal(User $user, Warranty $warranty): Response
+    {
+        return $user->belongsToClient($warranty->customer_id)
+            ? Response::allow()
+            : Response::denyAsNotFound();
     }
 }

@@ -34,9 +34,20 @@ class RealtimeAudienceService
                 ->pluck('id')
                 ->all();
 
+        $clientUserIds = User::query()
+            ->with('roles')
+            ->role('client')
+            ->where('client_id', $ticket->client_id)
+            ->where('status', UserStatus::Active->value)
+            ->get()
+            ->filter(fn (User $user): bool => $user->hasClientPortalAccess())
+            ->pluck('id')
+            ->all();
+
         return array_values(array_unique([
             ...array_map('intval', $operationalUserIds),
             ...array_map('intval', $activeDirectUserIds),
+            ...array_map('intval', $clientUserIds),
         ]));
     }
 
@@ -61,9 +72,21 @@ class RealtimeAudienceService
                 ->pluck('id')
                 ->all();
 
+        $repair->loadMissing('ticket');
+        $clientUserIds = User::query()
+            ->with('roles')
+            ->role('client')
+            ->where('client_id', $repair->ticket->client_id)
+            ->where('status', UserStatus::Active->value)
+            ->get()
+            ->filter(fn (User $user): bool => $user->hasClientPortalAccess())
+            ->pluck('id')
+            ->all();
+
         return array_values(array_unique([
             ...array_map('intval', $administratorIds),
             ...array_map('intval', $activeTechnicianIds),
+            ...array_map('intval', $clientUserIds),
         ]));
     }
 }

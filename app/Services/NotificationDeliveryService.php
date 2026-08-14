@@ -20,7 +20,7 @@ class NotificationDeliveryService
 {
     public function ticketCreated(Ticket $ticket, User $actor): void
     {
-        $ticket->loadMissing(['client', 'creator', 'assignedTechnician.user']);
+        $ticket->loadMissing(['client.users.roles', 'creator', 'assignedTechnician.user']);
 
         $this->deliverTicketUpdate(
             $ticket,
@@ -36,7 +36,7 @@ class NotificationDeliveryService
 
     public function technicianAssigned(Ticket $ticket, Technician $technician, User $actor): void
     {
-        $ticket->loadMissing(['client', 'creator', 'assignedTechnician.user']);
+        $ticket->loadMissing(['client.users.roles', 'creator', 'assignedTechnician.user']);
         $technician->loadMissing('user');
         $technicianName = trim("{$technician->user?->first_name} {$technician->user?->last_name}");
 
@@ -57,7 +57,7 @@ class NotificationDeliveryService
 
     public function ticketStatusChanged(Ticket $ticket, TicketStatus $from, TicketStatus $to, User $actor): void
     {
-        $ticket->loadMissing(['client', 'creator', 'assignedTechnician.user']);
+        $ticket->loadMissing(['client.users.roles', 'creator', 'assignedTechnician.user']);
         $type = match ($to) {
             TicketStatus::AwaitingCustomerApproval => NotificationType::AwaitingCustomerApproval,
             TicketStatus::ReadyForPickup => NotificationType::ReadyForPickup,
@@ -92,7 +92,7 @@ class NotificationDeliveryService
 
     public function diagnosisCompleted(Repair $repair, User $actor): void
     {
-        $repair->loadMissing(['ticket.client', 'ticket.creator', 'ticket.assignedTechnician.user']);
+        $repair->loadMissing(['ticket.client.users.roles', 'ticket.creator', 'ticket.assignedTechnician.user']);
         $ticket = $repair->ticket;
 
         $this->deliverTicketUpdate(
@@ -112,7 +112,7 @@ class NotificationDeliveryService
 
     public function repairCompleted(Repair $repair, User $actor): void
     {
-        $repair->loadMissing(['ticket.client', 'ticket.creator', 'ticket.assignedTechnician.user']);
+        $repair->loadMissing(['ticket.client.users.roles', 'ticket.creator', 'ticket.assignedTechnician.user']);
         $ticket = $repair->ticket;
         $result = $repair->result?->value ?? 'completed';
 
@@ -134,7 +134,7 @@ class NotificationDeliveryService
 
     public function warrantyNearingExpiration(Warranty $warranty, int $daysBeforeExpiry): void
     {
-        $warranty->loadMissing(['client', 'product']);
+        $warranty->loadMissing(['client.users.roles', 'product']);
         $clientName = $warranty->client?->display_name ?? 'A client';
         $productName = $warranty->product?->name ?? 'product';
         $payload = new SavNotificationData(
@@ -151,7 +151,11 @@ class NotificationDeliveryService
         );
 
         $this->deliver(
-            $this->operationsRecipients(),
+            $this->operationsRecipients()
+                ->merge(($warranty->client?->users ?? collect())->filter(fn (User $user): bool => $user->hasClientPortalAccess()))
+                ->filter(fn (User $user): bool => $user->status === UserStatus::Active)
+                ->unique('id')
+                ->values(),
             $payload,
             $warranty->client?->email,
         );
@@ -199,8 +203,12 @@ class NotificationDeliveryService
             $ticket->assignedTechnician?->user,
         ])->filter(fn (mixed $user): bool => $user instanceof User);
 
+        $clientRecipients = ($ticket->client?->users ?? collect())
+            ->filter(fn (User $user): bool => $user->hasClientPortalAccess());
+
         return $this->operationsRecipients()
             ->merge($directRecipients)
+            ->merge($clientRecipients)
             ->filter(fn (User $user): bool => $user->status === UserStatus::Active)
             ->unique('id')
             ->values();

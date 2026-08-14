@@ -30,7 +30,7 @@ class DashboardMetricsService
      */
     public function for(User $user): array
     {
-        if ($user->hasRole('client') && ! $user->hasAnyRole(['super_admin', 'admin', 'sav_agent', 'technician'])) {
+        if ($user->isClientPortalUser()) {
             return $this->cache->remember($user, 'client', fn (): array => $this->clientDashboard($user));
         }
 

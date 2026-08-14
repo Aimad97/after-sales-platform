@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BrandController;
 use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ClientController;
+use App\Http\Controllers\Api\V1\ClientPortalController;
 use App\Http\Controllers\Api\V1\DashboardController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvoiceController;
@@ -34,6 +35,20 @@ Route::prefix('auth')->group(function (): void {
 });
 
 Route::middleware('auth:sanctum')->group(function (): void {
+    Route::prefix('client')->name('client.')->group(function (): void {
+        Route::get('/profile', [ClientPortalController::class, 'profile'])->name('profile');
+        Route::get('/products', [ClientPortalController::class, 'products'])->name('products.index');
+        Route::get('/products/{warranty}', [ClientPortalController::class, 'product'])->name('products.show');
+        Route::get('/warranties/{warranty}', [ClientPortalController::class, 'product'])->name('warranties.show');
+        Route::get('/tickets', [ClientPortalController::class, 'tickets'])->name('tickets.index');
+        Route::post('/tickets', [ClientPortalController::class, 'storeTicket'])->name('tickets.store');
+        Route::get('/tickets/{ticket}', [ClientPortalController::class, 'ticket'])->name('tickets.show');
+        Route::get('/tickets/{ticket}/attachments', [AttachmentController::class, 'clientTicketIndex'])->name('tickets.attachments.index');
+        Route::post('/tickets/{ticket}/attachments', [AttachmentController::class, 'clientTicketStore'])
+            ->middleware('throttle:attachment-upload')
+            ->name('tickets.attachments.store');
+    });
+
     Route::get('/dashboard', [DashboardController::class, 'show']);
     Route::get('/reports/exports/{export}', [ReportController::class, 'exportStatus']);
     Route::get('/reports/exports/{export}/download', [ReportController::class, 'download'])->name('reports.exports.download');

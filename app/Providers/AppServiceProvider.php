@@ -82,7 +82,13 @@ class AppServiceProvider extends ServiceProvider
         Technician::observe(DashboardMetricsCacheObserver::class);
         User::observe(DashboardMetricsCacheObserver::class);
 
-        Gate::before(fn (User $user): ?bool => $user->hasRole('super_admin') ? true : null);
+        Gate::before(function (User $user): ?bool {
+            if ($user->hasRole('client') && ! $user->isClientPortalUser()) {
+                return false;
+            }
+
+            return $user->hasRole('super_admin') ? true : null;
+        });
 
         ResetPassword::createUrlUsing(fn (object $notifiable, string $token): string => sprintf(
             '%s/reset-password?%s',

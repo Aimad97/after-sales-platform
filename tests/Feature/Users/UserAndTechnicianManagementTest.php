@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Users;
 
+use App\Models\Client;
 use App\Models\Technician;
 use App\Models\User;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -22,6 +23,7 @@ class UserAndTechnicianManagementTest extends TestCase
     public function test_an_admin_can_create_search_update_and_archive_a_standard_user(): void
     {
         $admin = $this->userWithRole('admin');
+        $client = Client::factory()->create();
 
         $response = $this->actingAs($admin)->postJson('/api/users', [
             'first_name' => 'Zara',
@@ -33,12 +35,14 @@ class UserAndTechnicianManagementTest extends TestCase
             'timezone' => 'Africa/Casablanca',
             'password' => 'Password!123456',
             'password_confirmation' => 'Password!123456',
+            'client_id' => $client->id,
             'roles' => ['client'],
         ]);
 
         $response->assertCreated()
             ->assertJsonPath('data.email', 'zara@example.test')
             ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('data.client.uuid', $client->uuid)
             ->assertJsonPath('data.roles.0', 'client');
 
         $user = User::query()->where('email', 'zara@example.test')->firstOrFail();

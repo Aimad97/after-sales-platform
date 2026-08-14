@@ -8,7 +8,8 @@ import {
     markAllNotificationsAsRead,
     markNotificationAsRead,
 } from '@/features/notifications/api';
-import type { AppNotification, NotificationFilters } from '@/features/notifications/types';
+import { notificationActionUrl, type AppNotification, type NotificationFilters } from '@/features/notifications/types';
+import { useAuth } from '@/hooks/useAuth';
 import { formatDate } from '@/utils/format';
 
 function ErrorMessage({ error }: { error: unknown }) {
@@ -18,9 +19,11 @@ function ErrorMessage({ error }: { error: unknown }) {
 function NotificationRow({
     notification,
     onRead,
+    isClient,
 }: {
     notification: AppNotification;
     onRead: (notification: AppNotification) => void;
+    isClient: boolean;
 }) {
     const detail = (
         <div className="min-w-0">
@@ -35,11 +38,12 @@ function NotificationRow({
     const rowClass = notification.read_at === null
         ? 'rounded-xl border border-blue-200 bg-blue-50/30 p-5 shadow-sm'
         : 'rounded-xl border border-slate-200 bg-white p-5 shadow-sm';
+    const actionUrl = notificationActionUrl(notification, isClient);
 
     return (
         <article className={rowClass}>
             <div className="flex flex-wrap items-start justify-between gap-4">
-                {notification.action_url ? <Link className="min-w-0 flex-1" to={notification.action_url} onClick={() => onRead(notification)}>{detail}</Link> : <div className="min-w-0 flex-1">{detail}</div>}
+                {actionUrl ? <Link className="min-w-0 flex-1" to={actionUrl} onClick={() => onRead(notification)}>{detail}</Link> : <div className="min-w-0 flex-1">{detail}</div>}
                 {notification.read_at === null && <button className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white" type="button" onClick={() => onRead(notification)}><Check size={16} />Mark read</button>}
             </div>
         </article>
@@ -49,6 +53,8 @@ function NotificationRow({
 export function NotificationsPage() {
     const queryClient = useQueryClient();
     const [filters, setFilters] = useState<NotificationFilters>({ per_page: 20 });
+    const { user } = useAuth();
+    const isClient = user?.roles.includes('client') ?? false;
     const notificationsQuery = useQuery({
         queryKey: ['notifications', 'list', filters],
         queryFn: () => listNotifications(filters),
@@ -80,14 +86,14 @@ export function NotificationsPage() {
     return (
         <section className="max-w-5xl space-y-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
-                <div><h2 className="text-2xl font-bold text-slate-900">Notifications</h2><p className="mt-1 text-sm text-slate-600">Review ticket, repair, and warranty updates assigned to you.</p></div>
+                <div><h2 className="text-2xl font-bold text-slate-900">Notifications</h2><p className="mt-1 text-sm text-slate-600">Review ticket, repair, and warranty updates relevant to your account.</p></div>
                 <button className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white disabled:opacity-50" type="button" disabled={markAllMutation.isPending} onClick={() => markAllMutation.mutate()}><CheckCheck size={17} />Mark all as read</button>
             </div>
             <div className="flex gap-2 rounded-xl border border-slate-200 bg-white p-3">
                 <button className={unreadClass} type="button" onClick={() => setFilters({ per_page: 20, unread: true })}>Unread</button>
                 <button className={allClass} type="button" onClick={() => setFilters({ per_page: 20 })}>All</button>
             </div>
-            {notificationsQuery.isLoading ? <p className="text-sm text-slate-600">Loading notifications...</p> : <><ErrorMessage error={notificationsQuery.error} /><div className="space-y-3">{notificationsQuery.data?.data.map((notification) => <NotificationRow key={notification.id} notification={notification} onRead={markRead} />)}{!notificationsQuery.error && (notificationsQuery.data?.data.length ?? 0) === 0 && <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">No notifications match this view.</p>}</div>{notificationsQuery.data && <Pagination meta={notificationsQuery.data.meta} onPageChange={(page) => setFilters((current) => ({ ...current, page }))} />}</>}
+            {notificationsQuery.isLoading ? <p className="text-sm text-slate-600">Loading notifications...</p> : <><ErrorMessage error={notificationsQuery.error} /><div className="space-y-3">{notificationsQuery.data?.data.map((notification) => <NotificationRow key={notification.id} notification={notification} onRead={markRead} isClient={isClient} />)}{!notificationsQuery.error && (notificationsQuery.data?.data.length ?? 0) === 0 && <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">No notifications match this view.</p>}</div>{notificationsQuery.data && <Pagination meta={notificationsQuery.data.meta} onPageChange={(page) => setFilters((current) => ({ ...current, page }))} />}</>}
         </section>
     );
 }

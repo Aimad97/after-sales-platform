@@ -3,8 +3,6 @@
 namespace App\Services;
 
 use App\Http\Resources\NotificationResource;
-use App\Http\Resources\RepairResource;
-use App\Http\Resources\TicketResource;
 use App\Models\Repair;
 use App\Models\Ticket;
 use Illuminate\Http\Request;
@@ -17,18 +15,31 @@ class RealtimePayloadService
      */
     public function ticket(Ticket $ticket): array
     {
-        $ticket->loadMissing([
-            'client',
-            'product',
-            'warranty',
-            'invoiceItem.invoice',
-            'creator',
-            'assignedTechnician.user',
-            'statusHistory.transitionedBy',
-            'history.actor',
-        ]);
+        $ticket->loadMissing(['product', 'warranty']);
 
-        return (new TicketResource($ticket))->resolve(new Request);
+        return [
+            'id' => $ticket->id,
+            'uuid' => $ticket->uuid,
+            'ticket_number' => $ticket->ticket_number,
+            'title' => $ticket->title,
+            'priority' => $ticket->priority?->value,
+            'status' => $ticket->status?->value,
+            'warranty_eligible' => $ticket->warranty_eligible,
+            'received_at' => $ticket->received_at?->toISOString(),
+            'closed_at' => $ticket->closed_at?->toISOString(),
+            'product' => $ticket->product === null ? null : [
+                'uuid' => $ticket->product->uuid,
+                'sku' => $ticket->product->sku,
+                'name' => $ticket->product->name,
+                'model' => $ticket->product->model,
+            ],
+            'warranty' => $ticket->warranty === null ? null : [
+                'uuid' => $ticket->warranty->uuid,
+                'serial_number' => $ticket->warranty->serial_number,
+                'status' => $ticket->warranty->effectiveStatus()->value,
+            ],
+            'updated_at' => $ticket->updated_at?->toISOString(),
+        ];
     }
 
     /**
@@ -36,14 +47,15 @@ class RealtimePayloadService
      */
     public function repair(Repair $repair): array
     {
-        $repair->loadMissing([
-            'ticket.client',
-            'ticket.product',
-            'technician.user',
-            'history.changedBy',
-        ]);
-
-        return (new RepairResource($repair))->resolve(new Request);
+        return [
+            'id' => $repair->id,
+            'ticket_id' => $repair->ticket_id,
+            'customer_notes' => $repair->customer_notes,
+            'started_at' => $repair->started_at?->toISOString(),
+            'completed_at' => $repair->completed_at?->toISOString(),
+            'result' => $repair->result?->value,
+            'updated_at' => $repair->updated_at?->toISOString(),
+        ];
     }
 
     /**

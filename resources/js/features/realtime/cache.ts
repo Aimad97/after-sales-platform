@@ -26,6 +26,7 @@ function invalidateActiveOperationalQueries(queryClient: QueryClient): void {
         refetchType: 'active',
     });
     void queryClient.invalidateQueries({ queryKey: ['dashboard'], refetchType: 'active' });
+    void queryClient.invalidateQueries({ queryKey: ['client-portal'], refetchType: 'active' });
 }
 
 export function applyTicketRealtimeUpdate(queryClient: QueryClient, ticket: Ticket): void {
@@ -36,11 +37,11 @@ export function applyTicketRealtimeUpdate(queryClient: QueryClient, ticket: Tick
 
             return {
                 ...existing,
-                data: existing.data.map((current) => current.uuid === ticket.uuid ? ticket : current),
+                data: existing.data.map((current) => current.uuid === ticket.uuid ? { ...current, ...ticket } : current),
             };
         },
     );
-    queryClient.setQueriesData<Ticket>({ queryKey: ['tickets', ticket.uuid], exact: true }, () => ticket);
+    queryClient.setQueriesData<Ticket>({ queryKey: ['tickets', ticket.uuid], exact: true }, (existing) => existing ? { ...existing, ...ticket } : existing);
     invalidateActiveOperationalQueries(queryClient);
 }
 
@@ -52,11 +53,11 @@ export function applyRepairRealtimeUpdate(queryClient: QueryClient, repair: Repa
 
             return {
                 ...existing,
-                data: existing.data.map((current) => current.id === repair.id ? repair : current),
+                data: existing.data.map((current) => current.id === repair.id ? { ...current, ...repair } : current),
             };
         },
     );
-    queryClient.setQueriesData<Repair>({ queryKey: ['repairs', repair.id], exact: true }, () => repair);
+    queryClient.setQueriesData<Repair>({ queryKey: ['repairs', repair.id], exact: true }, (existing) => existing ? { ...existing, ...repair } : existing);
     applyTicketRealtimeUpdate(queryClient, ticket);
 }
 

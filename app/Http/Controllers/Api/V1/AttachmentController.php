@@ -49,6 +49,29 @@ class AttachmentController extends Controller
         return $this->store($request, $ticket);
     }
 
+    public function clientTicketIndex(Request $request, Ticket $ticket)
+    {
+        $this->authorize('viewPortal', $ticket);
+        $clientId = (int) $request->user()->client_id;
+
+        return AttachmentResource::collection(
+            $ticket->attachments()
+                ->whereHas('uploadedBy', fn ($query) => $query
+                    ->where('client_id', $clientId)
+                    ->role('client')
+                    ->whereDoesntHave('roles', fn ($query) => $query->whereIn('name', ['super_admin', 'admin', 'sav_agent', 'technician'])))
+                ->with('uploadedBy')
+                ->get(),
+        );
+    }
+
+    public function clientTicketStore(StoreAttachmentRequest $request, Ticket $ticket): JsonResponse
+    {
+        $this->authorize('uploadToPortalTicket', [Attachment::class, $ticket]);
+
+        return $this->store($request, $ticket);
+    }
+
     public function productStore(StoreAttachmentRequest $request, Product $product): JsonResponse
     {
         $this->authorize('uploadToProduct', [Attachment::class, $product]);

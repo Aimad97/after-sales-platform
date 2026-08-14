@@ -8,8 +8,8 @@ class DashboardPolicy
 {
     public function view(User $user): bool
     {
-        if ($user->hasRole('client') && ! $user->hasAnyRole(['super_admin', 'admin', 'sav_agent', 'technician'])) {
-            return true;
+        if ($user->hasRole('client')) {
+            return $user->isClientPortalUser();
         }
 
         return $user->can('dashboard.view');
