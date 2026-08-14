@@ -36,7 +36,7 @@ For local development, run these processes in separate terminals:
 
 ```bash
 php artisan serve
-php artisan queue:work redis --queue=mail,default
+php artisan queue:work --queue=reports,mail,default
 php artisan schedule:work
 php artisan reverb:start
 npm run dev
@@ -71,7 +71,7 @@ VITE_REVERB_PORT="${REVERB_PORT}"
 VITE_REVERB_SCHEME="${REVERB_SCHEME}"
 ```
 
-Run `php artisan reverb:start` and a queue worker that includes `default` (for example, `php artisan queue:work redis --queue=mail,default`). The `composer dev` command now starts Reverb as well. Laravel Echo authorizes `private-user.{userId}` and `private-ticket.{ticketId}` through `POST /api/broadcasting/auth` with Sanctum. Reconnection is automatic; on reconnect the SPA refreshes active ticket, repair, notification, and future dashboard queries without reloading the page.
+Run `php artisan reverb:start` and a queue worker that includes `reports`, `mail`, and `default` (for example, `php artisan queue:work --queue=reports,mail,default`). The `composer dev` command now starts Reverb as well. Laravel Echo authorizes `private-user.{userId}` and `private-ticket.{ticketId}` through `POST /api/broadcasting/auth` with Sanctum. Reconnection is automatic; on reconnect the SPA refreshes active ticket, repair, notification, and future dashboard queries without reloading the page.
 
 Ticket, technician assignment, repair, and notification broadcasts are private. Staff ticket access uses the same server-side ticket policy as the REST API. Client-role users are deliberately denied ticket channels until a client-user ownership relationship exists, preventing cross-client disclosure.
 
@@ -204,6 +204,16 @@ The authenticated API provides:
 - `POST /api/notifications/mark-all-read`
 
 To enable warranty-expiration reminders, set `NOTIFY_WARRANTY_EXPIRATION=true` and configure `WARRANTY_EXPIRATION_NOTICE_DAYS` (default `30`). `php artisan notifications:send-warranty-expiration` is scheduled daily at `WARRANTY_EXPIRATION_NOTICE_SCHEDULE`; run a queue worker and Laravel scheduler in production. The expiration log makes each warranty/day reminder idempotent.
+
+## Reports and exports
+
+Administrators can view database-aggregated reports for tickets, repairs, warranties, technician performance, defective products, and client SAV history. Each report accepts date, technician, ticket status/priority, catalog, product, warranty state, and client filters where relevant. The API provides:
+
+- `GET /api/reports/{tickets|repairs|warranties|technician_performance|defective_products|client_history}`
+- `POST /api/reports/{type}/exports` with `{ "format": "csv", ...filters }`
+- `GET /api/reports/exports/{uuid}` and `GET /api/reports/exports/{uuid}/download`
+
+CSV exports are intentionally queued on the `reports` queue, so export generation never holds an HTTP request open. The current dependency set does not include a compatible Excel or PDF renderer, so only CSV is exposed. Files are stored on the private `report_exports` disk and can only be downloaded through the authorized API. Set `REPORT_EXPORT_DISK`, `REPORT_EXPORT_QUEUE`, and `REPORT_EXPORT_EXPIRATION_DAYS` to configure the deployment; do not point the export disk at `public`. The scheduler runs `reports:prune-expired` daily to remove expired private files and export metadata.
 
 ## Project organization
 

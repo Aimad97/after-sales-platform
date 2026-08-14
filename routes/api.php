@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\V1\InvoiceController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\ProductController;
 use App\Http\Controllers\Api\V1\RepairController;
+use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\TechnicianController;
 use App\Http\Controllers\Api\V1\TicketController;
 use App\Http\Controllers\Api\V1\UserController;
@@ -34,6 +35,10 @@ Route::prefix('auth')->group(function (): void {
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/dashboard', [DashboardController::class, 'show']);
+    Route::get('/reports/exports/{export}', [ReportController::class, 'exportStatus']);
+    Route::get('/reports/exports/{export}/download', [ReportController::class, 'download'])->name('reports.exports.download');
+    Route::get('/reports/{type}', [ReportController::class, 'index']);
+    Route::post('/reports/{type}/exports', [ReportController::class, 'export'])->middleware('throttle:report-export');
     Route::get('/audit-logs', [AuditLogController::class, 'index']);
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::get('/notifications/unread-count', [NotificationController::class, 'unreadCount']);

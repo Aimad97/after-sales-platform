@@ -11,3 +11,7 @@ Artisan::command('inspire', function () {
 Schedule::command('notifications:send-warranty-expiration')
     ->dailyAt((string) config('notifications.warranty_expiration.schedule'))
     ->withoutOverlapping();
+
+Schedule::command('reports:prune-expired')
+    ->daily()
+    ->withoutOverlapping();

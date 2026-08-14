@@ -10,6 +10,7 @@ use App\Models\Client;
 use App\Models\Invoice;
 use App\Models\Product;
 use App\Models\Repair;
+use App\Models\ReportExport;
 use App\Models\Technician;
 use App\Models\Ticket;
 use App\Models\User;
@@ -24,6 +25,8 @@ use App\Policies\ClientPolicy;
 use App\Policies\DashboardPolicy;
 use App\Policies\InvoicePolicy;
 use App\Policies\RepairPolicy;
+use App\Policies\ReportExportPolicy;
+use App\Policies\ReportPolicy;
 use App\Policies\TechnicianPolicy;
 use App\Policies\TicketPolicy;
 use App\Policies\UserPolicy;
@@ -63,7 +66,9 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(Repair::class, RepairPolicy::class);
         Gate::policy(AuditLog::class, AuditLogPolicy::class);
         Gate::policy(Attachment::class, AttachmentPolicy::class);
+        Gate::policy(ReportExport::class, ReportExportPolicy::class);
         Gate::define('view-dashboard', [DashboardPolicy::class, 'view']);
+        Gate::define('view-reports', [ReportPolicy::class, 'view']);
         Ticket::observe(AuditObserver::class);
         Repair::observe(AuditObserver::class);
         Attachment::observe(AuditObserver::class);
@@ -95,6 +100,10 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('attachment-upload', function (Request $request): Limit {
             return Limit::perMinute(30)->by(($request->user()?->getAuthIdentifier() ?? 'guest').'|'.$request->ip());
+        });
+
+        RateLimiter::for('report-export', function (Request $request): Limit {
+            return Limit::perMinute(10)->by(($request->user()?->getAuthIdentifier() ?? 'guest').'|'.$request->ip());
         });
     }
 }

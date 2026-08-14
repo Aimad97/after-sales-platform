@@ -50,6 +50,17 @@ return [
             'report' => false,
         ],
 
+        /*
+        | Report files are private too: every download goes through the
+        | authorized reports API rather than a public storage URL.
+        */
+        'report_exports' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private/report-exports'),
+            'throw' => false,
+            'report' => false,
+        ],
+
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
