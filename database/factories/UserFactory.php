@@ -2,6 +2,8 @@
 
 namespace Database\Factories;
 
+use App\Enums\UserStatus;
+use App\Models\Client;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
@@ -35,7 +37,7 @@ class UserFactory extends Factory
             'remember_token' => Str::random(10),
             'locale' => 'en',
             'timezone' => 'Africa/Casablanca',
-            'status' => 'active',
+            'status' => UserStatus::Active,
         ];
     }
 
@@ -47,5 +49,25 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'email_verified_at' => null,
         ]);
+    }
+
+    public function invited(): static
+    {
+        return $this->state(fn (): array => ['status' => UserStatus::Invited]);
+    }
+
+    public function suspended(): static
+    {
+        return $this->state(fn (): array => ['status' => UserStatus::Suspended]);
+    }
+
+    public function archived(): static
+    {
+        return $this->state(fn (): array => ['status' => UserStatus::Archived]);
+    }
+
+    public function forClient(Client $client): static
+    {
+        return $this->state(fn (): array => ['client_id' => $client->id]);
     }
 }

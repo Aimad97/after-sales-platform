@@ -3,12 +3,15 @@
 namespace App\Models;
 
 use App\Enums\ReportExportStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Str;
 
 class ReportExport extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'uuid',
         'requested_by',

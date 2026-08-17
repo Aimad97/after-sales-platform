@@ -5,15 +5,17 @@ namespace App\Models;
 use App\Enums\TicketPriority;
 use App\Enums\TicketSource;
 use App\Enums\TicketStatus;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Ticket extends Model
 {
-    use SoftDeletes;
+    use HasFactory, SoftDeletes;
 
     /**
      * @var list<string>
@@ -112,7 +114,7 @@ class Ticket extends Model
         return $this->hasMany(Intervention::class);
     }
 
-    public function repair(): \Illuminate\Database\Eloquent\Relations\HasOne
+    public function repair(): HasOne
     {
         return $this->hasOne(Repair::class);
     }

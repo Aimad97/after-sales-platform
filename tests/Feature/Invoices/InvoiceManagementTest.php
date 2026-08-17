@@ -5,7 +5,9 @@ namespace Tests\Feature\Invoices;
 use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Client;
+use App\Models\Invoice;
 use App\Models\Product;
+use App\Models\Ticket;
 use App\Models\User;
 use App\Models\Warranty;
 use Database\Seeders\RolesAndPermissionsSeeder;
@@ -200,6 +202,58 @@ class InvoiceManagementTest extends TestCase
 
         $this->actingAs($technician)->getJson('/api/invoices')->assertForbidden();
         $this->actingAs($technician)->postJson('/api/invoices', [])->assertForbidden();
+    }
+
+    public function test_issued_invoices_and_drafts_linked_to_tickets_cannot_be_rewritten(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $client = Client::factory()->create();
+        $product = $this->createProduct(serialNumberRequired: true, warrantyMonths: 12);
+        $basePayload = [
+            'client_id' => $client->id,
+            'invoice_date' => '2026-03-01',
+            'tax_rate' => 20,
+            'items' => [[
+                'product_id' => $product->id,
+                'serial_number' => 'LOCKED-INVOICE-001',
+                'quantity' => 1,
+                'unit_price' => 700,
+                'warranty_months' => 12,
+            ]],
+        ];
+
+        $issuedId = $this->actingAs($admin)->postJson('/api/invoices', [
+            ...$basePayload,
+            'invoice_number' => 'INV-LOCKED-ISSUED',
+            'status' => 'issued',
+        ])->assertCreated()->json('data.id');
+
+        $this->actingAs($admin)->putJson("/api/invoices/{$issuedId}", [
+            ...$basePayload,
+            'invoice_number' => 'INV-LOCKED-ISSUED',
+            'status' => 'issued',
+            'items' => [[...$basePayload['items'][0], 'unit_price' => 1]],
+        ])->assertUnprocessable()->assertJsonValidationErrors('invoice');
+
+        $draftId = $this->actingAs($admin)->postJson('/api/invoices', [
+            ...$basePayload,
+            'invoice_number' => 'INV-LOCKED-DRAFT',
+            'status' => 'draft',
+            'items' => [[...$basePayload['items'][0], 'serial_number' => 'LOCKED-INVOICE-002']],
+        ])->assertCreated()->json('data.id');
+        $draft = Invoice::query()->findOrFail($draftId);
+        $warranty = Warranty::query()->whereHas('invoiceItem', fn ($query) => $query->where('invoice_id', $draft->id))->firstOrFail();
+        Ticket::factory()->forWarranty($warranty)->create(['created_by' => $admin->id]);
+
+        $this->actingAs($admin)->putJson("/api/invoices/{$draft->id}", [
+            ...$basePayload,
+            'invoice_number' => 'INV-LOCKED-DRAFT',
+            'status' => 'draft',
+            'items' => [[...$basePayload['items'][0], 'serial_number' => 'LOCKED-INVOICE-002', 'unit_price' => 1]],
+        ])->assertUnprocessable()->assertJsonValidationErrors('invoice');
+
+        $this->assertDatabaseHas('invoices', ['id' => $issuedId, 'total_amount' => 840]);
+        $this->assertDatabaseHas('invoices', ['id' => $draftId, 'total_amount' => 840]);
     }
 
     private function userWithRole(string $role): User
