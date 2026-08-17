@@ -111,5 +111,9 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('report-export', function (Request $request): Limit {
             return Limit::perMinute(10)->by(($request->user()?->getAuthIdentifier() ?? 'guest').'|'.$request->ip());
         });
+
+        RateLimiter::for('global-search', function (Request $request): Limit {
+            return Limit::perMinute(60)->by(($request->user()?->getAuthIdentifier() ?? 'guest').'|'.$request->ip());
+        });
     }
 }

@@ -17,6 +17,7 @@ import { TicketDetailsPage, TicketFormPage, TicketsPage } from '@/features/ticke
 import { RepairDetailsPage, RepairsPage } from '@/features/repairs/RepairPages';
 import { AuditLogsPage } from '@/features/audit-logs/AuditLogsPage';
 import { NotificationBell } from '@/components/NotificationBell';
+import { GlobalSearchPalette } from '@/components/GlobalSearchPalette';
 import { NotificationsPage } from '@/features/notifications/NotificationPages';
 import { DashboardPage } from '@/features/dashboard/DashboardPages';
 import { ReportsPage } from '@/features/reports/ReportsPage';
@@ -83,7 +84,7 @@ function AdminLayout() {
                 <header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="flex flex-wrap items-center justify-between gap-4">
                         <div><p className="text-sm font-semibold text-blue-600">ServiceDesk</p><h1 className="mt-1 text-2xl font-bold">Welcome, {user?.first_name}</h1></div>
-                        <div className="flex items-center gap-2"><NotificationBell /><button className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50" onClick={() => logout.mutate()}>Sign out</button></div>
+                        <div className="flex items-center gap-2"><GlobalSearchPalette /><NotificationBell /><button className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50" onClick={() => logout.mutate()}>Sign out</button></div>
                     </div>
                     <nav className="mt-5 flex flex-wrap gap-2 text-sm" aria-label="Workspace navigation">
                         <Can permission="dashboard.view"><NavLink className={navigationClass} to="/admin" end>Dashboard</NavLink></Can>
@@ -111,7 +112,7 @@ function ClientLayout() {
     const { user, logout } = useAuth();
     const navigationClass = ({ isActive }: { isActive: boolean }) => `rounded-md px-3 py-2 font-medium ${isActive ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`;
 
-    return <main className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-6"><section className="mx-auto max-w-6xl"><header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-sm font-semibold text-blue-600">ServiceDesk Client Portal</p><h1 className="mt-1 text-2xl font-bold">Hello, {user?.first_name}</h1></div><div className="flex items-center gap-2"><NotificationBell /><button className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50" onClick={() => logout.mutate()}>Sign out</button></div></div><nav className="mt-5 flex flex-wrap gap-2 text-sm" aria-label="Client portal navigation"><NavLink className={navigationClass} to="/client" end>Overview</NavLink><NavLink className={navigationClass} to="/client/profile">My profile</NavLink><NavLink className={navigationClass} to="/client/products">Products & warranties</NavLink><NavLink className={navigationClass} to="/client/tickets">SAV requests</NavLink><NavLink className={navigationClass} to="/client/notifications">Notifications</NavLink></nav></header><div className="mt-6"><Outlet /></div></section></main>;
+    return <main className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-6"><section className="mx-auto max-w-6xl"><header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div className="flex flex-wrap items-center justify-between gap-4"><div><p className="text-sm font-semibold text-blue-600">ServiceDesk Client Portal</p><h1 className="mt-1 text-2xl font-bold">Hello, {user?.first_name}</h1></div><div className="flex items-center gap-2"><GlobalSearchPalette /><NotificationBell /><button className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50" onClick={() => logout.mutate()}>Sign out</button></div></div><nav className="mt-5 flex flex-wrap gap-2 text-sm" aria-label="Client portal navigation"><NavLink className={navigationClass} to="/client" end>Overview</NavLink><NavLink className={navigationClass} to="/client/profile">My profile</NavLink><NavLink className={navigationClass} to="/client/products">Products & warranties</NavLink><NavLink className={navigationClass} to="/client/tickets">SAV requests</NavLink><NavLink className={navigationClass} to="/client/notifications">Notifications</NavLink></nav></header><div className="mt-6"><Outlet /></div></section></main>;
 }
 
 function WorkspaceRedirect() {

@@ -34,7 +34,10 @@ class ProductManagementService
             })
             ->when($filters['category_id'] ?? null, fn ($query, int $categoryId) => $query->where('category_id', $categoryId))
             ->when($filters['brand_id'] ?? null, fn ($query, int $brandId) => $query->where('brand_id', $brandId))
-            ->when(array_key_exists('active', $filters), fn ($query) => $query->where('active', $filters['active']))
+            ->when(
+                array_key_exists('active', $filters) && $filters['active'] !== null,
+                fn ($query) => $query->where('active', $filters['active']),
+            )
             ->orderBy($sort, $direction)
             ->orderBy('id')
             ->paginate($filters['per_page'] ?? 15)

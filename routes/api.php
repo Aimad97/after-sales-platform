@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\V1\CategoryController;
 use App\Http\Controllers\Api\V1\ClientController;
 use App\Http\Controllers\Api\V1\ClientPortalController;
 use App\Http\Controllers\Api\V1\DashboardController;
+use App\Http\Controllers\Api\V1\GlobalSearchController;
 use App\Http\Controllers\Api\V1\HealthController;
 use App\Http\Controllers\Api\V1\InvoiceController;
 use App\Http\Controllers\Api\V1\NotificationController;
@@ -35,6 +36,8 @@ Route::prefix('auth')->group(function (): void {
 });
 
 Route::middleware('auth:sanctum')->group(function (): void {
+    Route::get('/search', GlobalSearchController::class)->middleware('throttle:global-search');
+
     Route::prefix('client')->name('client.')->group(function (): void {
         Route::get('/profile', [ClientPortalController::class, 'profile'])->name('profile');
         Route::get('/products', [ClientPortalController::class, 'products'])->name('products.index');

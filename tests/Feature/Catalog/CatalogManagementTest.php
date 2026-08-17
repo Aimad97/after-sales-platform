@@ -91,6 +91,23 @@ class CatalogManagementTest extends TestCase
             ->assertJsonValidationErrors('slug');
     }
 
+    public function test_an_empty_active_filter_returns_all_products(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $category = $this->createCategory($admin);
+        $brand = $this->createBrand($admin);
+
+        $this->actingAs($admin)
+            ->postJson('/api/products', $this->productPayload($category['id'], $brand['id']))
+            ->assertCreated();
+
+        $this->actingAs($admin)
+            ->getJson('/api/products?active=&per_page=100&sort=name&direction=asc')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.sku', 'WASH-100');
+    }
+
     public function test_catalog_records_in_use_cannot_be_deleted(): void
     {
         $admin = $this->userWithRole('admin');
