@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Catalog;
 
+use App\Models\Brand;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -9,7 +10,7 @@ class IndexBrandsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('viewAny', Brand::class) ?? false;
     }
 
     /**

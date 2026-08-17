@@ -45,7 +45,6 @@ export interface TechnicianDashboard {
 }
 
 export interface ClientRepairUpdate {
-    repair_id: number;
     ticket_uuid: string | null;
     ticket_number: string | null;
     ticket_title: string | null;

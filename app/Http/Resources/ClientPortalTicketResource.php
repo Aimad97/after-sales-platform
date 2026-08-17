@@ -15,7 +15,6 @@ class ClientPortalTicketResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
-            'id' => $this->id,
             'uuid' => $this->uuid,
             'ticket_number' => $this->ticket_number,
             'title' => $this->title,
@@ -45,7 +44,6 @@ class ClientPortalTicketResource extends JsonResource
             ] : null,
             'status_timeline' => $this->relationLoaded('statusHistory')
                 ? $this->statusHistory->map(fn (TicketStatusHistory $history): array => [
-                    'id' => $history->id,
                     'from_status' => $this->enumValue($history->from_status),
                     'to_status' => $this->enumValue($history->to_status),
                     'transitioned_at' => $history->transitioned_at?->toISOString(),
@@ -55,8 +53,8 @@ class ClientPortalTicketResource extends JsonResource
                 ? AttachmentResource::collection($this->attachments)
                 : [],
             'repair_outcome' => $this->relationLoaded('repair') && $this->repair !== null ? [
-                'diagnosis' => $this->repair->diagnosis,
-                'repair_action' => $this->repair->repair_action,
+                // Diagnosis and repair actions are technician-facing notes. A
+                // client receives only the customer-safe outcome fields.
                 'customer_notes' => $this->repair->customer_notes,
                 'result' => $this->enumValue($this->repair->result),
                 'started_at' => $this->repair->started_at?->toISOString(),

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Tickets;
 
+use App\Models\Ticket;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -9,7 +10,9 @@ class AssignTechnicianRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $ticket = $this->route('ticket');
+
+        return $ticket instanceof Ticket && ($this->user()?->can('assign', $ticket) ?? false);
     }
 
     /**

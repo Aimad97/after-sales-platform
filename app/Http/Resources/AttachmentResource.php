@@ -14,8 +14,10 @@ class AttachmentResource extends JsonResource
      */
     public function toArray(Request $request): array
     {
+        $isClientPortal = $request->user()?->hasClientPortalAccess() ?? false;
+
         return [
-            'id' => $this->id,
+            'id' => $this->when(! $isClientPortal, $this->id),
             'uuid' => $this->uuid,
             'original_filename' => $this->original_filename,
             'mime_type' => $this->mime_type,
@@ -27,7 +29,7 @@ class AttachmentResource extends JsonResource
                 : null,
             'uploaded_by' => $this->relationLoaded('uploadedBy') && $this->uploadedBy !== null
                 ? [
-                    'id' => $this->uploadedBy->id,
+                    'id' => $this->when(! $isClientPortal, $this->uploadedBy->id),
                     'display_name' => trim("{$this->uploadedBy->first_name} {$this->uploadedBy->last_name}"),
                 ]
                 : null,

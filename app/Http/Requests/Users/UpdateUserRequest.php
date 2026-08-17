@@ -12,7 +12,9 @@ class UpdateUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $user = $this->route('user');
+
+        return $user instanceof User && ($this->user()?->can('update', $user) ?? false);
     }
 
     /**
@@ -32,7 +34,7 @@ class UpdateUserRequest extends FormRequest
             'locale' => ['sometimes', 'required', 'string', 'max:10'],
             'timezone' => ['sometimes', 'required', 'timezone'],
             'client_id' => ['sometimes', 'nullable', 'integer', Rule::exists('customers', 'id')->whereNull('deleted_at')],
-            'password' => ['nullable', 'confirmed', Password::defaults()],
+            'password' => ['nullable', 'string', 'max:255', 'confirmed', Password::defaults()],
             'roles' => ['sometimes', 'required', 'array', 'min:1'],
             'roles.*' => ['required', 'string', 'distinct', Rule::exists('roles', 'name')->where('guard_name', 'web')],
         ];

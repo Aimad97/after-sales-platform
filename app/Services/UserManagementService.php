@@ -17,6 +17,8 @@ class UserManagementService
     /** @var list<string> */
     private const PRIVILEGED_ROLES = ['super_admin', 'admin'];
 
+    public function __construct(private readonly CredentialRevocationService $credentials) {}
+
     /**
      * @param  array<string, mixed>  $filters
      * @return LengthAwarePaginator<int, User>
@@ -86,6 +88,12 @@ class UserManagementService
                 unset($data['password']);
             }
 
+            $revokeCredentials = $roles !== null
+                || array_key_exists('password', $data)
+                || array_key_exists('email', $data)
+                || array_key_exists('status', $data)
+                || array_key_exists('client_id', $data);
+
             if (array_key_exists('email', $data)) {
                 $data['email'] = Str::lower((string) $data['email']);
             }
@@ -98,6 +106,10 @@ class UserManagementService
             if ($roles !== null) {
                 $this->ensureRolesAreAssignable($actor, $roles);
                 $user->syncRoles($roles);
+            }
+
+            if ($revokeCredentials) {
+                $this->credentials->revoke($user);
             }
 
             return $this->loadRelations($user);
@@ -116,6 +128,7 @@ class UserManagementService
 
         DB::transaction(function () use ($user): void {
             $user->forceFill(['status' => UserStatus::Archived])->save();
+            $this->credentials->revoke($user);
             $user->delete();
         });
     }

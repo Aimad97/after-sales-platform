@@ -4,6 +4,7 @@ namespace App\Http\Requests\Tickets;
 
 use App\Enums\TicketPriority;
 use App\Enums\TicketSource;
+use App\Models\Ticket;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -11,7 +12,7 @@ class StoreTicketRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('create', Ticket::class) ?? false;
     }
 
     /**

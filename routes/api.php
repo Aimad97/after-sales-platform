@@ -28,14 +28,14 @@ Route::prefix('auth')->group(function (): void {
     Route::post('/forgot-password', [AuthController::class, 'forgotPassword'])->middleware(['guest', 'throttle:password-reset']);
     Route::post('/reset-password', [AuthController::class, 'resetPassword'])->middleware(['guest', 'throttle:password-reset']);
 
-    Route::middleware('auth:sanctum')->group(function (): void {
+    Route::middleware(['auth:sanctum', 'throttle:authenticated-api'])->group(function (): void {
         Route::post('/logout', [AuthController::class, 'logout']);
         Route::get('/me', [AuthController::class, 'me']);
         Route::put('/password', [AuthController::class, 'changePassword']);
     });
 });
 
-Route::middleware('auth:sanctum')->group(function (): void {
+Route::middleware(['auth:sanctum', 'throttle:authenticated-api'])->group(function (): void {
     Route::get('/search', GlobalSearchController::class)->middleware('throttle:global-search');
 
     Route::prefix('client')->name('client.')->group(function (): void {

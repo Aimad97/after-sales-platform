@@ -1,9 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
+import axios from 'axios';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
-import { apiClient } from '@/api/client';
+import { apiClient, type ApiErrorResponse } from '@/api/client';
 import { useAuth } from '@/hooks/useAuth';
 
 const password = z.string().min(12, 'Use at least 12 characters.').regex(/[a-z]/, 'Include a lowercase letter.').regex(/[A-Z]/, 'Include an uppercase letter.').regex(/\d/, 'Include a number.').regex(/[^A-Za-z0-9]/, 'Include a symbol.');
@@ -13,7 +14,21 @@ const resetSchema = z.object({ email: z.string().email(), token: z.string().min(
 
 function Card({ children }: { children: React.ReactNode }) { return <main className="grid min-h-screen place-items-center bg-slate-50 p-6"><section className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm">{children}</section></main>; }
 function FieldError({ message }: { message?: string }) { return message ? <p className="mt-1 text-sm text-red-600">{message}</p> : null; }
-function ErrorMessage({ error }: { error: unknown }) { return error instanceof Error ? <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{error.message}</p> : null; }
+function getErrorMessage(error: unknown): string {
+    if (axios.isAxiosError<ApiErrorResponse>(error)) {
+        const response = error.response;
+        const firstValidationError = response?.data?.errors ? Object.values(response.data.errors).flat()[0] : undefined;
+
+        if (firstValidationError) return firstValidationError;
+        if (response?.data?.message) return response.data.message;
+        if (response?.status === 419) return 'Your session expired. Refresh the page and try again.';
+        if (response?.status === 429) return 'Too many attempts. Please wait a moment and try again.';
+        if (response?.status === 422) return 'The submitted details could not be verified.';
+    }
+
+    return error instanceof Error ? error.message : 'The request could not be completed.';
+}
+function ErrorMessage({ error }: { error: unknown }) { return <p className="mb-4 rounded-md bg-red-50 p-3 text-sm text-red-700">{getErrorMessage(error)}</p>; }
 
 export function LoginPage() {
     const navigate = useNavigate(); const { login } = useAuth();

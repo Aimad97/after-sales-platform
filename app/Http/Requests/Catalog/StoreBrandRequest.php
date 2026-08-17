@@ -2,13 +2,14 @@
 
 namespace App\Http\Requests\Catalog;
 
+use App\Models\Brand;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreBrandRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('create', Brand::class) ?? false;
     }
 
     /**

@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Technicians;
 
 use App\Enums\TechnicianAvailabilityStatus;
+use App\Models\Technician;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -10,7 +11,7 @@ class StoreTechnicianRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('create', Technician::class) ?? false;
     }
 
     /**

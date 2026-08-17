@@ -10,7 +10,9 @@ class UpdateBrandRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $brand = $this->route('brand');
+
+        return $brand instanceof Brand && ($this->user()?->can('update', $brand) ?? false);
     }
 
     /**

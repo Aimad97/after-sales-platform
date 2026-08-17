@@ -8,7 +8,7 @@ class StorePortalTicketRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->hasClientPortalAccess() ?? false;
     }
 
     /** @return array<string, list<string>> */

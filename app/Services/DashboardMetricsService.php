@@ -161,7 +161,6 @@ class DashboardMetricsService
                 'active_tickets' => Ticket::query()->where('client_id', $client->id)->whereNotIn('status', self::TERMINAL_TICKET_STATUSES)->count(),
             ],
             'recent_repair_updates' => $recentRepairs->map(fn (Repair $repair): array => [
-                'repair_id' => $repair->id,
                 'ticket_uuid' => $repair->ticket?->uuid,
                 'ticket_number' => $repair->ticket?->ticket_number,
                 'ticket_title' => $repair->ticket?->title,

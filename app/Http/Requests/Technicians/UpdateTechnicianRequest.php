@@ -11,7 +11,9 @@ class UpdateTechnicianRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        $technician = $this->route('technician');
+
+        return $technician instanceof Technician && ($this->user()?->can('update', $technician) ?? false);
     }
 
     /**

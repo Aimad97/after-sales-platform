@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Clients;
 
 use App\Enums\ClientType;
+use App\Models\Client;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -10,7 +11,7 @@ class IndexClientsRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('viewAny', Client::class) ?? false;
     }
 
     /**

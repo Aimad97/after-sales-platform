@@ -10,7 +10,7 @@ class IndexUsersRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('viewAny', User::class) ?? false;
     }
 
     /**

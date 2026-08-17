@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Users;
 
 use App\Enums\UserStatus;
+use App\Models\User;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
@@ -11,7 +12,7 @@ class StoreUserRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('create', User::class) ?? false;
     }
 
     /**
@@ -28,7 +29,7 @@ class StoreUserRequest extends FormRequest
             'locale' => ['required', 'string', 'max:10'],
             'timezone' => ['required', 'timezone'],
             'client_id' => ['nullable', 'integer', Rule::exists('customers', 'id')->whereNull('deleted_at')],
-            'password' => ['required', 'confirmed', Password::defaults()],
+            'password' => ['required', 'string', 'max:255', 'confirmed', Password::defaults()],
             'roles' => ['required', 'array', 'min:1'],
             'roles.*' => ['required', 'string', 'distinct', Rule::exists('roles', 'name')->where('guard_name', 'web')],
         ];
