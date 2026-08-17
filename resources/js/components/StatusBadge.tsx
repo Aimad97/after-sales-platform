@@ -37,5 +37,9 @@ const styles: Record<string, string> = {
 };
 
 export function StatusBadge({ value }: { value: string }) {
-    return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${styles[value] ?? 'bg-slate-100 text-slate-700'}`}>{humanize(value)}</span>;
+    return (
+        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${styles[value] ?? 'bg-slate-100 text-slate-700'}`}>
+            {humanize(value)}
+        </span>
+    );
 }

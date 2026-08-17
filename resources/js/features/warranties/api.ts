@@ -28,7 +28,9 @@ export async function getWarranty(uuid: string): Promise<Warranty> {
 }
 
 export async function lookupWarranty(serialNumber: string): Promise<WarrantyLookupResult> {
-    const response = await apiClient.get<DataResponse<WarrantyLookupResult>>('/warranties/lookup', { params: { serial_number: serialNumber } });
+    const response = await apiClient.get<DataResponse<WarrantyLookupResult>>('/warranties/lookup', {
+        params: { serial_number: serialNumber },
+    });
     return response.data.data;
 }
 

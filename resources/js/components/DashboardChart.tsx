@@ -22,7 +22,11 @@ class ChartRenderBoundary extends Component<{ children: ReactNode }, { hasError:
 
     public render(): ReactNode {
         if (this.state.hasError) {
-            return <div className="grid h-72 place-items-center text-center text-sm text-slate-500">This chart could not be rendered. Dashboard metrics are still available above.</div>;
+            return (
+                <div className="grid h-72 place-items-center text-center text-sm text-slate-500">
+                    This chart could not be rendered. Dashboard metrics are still available above.
+                </div>
+            );
         }
 
         return this.props.children;
@@ -44,5 +48,21 @@ export function DashboardChart({ title, description, type, categories, series, e
         grid: { borderColor: '#e2e8f0' },
     };
 
-    return <article className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm"><div><h3 className="font-semibold text-slate-900">{title}</h3>{description && <p className="mt-1 text-sm text-slate-600">{description}</p>}</div>{empty ? <div className="grid h-72 place-items-center text-sm text-slate-500">No data available yet.</div> : <div className="mt-4 overflow-hidden"><ChartRenderBoundary><Chart options={options} series={series} type={type} height={280} /></ChartRenderBoundary></div>}</article>;
+    return (
+        <article className="min-w-0 rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div>
+                <h3 className="font-semibold text-slate-900">{title}</h3>
+                {description && <p className="mt-1 text-sm text-slate-600">{description}</p>}
+            </div>
+            {empty ? (
+                <div className="grid h-72 place-items-center text-sm text-slate-500">No data available yet.</div>
+            ) : (
+                <div className="mt-4 overflow-hidden">
+                    <ChartRenderBoundary>
+                        <Chart options={options} series={series} type={type} height={280} />
+                    </ChartRenderBoundary>
+                </div>
+            )}
+        </article>
+    );
 }

@@ -27,7 +27,9 @@ export async function updateTicket(uuid: string, payload: TicketUpdatePayload): 
 }
 
 export async function assignTicketTechnician(uuid: string, assignedTechnicianId: number): Promise<Ticket> {
-    const response = await apiClient.post<DataResponse<Ticket>>(`/tickets/${uuid}/assign`, { assigned_technician_id: assignedTechnicianId });
+    const response = await apiClient.post<DataResponse<Ticket>>(`/tickets/${uuid}/assign`, {
+        assigned_technician_id: assignedTechnicianId,
+    });
     return response.data.data;
 }
 

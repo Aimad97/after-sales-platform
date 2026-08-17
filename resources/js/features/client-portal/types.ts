@@ -70,7 +70,13 @@ export interface PortalTicket {
     closed_at: string | null;
     can_upload_attachments: boolean;
     product: { uuid: string; sku: string; name: string; model: string | null } | null;
-    warranty: { uuid: string; serial_number: string | null; status: PortalWarrantyStatus; starts_at: string | null; expires_at: string | null } | null;
+    warranty: {
+        uuid: string;
+        serial_number: string | null;
+        status: PortalWarrantyStatus;
+        starts_at: string | null;
+        expires_at: string | null;
+    } | null;
     assigned_technician: { display_name: string } | null;
     status_timeline: PortalTicketTimelineEntry[];
     attachments: Attachment[];

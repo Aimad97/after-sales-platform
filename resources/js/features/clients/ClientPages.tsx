@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
 import { z } from 'zod';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { Pagination } from '@/components/Pagination';
@@ -14,28 +15,31 @@ import { ClientWarrantyHistory } from '@/features/warranties/WarrantyPages';
 import { Can } from '@/hooks/usePermissions';
 import { formatDate } from '@/utils/format';
 
-const inputClassName = 'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
+const inputClassName =
+    'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
 
-export const clientSchema = z.object({
-    type: z.enum(['individual', 'company']),
-    company_name: z.string().trim().max(255),
-    first_name: z.string().trim().min(1, 'First name is required.').max(100),
-    last_name: z.string().trim().min(1, 'Last name is required.').max(100),
-    email: z.string().trim().email('Enter a valid email address.').or(z.literal('')),
-    phone: z.string().trim().min(1, 'Phone is required.').max(30),
-    address: z.string().trim().max(1000),
-    city: z.string().trim().max(100),
-    tax_identifier: z.string().trim().max(100),
-    notes: z.string().max(5000),
-}).superRefine((values, context) => {
-    if (values.type === 'company' && values.company_name.length === 0) {
-        context.addIssue({ code: z.ZodIssueCode.custom, path: ['company_name'], message: 'Company name is required.' });
-    }
+export const clientSchema = z
+    .object({
+        type: z.enum(['individual', 'company']),
+        company_name: z.string().trim().max(255),
+        first_name: z.string().trim().min(1, 'First name is required.').max(100),
+        last_name: z.string().trim().min(1, 'Last name is required.').max(100),
+        email: z.string().trim().email('Enter a valid email address.').or(z.literal('')),
+        phone: z.string().trim().min(1, 'Phone is required.').max(30),
+        address: z.string().trim().max(1000),
+        city: z.string().trim().max(100),
+        tax_identifier: z.string().trim().max(100),
+        notes: z.string().max(5000),
+    })
+    .superRefine((values, context) => {
+        if (values.type === 'company' && values.company_name.length === 0) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['company_name'], message: 'Company name is required.' });
+        }
 
-    if (values.type === 'company' && values.tax_identifier.length === 0) {
-        context.addIssue({ code: z.ZodIssueCode.custom, path: ['tax_identifier'], message: 'Tax identifier is required.' });
-    }
-});
+        if (values.type === 'company' && values.tax_identifier.length === 0) {
+            context.addIssue({ code: z.ZodIssueCode.custom, path: ['tax_identifier'], message: 'Tax identifier is required.' });
+        }
+    });
 
 type ClientFormValues = z.infer<typeof clientSchema>;
 
@@ -49,12 +53,6 @@ function PageHeader({ title, description, action }: { title: string; description
             {action}
         </div>
     );
-}
-
-function ErrorMessage({ error }: { error: unknown }) {
-    return error instanceof Error
-        ? <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-700">{error.message}</p>
-        : null;
 }
 
 export function ClientsPage() {
@@ -77,7 +75,16 @@ export function ClientsPage() {
             <PageHeader
                 title="Clients"
                 description="Manage customer contact details, purchase history, warranties, and SAV activity."
-                action={<Can permission="clients.create"><Link className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm" to="/admin/clients/new">Add client</Link></Can>}
+                action={
+                    <Can permission="clients.create">
+                        <Link
+                            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm"
+                            to="/admin/clients/new"
+                        >
+                            Add client
+                        </Link>
+                    </Can>
+                }
             />
 
             <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
@@ -90,7 +97,9 @@ export function ClientsPage() {
                 <select
                     className={inputClassName}
                     value={filters.type ?? ''}
-                    onChange={(event) => updateFilters({ type: event.target.value === '' ? undefined : event.target.value as ClientType })}
+                    onChange={(event) =>
+                        updateFilters({ type: event.target.value === '' ? undefined : (event.target.value as ClientType) })
+                    }
                 >
                     <option value="">All client types</option>
                     <option value="individual">Individual</option>
@@ -109,7 +118,9 @@ export function ClientsPage() {
                 </select>
             </div>
 
-            {clientsQuery.isLoading ? <p className="text-sm text-slate-600">Loading clients...</p> : (
+            {clientsQuery.isLoading ? (
+                <p className="text-sm text-slate-600">Loading clients...</p>
+            ) : (
                 <>
                     <ErrorMessage error={clientsQuery.error} />
                     <div className="overflow-x-auto rounded-xl border border-slate-200">
@@ -128,27 +139,58 @@ export function ClientsPage() {
                                 {clientsQuery.data?.data.map((client) => (
                                     <tr key={client.uuid}>
                                         <td className="px-4 py-3">
-                                            <Link className="font-semibold text-slate-900 hover:text-blue-700" to={`/admin/clients/${client.uuid}`}>{client.display_name}</Link>
-                                            <p className="mt-0.5 text-slate-500">{client.type === 'company' ? `${client.first_name} ${client.last_name}` : client.email ?? 'No email'}</p>
+                                            <Link
+                                                className="font-semibold text-slate-900 hover:text-blue-700"
+                                                to={`/admin/clients/${client.uuid}`}
+                                            >
+                                                {client.display_name}
+                                            </Link>
+                                            <p className="mt-0.5 text-slate-500">
+                                                {client.type === 'company'
+                                                    ? `${client.first_name} ${client.last_name}`
+                                                    : (client.email ?? 'No email')}
+                                            </p>
                                         </td>
-                                        <td className="px-4 py-3"><StatusBadge value={client.type} /></td>
-                                        <td className="px-4 py-3 text-slate-600"><p>{client.email ?? 'No email'}</p><p className="mt-0.5">{client.phone}</p></td>
+                                        <td className="px-4 py-3">
+                                            <StatusBadge value={client.type} />
+                                        </td>
+                                        <td className="px-4 py-3 text-slate-600">
+                                            <p>{client.email ?? 'No email'}</p>
+                                            <p className="mt-0.5">{client.phone}</p>
+                                        </td>
                                         <td className="px-4 py-3 text-slate-600">{client.city ?? '—'}</td>
                                         <td className="px-4 py-3 text-slate-600">{formatDate(client.created_at)}</td>
                                         <td className="px-4 py-3">
                                             <div className="flex justify-end gap-3">
-                                                <Link className="font-medium text-blue-700" to={`/admin/clients/${client.uuid}`}>View</Link>
-                                                <Can permission="clients.update"><Link className="font-medium text-blue-700" to={`/admin/clients/${client.uuid}/edit`}>Edit</Link></Can>
-                                                <Can permission="clients.delete"><button className="font-medium text-rose-700" onClick={() => setArchiveTarget(client)}>Archive</button></Can>
+                                                <Link className="font-medium text-blue-700" to={`/admin/clients/${client.uuid}`}>
+                                                    View
+                                                </Link>
+                                                <Can permission="clients.update">
+                                                    <Link className="font-medium text-blue-700" to={`/admin/clients/${client.uuid}/edit`}>
+                                                        Edit
+                                                    </Link>
+                                                </Can>
+                                                <Can permission="clients.delete">
+                                                    <button className="font-medium text-rose-700" onClick={() => setArchiveTarget(client)}>
+                                                        Archive
+                                                    </button>
+                                                </Can>
                                             </div>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
                         </table>
-                        {clientsQuery.data?.data.length === 0 && <p className="p-6 text-center text-sm text-slate-600">No clients match these filters.</p>}
+                        {clientsQuery.data?.data.length === 0 && (
+                            <p className="p-6 text-center text-sm text-slate-600">No clients match these filters.</p>
+                        )}
                     </div>
-                    {clientsQuery.data && <Pagination meta={clientsQuery.data.meta} onPageChange={(page) => setFilters((current) => ({ ...current, page }))} />}
+                    {clientsQuery.data && (
+                        <Pagination
+                            meta={clientsQuery.data.meta}
+                            onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
+                        />
+                    )}
                 </>
             )}
 
@@ -174,7 +216,16 @@ export function ClientFormPage() {
     const form = useForm<ClientFormValues>({
         resolver: zodResolver(clientSchema),
         defaultValues: {
-            type: 'individual', company_name: '', first_name: '', last_name: '', email: '', phone: '', address: '', city: '', tax_identifier: '', notes: '',
+            type: 'individual',
+            company_name: '',
+            first_name: '',
+            last_name: '',
+            email: '',
+            phone: '',
+            address: '',
+            city: '',
+            tax_identifier: '',
+            notes: '',
         },
     });
     const clientType = form.watch('type');
@@ -229,38 +280,78 @@ export function ClientFormPage() {
 
     return (
         <section className="max-w-3xl space-y-6">
-            <PageHeader title={isEditing ? 'Edit client' : 'Add client'} description={isEditing ? 'Update client identity and contact information.' : 'Create an individual or company client record.'} />
-            <form className="space-y-6 rounded-xl border border-slate-200 bg-white p-6" onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}>
+            <PageHeader
+                title={isEditing ? 'Edit client' : 'Add client'}
+                description={
+                    isEditing ? 'Update client identity and contact information.' : 'Create an individual or company client record.'
+                }
+            />
+            <form
+                className="space-y-6 rounded-xl border border-slate-200 bg-white p-6"
+                onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}
+            >
                 <div className="grid gap-4 md:grid-cols-2">
                     <Field label="Client type" error={form.formState.errors.type?.message}>
-                        <select className={inputClassName} value={clientType} onChange={(event) => setType(event.target.value as ClientType)}>
+                        <select
+                            className={inputClassName}
+                            value={clientType}
+                            onChange={(event) => setType(event.target.value as ClientType)}
+                        >
                             <option value="individual">Individual</option>
                             <option value="company">Company</option>
                         </select>
                     </Field>
-                    <Field label="Phone" error={form.formState.errors.phone?.message}><input className={inputClassName} type="tel" {...form.register('phone')} /></Field>
+                    <Field label="Phone" error={form.formState.errors.phone?.message}>
+                        <input className={inputClassName} type="tel" {...form.register('phone')} />
+                    </Field>
                 </div>
 
                 {clientType === 'company' && (
                     <div className="grid gap-4 rounded-lg bg-slate-50 p-4 md:grid-cols-2">
-                        <Field label="Company name" error={form.formState.errors.company_name?.message}><input className={inputClassName} {...form.register('company_name')} /></Field>
-                        <Field label="Tax identifier" error={form.formState.errors.tax_identifier?.message}><input className={inputClassName} {...form.register('tax_identifier')} /></Field>
+                        <Field label="Company name" error={form.formState.errors.company_name?.message}>
+                            <input className={inputClassName} {...form.register('company_name')} />
+                        </Field>
+                        <Field label="Tax identifier" error={form.formState.errors.tax_identifier?.message}>
+                            <input className={inputClassName} {...form.register('tax_identifier')} />
+                        </Field>
                     </div>
                 )}
 
                 <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="First name" error={form.formState.errors.first_name?.message}><input className={inputClassName} {...form.register('first_name')} /></Field>
-                    <Field label="Last name" error={form.formState.errors.last_name?.message}><input className={inputClassName} {...form.register('last_name')} /></Field>
-                    <Field label="Email" error={form.formState.errors.email?.message}><input className={inputClassName} type="email" {...form.register('email')} /></Field>
-                    <Field label="City" error={form.formState.errors.city?.message}><input className={inputClassName} {...form.register('city')} /></Field>
+                    <Field label="First name" error={form.formState.errors.first_name?.message}>
+                        <input className={inputClassName} {...form.register('first_name')} />
+                    </Field>
+                    <Field label="Last name" error={form.formState.errors.last_name?.message}>
+                        <input className={inputClassName} {...form.register('last_name')} />
+                    </Field>
+                    <Field label="Email" error={form.formState.errors.email?.message}>
+                        <input className={inputClassName} type="email" {...form.register('email')} />
+                    </Field>
+                    <Field label="City" error={form.formState.errors.city?.message}>
+                        <input className={inputClassName} {...form.register('city')} />
+                    </Field>
                 </div>
 
-                <Field label="Address" error={form.formState.errors.address?.message}><textarea className={inputClassName} rows={3} {...form.register('address')} /></Field>
-                <Field label="Notes" error={form.formState.errors.notes?.message}><textarea className={inputClassName} rows={5} {...form.register('notes')} /></Field>
+                <Field label="Address" error={form.formState.errors.address?.message}>
+                    <textarea className={inputClassName} rows={3} {...form.register('address')} />
+                </Field>
+                <Field label="Notes" error={form.formState.errors.notes?.message}>
+                    <textarea className={inputClassName} rows={5} {...form.register('notes')} />
+                </Field>
                 <ErrorMessage error={saveMutation.error} />
                 <div className="flex justify-end gap-3">
-                    <Link className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium" to={isEditing ? `/admin/clients/${uuid}` : '/admin/clients'}>Cancel</Link>
-                    <button className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50" disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Saving...' : 'Save client'}</button>
+                    <Link
+                        className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
+                        to={isEditing ? `/admin/clients/${uuid}` : '/admin/clients'}
+                    >
+                        Cancel
+                    </Link>
+                    <button
+                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                        disabled={saveMutation.isPending}
+                    >
+                        {saveMutation.isPending ? 'Saving...' : 'Save client'}
+                    </button>
                 </div>
             </form>
         </section>
@@ -269,7 +360,11 @@ export function ClientFormPage() {
 
 export function ClientDetailsPage() {
     const { uuid } = useParams<{ uuid: string }>();
-    const profileQuery = useQuery({ queryKey: ['clients', uuid, 'profile'], queryFn: () => getClientProfile(uuid ?? ''), enabled: uuid !== undefined });
+    const profileQuery = useQuery({
+        queryKey: ['clients', uuid, 'profile'],
+        queryFn: () => getClientProfile(uuid ?? ''),
+        enabled: uuid !== undefined,
+    });
     const profile = profileQuery.data;
 
     if (profileQuery.isLoading) return <p className="text-sm text-slate-600">Loading client profile...</p>;
@@ -280,7 +375,16 @@ export function ClientDetailsPage() {
             <PageHeader
                 title={profile.client.display_name}
                 description={`${profile.client.type === 'company' ? 'Company' : 'Individual'} client profile and SAV history.`}
-                action={<Can permission="clients.update"><Link className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white" to={`/admin/clients/${profile.client.uuid}/edit`}>Edit client</Link></Can>}
+                action={
+                    <Can permission="clients.update">
+                        <Link
+                            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
+                            to={`/admin/clients/${profile.client.uuid}/edit`}
+                        >
+                            Edit client
+                        </Link>
+                    </Can>
+                }
             />
 
             <section className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 md:grid-cols-2 lg:grid-cols-3">
@@ -293,28 +397,91 @@ export function ClientDetailsPage() {
                 <Detail label="City" value={profile.client.city ?? '—'} />
                 <Detail label="Address" value={profile.client.address ?? '—'} />
                 <Detail label="Client since" value={formatDate(profile.client.created_at)} />
-                <div className="md:col-span-2 lg:col-span-3"><Detail label="Notes" value={<p className="whitespace-pre-wrap">{profile.client.notes ?? 'No notes.'}</p>} /></div>
+                <div className="md:col-span-2 lg:col-span-3">
+                    <Detail label="Notes" value={<p className="whitespace-pre-wrap">{profile.client.notes ?? 'No notes.'}</p>} />
+                </div>
             </section>
 
-            <WarrantySection title="Purchased products" description="Products registered to this client, including serial and purchase dates." warranties={profile.purchased_products} />
+            <WarrantySection
+                title="Purchased products"
+                description="Products registered to this client, including serial and purchase dates."
+                warranties={profile.purchased_products}
+            />
             <div className="grid gap-6 xl:grid-cols-2">
-                <WarrantySection title="Active warranties" description="Warranty coverage currently valid." warranties={profile.active_warranties} tone="active" />
-                <WarrantySection title="Expired warranties" description="Warranty coverage that has ended." warranties={profile.expired_warranties} tone="expired" />
+                <WarrantySection
+                    title="Active warranties"
+                    description="Warranty coverage currently valid."
+                    warranties={profile.active_warranties}
+                    tone="active"
+                />
+                <WarrantySection
+                    title="Expired warranties"
+                    description="Warranty coverage that has ended."
+                    warranties={profile.expired_warranties}
+                    tone="expired"
+                />
             </div>
-            <Can permission="invoices.view"><ClientInvoiceHistory clientUuid={profile.client.uuid} /></Can>
-            <Can permission="warranties.view"><ClientWarrantyHistory clientUuid={profile.client.uuid} /></Can>
+            <Can permission="invoices.view">
+                <ClientInvoiceHistory clientUuid={profile.client.uuid} />
+            </Can>
+            <Can permission="warranties.view">
+                <ClientWarrantyHistory clientUuid={profile.client.uuid} />
+            </Can>
             <TicketSection tickets={profile.tickets} />
             <RepairSection profile={profile} />
         </section>
     );
 }
 
-function WarrantySection({ title, description, warranties, tone }: { title: string; description: string; warranties: ClientWarranty[]; tone?: 'active' | 'expired' }) {
+function WarrantySection({
+    title,
+    description,
+    warranties,
+    tone,
+}: {
+    title: string;
+    description: string;
+    warranties: ClientWarranty[];
+    tone?: 'active' | 'expired';
+}) {
     return (
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex items-start justify-between gap-4"><div><h3 className="text-lg font-bold text-slate-900">{title}</h3><p className="mt-1 text-sm text-slate-600">{description}</p></div>{tone && <StatusBadge value={tone} />}</div>
-            {warranties.length === 0 ? <EmptyState message="No records available." /> : (
-                <div className="mt-4 overflow-x-auto"><table className="min-w-full text-sm"><thead className="border-b text-left text-slate-500"><tr><th className="pb-2 font-semibold">Product</th><th className="pb-2 font-semibold">Serial number</th><th className="pb-2 font-semibold">Quantity</th><th className="pb-2 font-semibold">Purchased</th><th className="pb-2 font-semibold">Warranty end</th></tr></thead><tbody className="divide-y divide-slate-100">{warranties.map((warranty) => <tr key={warranty.id}><td className="py-3 font-medium text-slate-900">{warranty.product ? `${warranty.product.name} (${warranty.product.model})` : 'Unknown product'}</td><td className="py-3 text-slate-600">{warranty.serial_number ?? 'â€”'}</td><td className="py-3 text-slate-600">{warranty.quantity}</td><td className="py-3 text-slate-600">{formatDateOnly(warranty.purchase_date)}</td><td className="py-3 text-slate-600">{formatDateOnly(warranty.warranty_end)}</td></tr>)}</tbody></table></div>
+            <div className="flex items-start justify-between gap-4">
+                <div>
+                    <h3 className="text-lg font-bold text-slate-900">{title}</h3>
+                    <p className="mt-1 text-sm text-slate-600">{description}</p>
+                </div>
+                {tone && <StatusBadge value={tone} />}
+            </div>
+            {warranties.length === 0 ? (
+                <EmptyState message="No records available." />
+            ) : (
+                <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                        <thead className="border-b text-left text-slate-500">
+                            <tr>
+                                <th className="pb-2 font-semibold">Product</th>
+                                <th className="pb-2 font-semibold">Serial number</th>
+                                <th className="pb-2 font-semibold">Quantity</th>
+                                <th className="pb-2 font-semibold">Purchased</th>
+                                <th className="pb-2 font-semibold">Warranty end</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {warranties.map((warranty) => (
+                                <tr key={warranty.id}>
+                                    <td className="py-3 font-medium text-slate-900">
+                                        {warranty.product ? `${warranty.product.name} (${warranty.product.model})` : 'Unknown product'}
+                                    </td>
+                                    <td className="py-3 text-slate-600">{warranty.serial_number ?? 'â€”'}</td>
+                                    <td className="py-3 text-slate-600">{warranty.quantity}</td>
+                                    <td className="py-3 text-slate-600">{formatDateOnly(warranty.purchase_date)}</td>
+                                    <td className="py-3 text-slate-600">{formatDateOnly(warranty.warranty_end)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             )}
         </section>
     );
@@ -325,8 +492,37 @@ function TicketSection({ tickets }: { tickets: ClientProfile['tickets'] }) {
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h3 className="text-lg font-bold text-slate-900">SAV ticket history</h3>
             <p className="mt-1 text-sm text-slate-600">All support tickets opened for this client.</p>
-            {tickets.length === 0 ? <EmptyState message="No SAV tickets have been opened." /> : (
-                <div className="mt-4 overflow-x-auto"><table className="min-w-full text-sm"><thead className="border-b text-left text-slate-500"><tr><th className="pb-2 font-semibold">Ticket</th><th className="pb-2 font-semibold">Status</th><th className="pb-2 font-semibold">Received</th><th className="pb-2 font-semibold">Closed</th></tr></thead><tbody className="divide-y divide-slate-100">{tickets.map((ticket) => <tr key={ticket.uuid}><td className="py-3"><p className="font-medium text-slate-900">{ticket.title}</p><p className="mt-0.5 text-xs text-slate-500">{ticket.ticket_number}</p><p className="mt-0.5 max-w-xl truncate text-slate-500">{ticket.problem_description}</p></td><td className="py-3"><StatusBadge value={ticket.status} /></td><td className="py-3 text-slate-600">{formatDate(ticket.received_at)}</td><td className="py-3 text-slate-600">{formatDate(ticket.closed_at)}</td></tr>)}</tbody></table></div>
+            {tickets.length === 0 ? (
+                <EmptyState message="No SAV tickets have been opened." />
+            ) : (
+                <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                        <thead className="border-b text-left text-slate-500">
+                            <tr>
+                                <th className="pb-2 font-semibold">Ticket</th>
+                                <th className="pb-2 font-semibold">Status</th>
+                                <th className="pb-2 font-semibold">Received</th>
+                                <th className="pb-2 font-semibold">Closed</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {tickets.map((ticket) => (
+                                <tr key={ticket.uuid}>
+                                    <td className="py-3">
+                                        <p className="font-medium text-slate-900">{ticket.title}</p>
+                                        <p className="mt-0.5 text-xs text-slate-500">{ticket.ticket_number}</p>
+                                        <p className="mt-0.5 max-w-xl truncate text-slate-500">{ticket.problem_description}</p>
+                                    </td>
+                                    <td className="py-3">
+                                        <StatusBadge value={ticket.status} />
+                                    </td>
+                                    <td className="py-3 text-slate-600">{formatDate(ticket.received_at)}</td>
+                                    <td className="py-3 text-slate-600">{formatDate(ticket.closed_at)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             )}
         </section>
     );
@@ -337,19 +533,55 @@ function RepairSection({ profile }: { profile: ClientProfile }) {
         <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
             <h3 className="text-lg font-bold text-slate-900">Repair history</h3>
             <p className="mt-1 text-sm text-slate-600">Completed and recorded technical interventions linked to SAV tickets.</p>
-            {profile.repair_history.length === 0 ? <EmptyState message="No repair interventions have been recorded." /> : (
-                <div className="mt-4 overflow-x-auto"><table className="min-w-full text-sm"><thead className="border-b text-left text-slate-500"><tr><th className="pb-2 font-semibold">Ticket</th><th className="pb-2 font-semibold">Diagnostic</th><th className="pb-2 font-semibold">Solution</th><th className="pb-2 font-semibold">Labor</th><th className="pb-2 font-semibold">Recorded</th></tr></thead><tbody className="divide-y divide-slate-100">{profile.repair_history.map((repair) => <tr key={repair.id}><td className="py-3 font-medium text-slate-900">{repair.ticket?.title ?? '—'}</td><td className="py-3 text-slate-600">{repair.diagnostic}</td><td className="py-3 text-slate-600">{repair.solution ?? '—'}</td><td className="py-3 text-slate-600">{formatCurrency(repair.labor_cost)}</td><td className="py-3 text-slate-600">{formatDate(repair.created_at)}</td></tr>)}</tbody></table></div>
+            {profile.repair_history.length === 0 ? (
+                <EmptyState message="No repair interventions have been recorded." />
+            ) : (
+                <div className="mt-4 overflow-x-auto">
+                    <table className="min-w-full text-sm">
+                        <thead className="border-b text-left text-slate-500">
+                            <tr>
+                                <th className="pb-2 font-semibold">Ticket</th>
+                                <th className="pb-2 font-semibold">Diagnostic</th>
+                                <th className="pb-2 font-semibold">Solution</th>
+                                <th className="pb-2 font-semibold">Labor</th>
+                                <th className="pb-2 font-semibold">Recorded</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {profile.repair_history.map((repair) => (
+                                <tr key={repair.id}>
+                                    <td className="py-3 font-medium text-slate-900">{repair.ticket?.title ?? '—'}</td>
+                                    <td className="py-3 text-slate-600">{repair.diagnostic}</td>
+                                    <td className="py-3 text-slate-600">{repair.solution ?? '—'}</td>
+                                    <td className="py-3 text-slate-600">{formatCurrency(repair.labor_cost)}</td>
+                                    <td className="py-3 text-slate-600">{formatDate(repair.created_at)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             )}
         </section>
     );
 }
 
 function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
-    return <label className="block text-sm font-medium text-slate-800">{label}{children}{error && <span className="mt-1 block text-sm font-normal text-rose-700">{error}</span>}</label>;
+    return (
+        <label className="block text-sm font-medium text-slate-800">
+            {label}
+            {children}
+            {error && <span className="mt-1 block text-sm font-normal text-rose-700">{error}</span>}
+        </label>
+    );
 }
 
 function Detail({ label, value }: { label: string; value: ReactNode }) {
-    return <div><p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p><div className="mt-1 text-sm text-slate-800">{value}</div></div>;
+    return (
+        <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+            <div className="mt-1 text-sm text-slate-800">{value}</div>
+        </div>
+    );
 }
 
 function EmptyState({ message }: { message: string }) {

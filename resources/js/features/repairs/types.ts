@@ -54,3 +54,23 @@ export interface RepairFilters {
     per_page?: number;
     page?: number;
 }
+
+export interface RepairDiagnosisPayload {
+    diagnosis: string;
+    root_cause: string | null;
+    customer_notes: string | null;
+    next_status: 'awaiting_customer_approval' | 'awaiting_part' | 'repairing';
+}
+
+export interface RepairUpdatePayload {
+    repair_action?: string | null;
+    internal_notes?: string | null;
+    customer_notes?: string | null;
+    labor_cost?: string;
+    parts_cost?: string;
+}
+
+export interface RepairCompletionPayload {
+    result: RepairResult;
+    customer_notes: string | null;
+}

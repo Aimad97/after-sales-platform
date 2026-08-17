@@ -4,11 +4,13 @@ import { notificationActionUrl, type AppNotification } from '@/features/notifica
 
 describe('client portal input and navigation safety', () => {
     it('requires a registered purchased-product identifier and meaningful problem detail', () => {
-        expect(portalTicketSchema.safeParse({
-            purchased_product_uuid: 'not-a-uuid',
-            title: 'No',
-            problem_description: 'Too short',
-        }).success).toBe(false);
+        expect(
+            portalTicketSchema.safeParse({
+                purchased_product_uuid: 'not-a-uuid',
+                title: 'No',
+                problem_description: 'Too short',
+            }).success,
+        ).toBe(false);
     });
 
     it('maps ticket notifications to client routes without trusting an admin action URL', () => {

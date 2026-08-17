@@ -23,7 +23,13 @@ export interface AdminDashboard {
     };
     technicians: {
         workload: Array<{ id: number; name: string; employee_code: string; value: number }>;
-        performance: Array<{ id: number; name: string; employee_code: string; completed_count: number; average_repair_seconds: number | null }>;
+        performance: Array<{
+            id: number;
+            name: string;
+            employee_code: string;
+            completed_count: number;
+            average_repair_seconds: number | null;
+        }>;
     };
     defective_products: Array<{ id: number; name: string; sku: string; value: number }>;
 }

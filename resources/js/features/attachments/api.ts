@@ -24,18 +24,14 @@ export async function uploadAttachment(
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await apiClient.post<DataResponse<Attachment>>(
-        attachmentCollectionUrl(resourceType, resourceKey),
-        formData,
-        {
-            onUploadProgress: (event) => {
-                const total = event.total ?? null;
-                const percentage = total && total > 0 ? Math.round((event.loaded / total) * 100) : 0;
+    const response = await apiClient.post<DataResponse<Attachment>>(attachmentCollectionUrl(resourceType, resourceKey), formData, {
+        onUploadProgress: (event) => {
+            const total = event.total ?? null;
+            const percentage = total && total > 0 ? Math.round((event.loaded / total) * 100) : 0;
 
-                onProgress({ loaded: event.loaded, total, percentage });
-            },
+            onProgress({ loaded: event.loaded, total, percentage });
         },
-    );
+    });
 
     return response.data.data;
 }

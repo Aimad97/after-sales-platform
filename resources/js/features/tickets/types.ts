@@ -1,7 +1,20 @@
 import type { Client } from '@/features/clients/types';
 
 export type TicketPriority = 'low' | 'normal' | 'high' | 'urgent';
-export type TicketStatus = 'opened' | 'received' | 'awaiting_diagnosis' | 'diagnosing' | 'awaiting_customer_approval' | 'awaiting_part' | 'repairing' | 'testing' | 'repaired' | 'ready_for_pickup' | 'delivered' | 'closed' | 'cancelled';
+export type TicketStatus =
+    | 'opened'
+    | 'received'
+    | 'awaiting_diagnosis'
+    | 'diagnosing'
+    | 'awaiting_customer_approval'
+    | 'awaiting_part'
+    | 'repairing'
+    | 'testing'
+    | 'repaired'
+    | 'ready_for_pickup'
+    | 'delivered'
+    | 'closed'
+    | 'cancelled';
 export type TicketSource = 'store' | 'phone' | 'email' | 'web';
 
 export interface TicketProduct {

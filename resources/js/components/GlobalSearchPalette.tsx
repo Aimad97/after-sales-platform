@@ -38,14 +38,9 @@ export function GlobalSearchPalette() {
         enabled: isOpen && canSubmitSearch(debouncedQuery),
         staleTime: 30_000,
     });
-    const groups = useMemo(
-        () => searchQuery.data ? categorizeSearchResults(searchQuery.data.groups) : [],
-        [searchQuery.data],
-    );
-    const results = useMemo(
-        () => searchQuery.data ? flattenSearchResults(searchQuery.data.groups) : [],
-        [searchQuery.data],
-    );
+    const groups = useMemo(() => (searchQuery.data ? categorizeSearchResults(searchQuery.data.groups) : []), [searchQuery.data]);
+    const results = useMemo(() => (searchQuery.data ? flattenSearchResults(searchQuery.data.groups) : []), [searchQuery.data]);
+    const activeIndex = results.length === 0 ? 0 : Math.min(selectedIndex, results.length - 1);
     const isWaitingForDebounce = canSubmitSearch(normalizedQuery) && normalizedQuery !== debouncedQuery;
 
     const close = useCallback(() => {
@@ -54,10 +49,13 @@ export function GlobalSearchPalette() {
         setSelectedIndex(0);
     }, []);
 
-    const selectResult = useCallback((url: string) => {
-        close();
-        navigate(url);
-    }, [close, navigate]);
+    const selectResult = useCallback(
+        (url: string) => {
+            close();
+            navigate(url);
+        },
+        [close, navigate],
+    );
 
     useEffect(() => {
         const onGlobalKeyDown = (event: KeyboardEvent) => {
@@ -74,16 +72,6 @@ export function GlobalSearchPalette() {
     useEffect(() => {
         if (isOpen) inputRef.current?.focus();
     }, [isOpen]);
-
-    useEffect(() => {
-        setSelectedIndex(0);
-    }, [normalizedQuery]);
-
-    useEffect(() => {
-        if (selectedIndex >= results.length && results.length > 0) {
-            setSelectedIndex(results.length - 1);
-        }
-    }, [results.length, selectedIndex]);
 
     const onPaletteKeyDown = (event: React.KeyboardEvent) => {
         if (event.key === 'Escape') {
@@ -102,7 +90,7 @@ export function GlobalSearchPalette() {
             setSelectedIndex((index) => (index - 1 + results.length) % results.length);
         } else if (event.key === 'Enter') {
             event.preventDefault();
-            selectResult(results[selectedIndex].url);
+            selectResult(results[activeIndex].url);
         }
     };
 
@@ -116,7 +104,9 @@ export function GlobalSearchPalette() {
             >
                 <Search size={18} />
                 <span className="hidden sm:inline">Search</span>
-                <kbd className="hidden rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 lg:inline">Ctrl K</kbd>
+                <kbd className="hidden rounded border border-slate-200 bg-slate-50 px-1.5 py-0.5 text-[10px] font-semibold text-slate-500 lg:inline">
+                    Ctrl K
+                </kbd>
             </button>
 
             {isOpen && (
@@ -143,53 +133,93 @@ export function GlobalSearchPalette() {
                                 placeholder="Search clients, tickets, invoices, serials..."
                                 aria-label="Search query"
                                 aria-controls="global-search-results"
-                                aria-activedescendant={results.length > 0 ? `global-search-result-${selectedIndex}` : undefined}
-                                onChange={(event) => setQuery(event.target.value)}
+                                aria-activedescendant={results.length > 0 ? `global-search-result-${activeIndex}` : undefined}
+                                onChange={(event) => {
+                                    setQuery(event.target.value);
+                                    setSelectedIndex(0);
+                                }}
                             />
-                            <button className="rounded-md p-1 text-slate-500 hover:bg-slate-100" type="button" aria-label="Close search" onClick={close}><X size={19} /></button>
+                            <button
+                                className="rounded-md p-1 text-slate-500 hover:bg-slate-100"
+                                type="button"
+                                aria-label="Close search"
+                                onClick={close}
+                            >
+                                <X size={19} />
+                            </button>
                         </div>
 
                         <div id="global-search-results" className="max-h-[65vh] overflow-y-auto p-2" role="listbox">
-                            {!canSubmitSearch(normalizedQuery) && <p className="p-6 text-center text-sm text-slate-500">Enter at least {MIN_SEARCH_LENGTH} characters to search.</p>}
-                            {canSubmitSearch(normalizedQuery) && (isWaitingForDebounce || searchQuery.isFetching) && <p className="p-6 text-center text-sm text-slate-500" role="status">Searching...</p>}
-                            {!isWaitingForDebounce && searchQuery.error && <p className="m-2 rounded-lg bg-rose-50 p-4 text-sm text-rose-700">Search is temporarily unavailable. Please try again.</p>}
-                            {!isWaitingForDebounce && !searchQuery.isFetching && !searchQuery.error && searchQuery.data?.total === 0 && <p className="p-6 text-center text-sm text-slate-500">No authorized results found for “{searchQuery.data.query}”.</p>}
+                            {!canSubmitSearch(normalizedQuery) && (
+                                <p className="p-6 text-center text-sm text-slate-500">
+                                    Enter at least {MIN_SEARCH_LENGTH} characters to search.
+                                </p>
+                            )}
+                            {canSubmitSearch(normalizedQuery) && (isWaitingForDebounce || searchQuery.isFetching) && (
+                                <p className="p-6 text-center text-sm text-slate-500" role="status">
+                                    Searching...
+                                </p>
+                            )}
+                            {!isWaitingForDebounce && searchQuery.error && (
+                                <p className="m-2 rounded-lg bg-rose-50 p-4 text-sm text-rose-700">
+                                    Search is temporarily unavailable. Please try again.
+                                </p>
+                            )}
+                            {!isWaitingForDebounce && !searchQuery.isFetching && !searchQuery.error && searchQuery.data?.total === 0 && (
+                                <p className="p-6 text-center text-sm text-slate-500">
+                                    No authorized results found for “{searchQuery.data.query}”.
+                                </p>
+                            )}
 
-                            {!isWaitingForDebounce && !searchQuery.isFetching && groups.map((group) => {
-                                const precedingCount = groups
-                                    .slice(0, groups.indexOf(group))
-                                    .reduce((total, item) => total + item.results.length, 0);
+                            {!isWaitingForDebounce &&
+                                !searchQuery.isFetching &&
+                                groups.map((group) => {
+                                    const precedingCount = groups
+                                        .slice(0, groups.indexOf(group))
+                                        .reduce((total, item) => total + item.results.length, 0);
 
-                                return (
-                                    <section key={group.category} className="py-1" aria-label={group.label}>
-                                        <h2 className="px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500">{group.label}</h2>
-                                        {group.results.map((result, index) => {
-                                            const absoluteIndex = precedingCount + index;
-                                            return (
-                                                <button
-                                                    id={`global-search-result-${absoluteIndex}`}
-                                                    key={`${group.category}-${result.id}`}
-                                                    className={`block w-full rounded-lg px-3 py-2.5 text-left ${selectedIndex === absoluteIndex ? 'bg-blue-50 text-blue-950' : 'text-slate-900 hover:bg-slate-50'}`}
-                                                    type="button"
-                                                    role="option"
-                                                    aria-selected={selectedIndex === absoluteIndex}
-                                                    onMouseEnter={() => setSelectedIndex(absoluteIndex)}
-                                                    onClick={() => selectResult(result.url)}
-                                                >
-                                                    <span className="block font-semibold">{result.title}</span>
-                                                    {result.subtitle && <span className="mt-0.5 block truncate text-xs text-slate-500">{result.subtitle}</span>}
-                                                </button>
-                                            );
-                                        })}
-                                    </section>
-                                );
-                            })}
+                                    return (
+                                        <section key={group.category} className="py-1" aria-label={group.label}>
+                                            <h2 className="px-3 py-2 text-xs font-bold uppercase tracking-wide text-slate-500">
+                                                {group.label}
+                                            </h2>
+                                            {group.results.map((result, index) => {
+                                                const absoluteIndex = precedingCount + index;
+                                                return (
+                                                    <button
+                                                        id={`global-search-result-${absoluteIndex}`}
+                                                        key={`${group.category}-${result.id}`}
+                                                        className={`block w-full rounded-lg px-3 py-2.5 text-left ${activeIndex === absoluteIndex ? 'bg-blue-50 text-blue-950' : 'text-slate-900 hover:bg-slate-50'}`}
+                                                        type="button"
+                                                        role="option"
+                                                        aria-selected={activeIndex === absoluteIndex}
+                                                        onMouseEnter={() => setSelectedIndex(absoluteIndex)}
+                                                        onClick={() => selectResult(result.url)}
+                                                    >
+                                                        <span className="block font-semibold">{result.title}</span>
+                                                        {result.subtitle && (
+                                                            <span className="mt-0.5 block truncate text-xs text-slate-500">
+                                                                {result.subtitle}
+                                                            </span>
+                                                        )}
+                                                    </button>
+                                                );
+                                            })}
+                                        </section>
+                                    );
+                                })}
                         </div>
 
                         <footer className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-slate-200 bg-slate-50 px-4 py-2 text-xs text-slate-500">
-                            <span><kbd className="font-semibold">↑↓</kbd> navigate</span>
-                            <span><kbd className="font-semibold">Enter</kbd> open</span>
-                            <span><kbd className="font-semibold">Esc</kbd> close</span>
+                            <span>
+                                <kbd className="font-semibold">↑↓</kbd> navigate
+                            </span>
+                            <span>
+                                <kbd className="font-semibold">Enter</kbd> open
+                            </span>
+                            <span>
+                                <kbd className="font-semibold">Esc</kbd> close
+                            </span>
                         </footer>
                     </section>
                 </div>

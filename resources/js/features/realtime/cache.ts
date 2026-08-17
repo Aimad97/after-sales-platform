@@ -30,34 +30,32 @@ function invalidateActiveOperationalQueries(queryClient: QueryClient): void {
 }
 
 export function applyTicketRealtimeUpdate(queryClient: QueryClient, ticket: Ticket): void {
-    queryClient.setQueriesData<unknown>(
-        { predicate: (query) => isTicketListQuery(query.queryKey) },
-        (existing: unknown) => {
-            if (!isPaginatedResponse<Ticket>(existing)) return existing;
+    queryClient.setQueriesData<unknown>({ predicate: (query) => isTicketListQuery(query.queryKey) }, (existing: unknown) => {
+        if (!isPaginatedResponse<Ticket>(existing)) return existing;
 
-            return {
-                ...existing,
-                data: existing.data.map((current) => current.uuid === ticket.uuid ? { ...current, ...ticket } : current),
-            };
-        },
+        return {
+            ...existing,
+            data: existing.data.map((current) => (current.uuid === ticket.uuid ? { ...current, ...ticket } : current)),
+        };
+    });
+    queryClient.setQueriesData<Ticket>({ queryKey: ['tickets', ticket.uuid], exact: true }, (existing) =>
+        existing ? { ...existing, ...ticket } : existing,
     );
-    queryClient.setQueriesData<Ticket>({ queryKey: ['tickets', ticket.uuid], exact: true }, (existing) => existing ? { ...existing, ...ticket } : existing);
     invalidateActiveOperationalQueries(queryClient);
 }
 
 export function applyRepairRealtimeUpdate(queryClient: QueryClient, repair: Repair, ticket: Ticket): void {
-    queryClient.setQueriesData<unknown>(
-        { predicate: (query) => isRepairListQuery(query.queryKey) },
-        (existing: unknown) => {
-            if (!isPaginatedResponse<Repair>(existing)) return existing;
+    queryClient.setQueriesData<unknown>({ predicate: (query) => isRepairListQuery(query.queryKey) }, (existing: unknown) => {
+        if (!isPaginatedResponse<Repair>(existing)) return existing;
 
-            return {
-                ...existing,
-                data: existing.data.map((current) => current.id === repair.id ? { ...current, ...repair } : current),
-            };
-        },
+        return {
+            ...existing,
+            data: existing.data.map((current) => (current.id === repair.id ? { ...current, ...repair } : current)),
+        };
+    });
+    queryClient.setQueriesData<Repair>({ queryKey: ['repairs', repair.id], exact: true }, (existing) =>
+        existing ? { ...existing, ...repair } : existing,
     );
-    queryClient.setQueriesData<Repair>({ queryKey: ['repairs', repair.id], exact: true }, (existing) => existing ? { ...existing, ...repair } : existing);
     applyTicketRealtimeUpdate(queryClient, ticket);
 }
 
@@ -78,7 +76,7 @@ export function applyNotificationRealtimeUpdate(queryClient: QueryClient, notifi
     });
     queryClient.setQueriesData<UnreadNotificationCount>(
         { queryKey: ['notifications', 'unread-count'], exact: true },
-        (existing: UnreadNotificationCount | undefined) => existing ? { count: existing.count + 1 } : existing,
+        (existing: UnreadNotificationCount | undefined) => (existing ? { count: existing.count + 1 } : existing),
     );
 }
 

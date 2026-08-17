@@ -21,13 +21,21 @@ export function DataTable<T>({ rows, columns, getRowKey, emptyMessage }: DataTab
             <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50 text-left text-slate-600">
                     <tr>
-                        {columns.map((column) => <th key={column.id} className={`px-4 py-3 font-semibold ${column.headerClassName ?? ''}`}>{column.header}</th>)}
+                        {columns.map((column) => (
+                            <th key={column.id} className={`px-4 py-3 font-semibold ${column.headerClassName ?? ''}`}>
+                                {column.header}
+                            </th>
+                        ))}
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 bg-white">
                     {rows.map((row) => (
                         <tr key={getRowKey(row)}>
-                            {columns.map((column) => <td key={column.id} className={`px-4 py-3 ${column.cellClassName ?? ''}`}>{column.cell(row)}</td>)}
+                            {columns.map((column) => (
+                                <td key={column.id} className={`px-4 py-3 ${column.cellClassName ?? ''}`}>
+                                    {column.cell(row)}
+                                </td>
+                            ))}
                         </tr>
                     ))}
                 </tbody>

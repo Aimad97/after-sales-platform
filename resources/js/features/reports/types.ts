@@ -1,13 +1,6 @@
 import type { PaginationMeta } from '@/types/pagination';
 
-export const reportTypes = [
-    'tickets',
-    'repairs',
-    'warranties',
-    'technician_performance',
-    'defective_products',
-    'client_history',
-] as const;
+export const reportTypes = ['tickets', 'repairs', 'warranties', 'technician_performance', 'defective_products', 'client_history'] as const;
 
 export type ReportType = (typeof reportTypes)[number];
 

@@ -13,8 +13,14 @@ export interface AuthUser {
     permissions: string[];
 }
 
-interface ApiResponse<T> { data: T; }
-interface LoginPayload { email: string; password: string; remember?: boolean; }
+interface ApiResponse<T> {
+    data: T;
+}
+interface LoginPayload {
+    email: string;
+    password: string;
+    remember?: boolean;
+}
 
 const csrfClient = axios.create({
     baseURL: new URL(import.meta.env.VITE_API_URL).origin,

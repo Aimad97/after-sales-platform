@@ -6,18 +6,15 @@ import {
     applyTicketRealtimeUpdate,
     recoverRealtimeCaches,
 } from '@/features/realtime/cache';
-import type {
-    NotificationCreatedRealtimeEvent,
-    RepairUpdatedRealtimeEvent,
-    TicketRealtimeEvent,
-} from '@/features/realtime/types';
+import type { NotificationCreatedRealtimeEvent, RepairUpdatedRealtimeEvent, TicketRealtimeEvent } from '@/features/realtime/types';
 import { useAuth } from '@/hooks/useAuth';
 import { disconnectEcho, getEcho } from '@/services/echo';
 
 function subscribeToTicketEvents(ticketId: number, onTicket: (event: TicketRealtimeEvent) => void) {
     const echo = getEcho();
 
-    return echo.private(`ticket.${ticketId}`)
+    return echo
+        .private(`ticket.${ticketId}`)
         .listen('.ticket.created', onTicket)
         .listen('.ticket.updated', onTicket)
         .listen('.ticket.status-changed', onTicket)

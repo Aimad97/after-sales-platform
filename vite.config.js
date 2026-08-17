@@ -17,4 +17,12 @@ export default defineConfig({
             ignored: ['**/storage/framework/views/**'],
         },
     },
+    test: {
+        environment: 'jsdom',
+        setupFiles: ['./resources/js/test/setup.ts'],
+        clearMocks: true,
+        restoreMocks: true,
+        testTimeout: 10_000,
+        css: true,
+    },
 });

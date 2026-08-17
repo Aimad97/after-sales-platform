@@ -11,7 +11,11 @@ export async function getReport(type: ReportType, filters: ReportFilters): Promi
     return response.data;
 }
 
-export async function requestReportExport(type: ReportType, filters: ReportFilters, format: ReportExportFormat = 'csv'): Promise<ReportExport> {
+export async function requestReportExport(
+    type: ReportType,
+    filters: ReportFilters,
+    format: ReportExportFormat = 'csv',
+): Promise<ReportExport> {
     const response = await apiClient.post<DataResponse<ReportExport>>(`/reports/${type}/exports`, { ...filters, format });
 
     return response.data.data;

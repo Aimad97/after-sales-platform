@@ -7,6 +7,8 @@ describe('warrantyUpdateSchema', () => {
     });
 
     it('allows a replaced warranty without a void reason', () => {
-        expect(warrantyUpdateSchema.safeParse({ status: 'replaced', void_reason: '', notes: 'Replacement unit issued.' }).success).toBe(true);
+        expect(warrantyUpdateSchema.safeParse({ status: 'replaced', void_reason: '', notes: 'Replacement unit issued.' }).success).toBe(
+            true,
+        );
     });
 });

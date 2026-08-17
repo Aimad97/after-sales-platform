@@ -1,16 +1,9 @@
 export const MIN_SEARCH_LENGTH = 2;
 export const SEARCH_DEBOUNCE_MS = 300;
 
-export const searchCategories = [
-    'clients',
-    'tickets',
-    'invoices',
-    'serial_numbers',
-    'products',
-    'technicians',
-] as const;
+export const searchCategories = ['clients', 'tickets', 'invoices', 'serial_numbers', 'products', 'technicians'] as const;
 
-export type SearchCategory = typeof searchCategories[number];
+export type SearchCategory = (typeof searchCategories)[number];
 
 export interface GlobalSearchResult {
     id: string;

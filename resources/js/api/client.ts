@@ -1,6 +1,9 @@
 import axios, { type AxiosError } from 'axios';
 
-export interface ApiErrorResponse { message: string; errors?: Record<string, string[]>; }
+export interface ApiErrorResponse {
+    message: string;
+    errors?: Record<string, string[]>;
+}
 
 export const apiClient = axios.create({
     baseURL: import.meta.env.VITE_API_URL,
