@@ -1,0 +1,2447 @@
+openapi: 3.0.3
+info:
+    title: Intelligent After-Sales Service and Warranty API
+    version: 1.0.0
+    description: |
+        Contract generated from the Laravel routes, controllers, Form Requests, policies,
+        resources, enums, and exception renderer. Browser clients authenticate through a
+        stateful Laravel Sanctum session. Obtain the CSRF cookie before state-changing calls.
+servers:
+    - url: http://127.0.0.1:8000
+      description: Local development
+tags:
+    - { name: System }
+    - { name: Auth }
+    - { name: Search }
+    - { name: Users }
+    - { name: Technicians }
+    - { name: Clients }
+    - { name: Products }
+    - { name: Invoices }
+    - { name: Warranties }
+    - { name: Tickets }
+    - { name: Repairs }
+    - { name: Attachments }
+    - { name: Notifications }
+    - { name: Dashboard }
+    - { name: Reports }
+    - { name: Audit Logs }
+security:
+    - cookieAuth: []
+paths:
+    /api/health:
+        get:
+            tags: [System]
+            summary: Check API health
+            operationId: health
+            security: []
+            x-required-permission: none
+            responses:
+                '200':
+                    description: Service status and current timestamp.
+                    content:
+                        application/json:
+                            schema: { $ref: '#/components/schemas/HealthEnvelope' }
+                '429': { $ref: '#/components/responses/TooManyRequests' }
+
+    /api/auth/login:
+        post:
+            tags: [Auth]
+            summary: Sign in and create a Sanctum session
+            description: Limited to 5 attempts per email/IP and 20 per IP per minute.
+            operationId: login
+            security: []
+            x-required-permission: none
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema: { $ref: '#/components/schemas/LoginRequest' }
+            responses:
+                '200':
+                    description: Authenticated user; the session is carried by cookies.
+                    content: { application/json: { schema: { $ref: '#/components/schemas/UserEnvelope' } } }
+                '422': { $ref: '#/components/responses/ValidationError' }
+                '429': { $ref: '#/components/responses/TooManyRequests' }
+
+    /api/auth/forgot-password:
+        post:
+            tags: [Auth]
+            summary: Request a password reset link
+            description: Always returns a generic result to prevent account enumeration.
+            operationId: forgotPassword
+            security: []
+            x-required-permission: none
+            requestBody:
+                required: true
+                content: { application/json: { schema: { $ref: '#/components/schemas/ForgotPasswordRequest' } } }
+            responses:
+                '200': { $ref: '#/components/responses/MessageResponse' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+                '429': { $ref: '#/components/responses/TooManyRequests' }
+
+    /api/auth/reset-password:
+        post:
+            tags: [Auth]
+            summary: Reset a password
+            operationId: resetPassword
+            security: []
+            x-required-permission: none
+            requestBody:
+                required: true
+                content: { application/json: { schema: { $ref: '#/components/schemas/ResetPasswordRequest' } } }
+            responses:
+                '200': { $ref: '#/components/responses/MessageResponse' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+                '429': { $ref: '#/components/responses/TooManyRequests' }
+
+    /api/auth/logout:
+        post:
+            tags: [Auth]
+            summary: End the current session
+            operationId: logout
+            x-required-permission: authenticated
+            responses:
+                '200': { $ref: '#/components/responses/MessageResponse' }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+                '419': { $ref: '#/components/responses/PageExpired' }
+                '429': { $ref: '#/components/responses/TooManyRequests' }
+
+    /api/auth/me:
+        get:
+            tags: [Auth]
+            summary: Get the authenticated user
+            operationId: currentUser
+            x-required-permission: authenticated
+            responses:
+                '200':
+                    {
+                        description: Current user with roles and permissions.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/UserEnvelope' } } },
+                    }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+                '429': { $ref: '#/components/responses/TooManyRequests' }
+
+    /api/auth/password:
+        put:
+            tags: [Auth]
+            summary: Change the authenticated user's password
+            operationId: changePassword
+            x-required-permission: authenticated
+            requestBody:
+                required: true
+                content: { application/json: { schema: { $ref: '#/components/schemas/ChangePasswordRequest' } } }
+            responses:
+                '200': { $ref: '#/components/responses/MessageResponse' }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+                '419': { $ref: '#/components/responses/PageExpired' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/search:
+        get:
+            tags: [Search]
+            summary: Search across authorized resource categories
+            description: Categories and records are omitted when the caller lacks their view permission. Limited to 60 requests/minute.
+            operationId: globalSearch
+            x-required-permission: authenticated; results are authorization-aware
+            parameters:
+                - { name: q, in: query, required: true, schema: { type: string, minLength: 2, maxLength: 100 } }
+                - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 10, default: 5 } }
+            responses:
+                '200':
+                    {
+                        description: Categorized clients,
+                        tickets,
+                        invoices,
+                        serials/products,
+                        and technicians visible to the caller.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/SearchEnvelope' } } },
+                    }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+                '429': { $ref: '#/components/responses/TooManyRequests' }
+
+    /api/users/roles:
+        get:
+            tags: [Users]
+            summary: List assignable roles
+            operationId: listRoles
+            x-required-permission: users.view
+            responses:
+                '200': { description: Role list., content: { application/json: { schema: { $ref: '#/components/schemas/ListEnvelope' } } } }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+
+    /api/users:
+        get:
+            tags: [Users]
+            summary: List users
+            operationId: listUsers
+            x-required-permission: users.view
+            parameters:
+                - { $ref: '#/components/parameters/Search' }
+                - { name: status, in: query, schema: { $ref: '#/components/schemas/UserStatus' } }
+                - { name: role, in: query, schema: { type: string } }
+                - { name: technician, in: query, schema: { type: boolean } }
+                - {
+                      name: sort,
+                      in: query,
+                      schema: { type: string, enum: [first_name, last_name, email, status, last_login_at, created_at] },
+                  }
+                - { $ref: '#/components/parameters/Direction' }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated users.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        post:
+            tags: [Users]
+            summary: Create a user
+            operationId: createUser
+            x-required-permission: users.create
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateUserRequest' } } } }
+            responses:
+                '201':
+                    { description: Created user., content: { application/json: { schema: { $ref: '#/components/schemas/UserEnvelope' } } } }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/users/{user}:
+        parameters:
+            - { $ref: '#/components/parameters/UserUuid' }
+        get:
+            tags: [Users]
+            summary: Get a user
+            operationId: getUser
+            x-required-permission: users.view
+            responses:
+                '200': { description: User., content: { application/json: { schema: { $ref: '#/components/schemas/UserEnvelope' } } } }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        put: &updateUser
+            tags: [Users]
+            summary: Update a user
+            operationId: replaceUser
+            x-required-permission: users.update
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UpdateUserRequest' } } } }
+            responses:
+                '200':
+                    { description: Updated user., content: { application/json: { schema: { $ref: '#/components/schemas/UserEnvelope' } } } }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        patch:
+            <<: *updateUser
+            operationId: updateUser
+        delete:
+            tags: [Users]
+            summary: Soft-delete a user
+            operationId: deleteUser
+            x-required-permission: users.delete
+            responses:
+                '200': { $ref: '#/components/responses/MessageResponse' }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/technicians:
+        get:
+            tags: [Technicians]
+            summary: List technicians
+            operationId: listTechnicians
+            x-required-permission: users.view
+            parameters:
+                - { $ref: '#/components/parameters/Search' }
+                - { name: availability_status, in: query, schema: { $ref: '#/components/schemas/TechnicianAvailability' } }
+                - { name: skill_level, in: query, schema: { type: integer, minimum: 1, maximum: 5 } }
+                - {
+                      name: sort,
+                      in: query,
+                      schema: { type: string, enum: [employee_code, specialization, skill_level, availability_status, created_at] },
+                  }
+                - { $ref: '#/components/parameters/Direction' }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated technicians.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        post:
+            tags: [Technicians]
+            summary: Create a technician profile
+            operationId: createTechnician
+            x-required-permission: users.create
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TechnicianWrite' } } } }
+            responses:
+                '201':
+                    {
+                        description: Created technician.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/technicians/{technician}:
+        parameters: [{ $ref: '#/components/parameters/TechnicianId' }]
+        get:
+            tags: [Technicians]
+            summary: Get a technician
+            operationId: getTechnician
+            x-required-permission: users.view
+            responses:
+                '200':
+                    { description: Technician., content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } } }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        put: &updateTechnician
+            tags: [Technicians]
+            summary: Update a technician
+            operationId: replaceTechnician
+            x-required-permission: users.update
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TechnicianUpdate' } } } }
+            responses:
+                '200':
+                    {
+                        description: Updated technician.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        patch:
+            <<: *updateTechnician
+            operationId: updateTechnician
+        delete:
+            tags: [Technicians]
+            summary: Soft-delete a technician
+            operationId: deleteTechnician
+            x-required-permission: users.delete
+            responses:
+                '200': { $ref: '#/components/responses/MessageResponse' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/clients:
+        get:
+            tags: [Clients]
+            summary: List clients
+            operationId: listClients
+            x-required-permission: clients.view
+            parameters:
+                - { $ref: '#/components/parameters/Search' }
+                - { name: type, in: query, schema: { $ref: '#/components/schemas/ClientType' } }
+                - {
+                      name: sort,
+                      in: query,
+                      schema: { type: string, enum: [first_name, last_name, company_name, email, phone, city, type, created_at] },
+                  }
+                - { $ref: '#/components/parameters/Direction' }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated clients.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        post:
+            tags: [Clients]
+            summary: Create a client
+            operationId: createClient
+            x-required-permission: clients.create
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ClientCreate' } } } }
+            responses:
+                '201':
+                    {
+                        description: Created client.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/ClientEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/clients/{client}:
+        parameters: [{ $ref: '#/components/parameters/ClientUuid' }]
+        get:
+            tags: [Clients]
+            summary: Get a client
+            operationId: getClient
+            x-required-permission: clients.view
+            responses:
+                '200': { description: Client., content: { application/json: { schema: { $ref: '#/components/schemas/ClientEnvelope' } } } }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        put: &updateClient
+            tags: [Clients]
+            summary: Update a client
+            operationId: replaceClient
+            x-required-permission: clients.update
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ClientUpdate' } } } }
+            responses:
+                '200':
+                    {
+                        description: Updated client.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/ClientEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        patch:
+            <<: *updateClient
+            operationId: updateClient
+        delete:
+            tags: [Clients]
+            summary: Soft-delete a client
+            operationId: deleteClient
+            x-required-permission: clients.delete
+            responses:
+                '200': { $ref: '#/components/responses/MessageResponse' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/clients/{client}/profile:
+        get:
+            tags: [Clients]
+            summary: Get a client's staff profile
+            operationId: getClientProfile
+            x-required-permission: clients.view
+            parameters: [{ $ref: '#/components/parameters/ClientUuid' }]
+            responses:
+                '200':
+                    {
+                        description: Client profile and summary.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/client/profile:
+        get:
+            tags: [Clients]
+            summary: Get the current client's portal profile
+            operationId: getPortalProfile
+            x-required-permission: linked client owner
+            responses:
+                '200':
+                    {
+                        description: Portal-safe current client profile.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+
+    /api/categories:
+        get:
+            tags: [Products]
+            summary: List categories
+            operationId: listCategories
+            x-required-permission: products.view
+            parameters:
+                - { $ref: '#/components/parameters/Search' }
+                - { name: active, in: query, schema: { type: boolean } }
+                - { name: sort, in: query, schema: { type: string, enum: [name, slug, active, created_at] } }
+                - { $ref: '#/components/parameters/Direction' }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated categories.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        post:
+            tags: [Products]
+            summary: Create a category
+            operationId: createCategory
+            x-required-permission: products.create
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CategoryWrite' } } } }
+            responses:
+                '201':
+                    {
+                        description: Created category.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/categories/{category}:
+        parameters: [{ $ref: '#/components/parameters/CategoryId' }]
+        get:
+            tags: [Products]
+            summary: Get a category
+            operationId: getCategory
+            x-required-permission: products.view
+            responses:
+                '200': { description: Category., content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } } }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        put: &updateCategory
+            tags: [Products]
+            summary: Update a category
+            operationId: replaceCategory
+            x-required-permission: products.update
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CategoryUpdate' } } } }
+            responses:
+                '200':
+                    {
+                        description: Updated category.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        patch: { <<: *updateCategory, operationId: updateCategory }
+        delete:
+            tags: [Products]
+            summary: Delete a category
+            operationId: deleteCategory
+            x-required-permission: products.delete
+            responses:
+                '200': { $ref: '#/components/responses/MessageResponse' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/brands:
+        get:
+            tags: [Products]
+            summary: List brands
+            operationId: listBrands
+            x-required-permission: products.view
+            parameters:
+                - { $ref: '#/components/parameters/Search' }
+                - { name: active, in: query, schema: { type: boolean } }
+                - { name: sort, in: query, schema: { type: string, enum: [name, slug, active, created_at] } }
+                - { $ref: '#/components/parameters/Direction' }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated brands.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        post:
+            tags: [Products]
+            summary: Create a brand
+            operationId: createBrand
+            x-required-permission: products.create
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BrandWrite' } } } }
+            responses:
+                '201':
+                    {
+                        description: Created brand.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/brands/{brand}:
+        parameters: [{ $ref: '#/components/parameters/BrandId' }]
+        get:
+            tags: [Products]
+            summary: Get a brand
+            operationId: getBrand
+            x-required-permission: products.view
+            responses:
+                '200': { description: Brand., content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } } }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        put: &updateBrand
+            tags: [Products]
+            summary: Update a brand
+            operationId: replaceBrand
+            x-required-permission: products.update
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/BrandUpdate' } } } }
+            responses:
+                '200':
+                    {
+                        description: Updated brand.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        patch: { <<: *updateBrand, operationId: updateBrand }
+        delete:
+            tags: [Products]
+            summary: Delete a brand
+            operationId: deleteBrand
+            x-required-permission: products.delete
+            responses:
+                '200': { $ref: '#/components/responses/MessageResponse' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/products:
+        get:
+            tags: [Products]
+            summary: List products
+            operationId: listProducts
+            x-required-permission: products.view
+            parameters:
+                - { $ref: '#/components/parameters/Search' }
+                - { name: category_id, in: query, schema: { type: integer } }
+                - { name: brand_id, in: query, schema: { type: integer } }
+                - { name: active, in: query, schema: { type: boolean } }
+                - {
+                      name: sort,
+                      in: query,
+                      schema: { type: string, enum: [sku, name, slug, model, default_warranty_months, active, created_at] },
+                  }
+                - { $ref: '#/components/parameters/Direction' }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated products.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        post:
+            tags: [Products]
+            summary: Create a product
+            operationId: createProduct
+            x-required-permission: products.create
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ProductCreate' } } } }
+            responses:
+                '201':
+                    {
+                        description: Created product.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/ProductEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/products/{product}:
+        parameters: [{ $ref: '#/components/parameters/ProductUuid' }]
+        get:
+            tags: [Products]
+            summary: Get a product
+            operationId: getProduct
+            x-required-permission: products.view
+            responses:
+                '200':
+                    { description: Product., content: { application/json: { schema: { $ref: '#/components/schemas/ProductEnvelope' } } } }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        put: &updateProduct
+            tags: [Products]
+            summary: Update a product
+            operationId: replaceProduct
+            x-required-permission: products.update
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ProductUpdate' } } } }
+            responses:
+                '200':
+                    {
+                        description: Updated product.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/ProductEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        patch: { <<: *updateProduct, operationId: updateProduct }
+        delete:
+            tags: [Products]
+            summary: Delete a product
+            operationId: deleteProduct
+            x-required-permission: products.delete
+            responses:
+                '200': { $ref: '#/components/responses/MessageResponse' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/client/products:
+        get:
+            tags: [Products]
+            summary: List the current client's purchased products
+            operationId: listPortalProducts
+            x-required-permission: linked client owner
+            parameters:
+                - { $ref: '#/components/parameters/Search' }
+                - { name: status, in: query, schema: { $ref: '#/components/schemas/WarrantyStatus' } }
+                - { $ref: '#/components/parameters/PerPage50' }
+                - { $ref: '#/components/parameters/Page' }
+            responses:
+                '200':
+                    {
+                        description: Paginated portal-safe purchases and warranty status.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/client/products/{warranty}:
+        get: &portalWarranty
+            tags: [Products, Warranties]
+            summary: Get an owned purchased product
+            description: A warranty belonging to another client is returned as 404.
+            operationId: getPortalProduct
+            x-required-permission: linked client owner
+            parameters: [{ $ref: '#/components/parameters/WarrantyUuid' }]
+            responses:
+                '200':
+                    {
+                        description: Portal-safe purchased product and warranty.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/client/warranties/{warranty}:
+        get:
+            <<: *portalWarranty
+            summary: Get an owned warranty (portal alias)
+            operationId: getPortalWarranty
+
+    /api/invoices:
+        get:
+            tags: [Invoices]
+            summary: List invoices
+            operationId: listInvoices
+            x-required-permission: invoices.view
+            parameters:
+                - { $ref: '#/components/parameters/Search' }
+                - { name: client_id, in: query, schema: { type: integer } }
+                - { name: status, in: query, schema: { type: string, enum: [draft, issued, void] } }
+                - { $ref: '#/components/parameters/DateFrom' }
+                - { $ref: '#/components/parameters/DateTo' }
+                - {
+                      name: sort,
+                      in: query,
+                      schema:
+                          {
+                              type: string,
+                              enum: [invoice_number, invoice_date, subtotal_amount, tax_amount, total_amount, status, created_at],
+                          },
+                  }
+                - { $ref: '#/components/parameters/Direction' }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated invoices.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        post:
+            tags: [Invoices]
+            summary: Create an invoice and purchased-product warranties
+            description: Totals, line subtotals, and warranty end dates are always computed by the server.
+            operationId: createInvoice
+            x-required-permission: invoices.create
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InvoiceWrite' } } } }
+            responses:
+                '201':
+                    {
+                        description: Created invoice with calculated items/totals.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/InvoiceEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/invoices/{invoice}:
+        parameters: [{ $ref: '#/components/parameters/InvoiceId' }]
+        get:
+            tags: [Invoices]
+            summary: Get an invoice
+            operationId: getInvoice
+            x-required-permission: invoices.view
+            responses:
+                '200':
+                    {
+                        description: Invoice and line items.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/InvoiceEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        put: &updateInvoice
+            tags: [Invoices]
+            summary: Replace a draft invoice document
+            description: The complete invoice body is required and all derived totals/warranties are recalculated atomically.
+            operationId: replaceInvoice
+            x-required-permission: invoices.update
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InvoiceWrite' } } } }
+            responses:
+                '200':
+                    {
+                        description: Updated and recalculated invoice.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/InvoiceEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        patch:
+            <<: *updateInvoice
+            operationId: updateInvoice
+
+    /api/clients/{client}/invoices:
+        get:
+            tags: [Invoices]
+            summary: List a client's invoice history
+            operationId: listClientInvoices
+            x-required-permission: invoices.view and clients.view
+            parameters:
+                - { $ref: '#/components/parameters/ClientUuid' }
+                - { $ref: '#/components/parameters/Search' }
+                - {
+                      name: client_id,
+                      in: query,
+                      deprecated: true,
+                      description: Ignored in favor of the path client.,
+                      schema: { type: integer },
+                  }
+                - { name: status, in: query, schema: { type: string, enum: [draft, issued, void] } }
+                - { $ref: '#/components/parameters/DateFrom' }
+                - { $ref: '#/components/parameters/DateTo' }
+                - {
+                      name: sort,
+                      in: query,
+                      schema:
+                          {
+                              type: string,
+                              enum: [invoice_number, invoice_date, subtotal_amount, tax_amount, total_amount, status, created_at],
+                          },
+                  }
+                - { $ref: '#/components/parameters/Direction' }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated client invoices.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/warranties:
+        get:
+            tags: [Warranties]
+            summary: List warranties
+            operationId: listWarranties
+            x-required-permission: warranties.view
+            parameters:
+                - { $ref: '#/components/parameters/Search' }
+                - { name: client_id, in: query, schema: { type: integer } }
+                - { name: product_id, in: query, schema: { type: integer } }
+                - { name: status, in: query, schema: { $ref: '#/components/schemas/WarrantyStatus' } }
+                - { name: sort, in: query, schema: { type: string, enum: [serial_number, starts_at, expires_at, status, created_at] } }
+                - { $ref: '#/components/parameters/Direction' }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated warranties.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/warranties/lookup:
+        get:
+            tags: [Warranties]
+            summary: Look up a warranty by serial number
+            operationId: lookupWarranty
+            x-required-permission: warranties.view
+            parameters:
+                - {
+                      name: serial_number,
+                      in: query,
+                      required: true,
+                      schema: { type: string, maxLength: 100 },
+                      description: Trimmed and uppercased by the server.,
+                  }
+            responses:
+                '200':
+                    {
+                        description: Matching warranty and eligibility evaluation.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/LookupWarrantyEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/warranties/{warranty}:
+        parameters: [{ $ref: '#/components/parameters/WarrantyUuid' }]
+        get:
+            tags: [Warranties]
+            summary: Get a warranty
+            operationId: getWarranty
+            x-required-permission: warranties.view
+            responses:
+                '200':
+                    { description: Warranty., content: { application/json: { schema: { $ref: '#/components/schemas/WarrantyEnvelope' } } } }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        put: &updateWarranty
+            tags: [Warranties]
+            summary: Update a warranty's managed status
+            operationId: replaceWarranty
+            x-required-permission: warranties.manage
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/WarrantyUpdate' } } } }
+            responses:
+                '200':
+                    {
+                        description: Updated warranty.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/WarrantyEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        patch: { <<: *updateWarranty, operationId: updateWarranty }
+
+    /api/warranties/{warranty}/eligibility:
+        get:
+            tags: [Warranties]
+            summary: Check current warranty eligibility
+            operationId: warrantyEligibility
+            x-required-permission: warranties.view
+            parameters: [{ $ref: '#/components/parameters/WarrantyUuid' }]
+            responses:
+                '200':
+                    {
+                        description: Eligibility decision and reason.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/EligibilityEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/clients/{client}/warranties:
+        get:
+            tags: [Warranties]
+            summary: List a client's warranties
+            operationId: listClientWarranties
+            x-required-permission: warranties.view and clients.view
+            parameters:
+                - { $ref: '#/components/parameters/ClientUuid' }
+                - { $ref: '#/components/parameters/Search' }
+                - {
+                      name: client_id,
+                      in: query,
+                      deprecated: true,
+                      description: Ignored in favor of the path client.,
+                      schema: { type: integer },
+                  }
+                - { name: product_id, in: query, schema: { type: integer } }
+                - { name: status, in: query, schema: { $ref: '#/components/schemas/WarrantyStatus' } }
+                - { name: sort, in: query, schema: { type: string, enum: [serial_number, starts_at, expires_at, status, created_at] } }
+                - { $ref: '#/components/parameters/Direction' }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated client warranties.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/tickets:
+        get:
+            tags: [Tickets]
+            summary: List tickets
+            operationId: listTickets
+            x-required-permission: tickets.view
+            parameters:
+                - { $ref: '#/components/parameters/Search' }
+                - { name: client_id, in: query, schema: { type: integer } }
+                - { name: product_id, in: query, schema: { type: integer } }
+                - { name: warranty_id, in: query, schema: { type: integer } }
+                - { name: assigned_technician_id, in: query, schema: { type: integer } }
+                - { name: created_by, in: query, schema: { type: integer } }
+                - { name: priority, in: query, schema: { $ref: '#/components/schemas/TicketPriority' } }
+                - { name: status, in: query, schema: { $ref: '#/components/schemas/TicketStatus' } }
+                - { name: source, in: query, schema: { $ref: '#/components/schemas/TicketSource' } }
+                - { name: warranty_eligible, in: query, schema: { type: boolean } }
+                - { name: received_from, in: query, schema: { type: string, format: date } }
+                - { name: received_to, in: query, schema: { type: string, format: date }, description: Must be on or after received_from. }
+                - {
+                      name: sort,
+                      in: query,
+                      schema: { type: string, enum: [ticket_number, priority, status, received_at, closed_at, created_at] },
+                  }
+                - { $ref: '#/components/parameters/Direction' }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated tickets.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        post:
+            tags: [Tickets]
+            summary: Create a SAV ticket
+            description: The service validates that related client, product, warranty, and invoice item form a consistent purchase.
+            operationId: createTicket
+            x-required-permission: tickets.create
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TicketCreate' } } } }
+            responses:
+                '201':
+                    {
+                        description: Created ticket.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/TicketEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/tickets/{ticket}:
+        parameters: [{ $ref: '#/components/parameters/TicketUuid' }]
+        get:
+            tags: [Tickets]
+            summary: Get a ticket
+            operationId: getTicket
+            x-required-permission: tickets.view
+            responses:
+                '200':
+                    {
+                        description: Ticket,
+                        relationships,
+                        history,
+                        and authorized details.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/TicketEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        put: &updateTicket
+            tags: [Tickets]
+            summary: Update editable ticket details
+            description: Status, priority, ownership, linked purchase, and assignment fields are prohibited; use workflow endpoints.
+            operationId: replaceTicket
+            x-required-permission: tickets.update
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TicketUpdate' } } } }
+            responses:
+                '200':
+                    {
+                        description: Updated ticket.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/TicketEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        patch: { <<: *updateTicket, operationId: updateTicket }
+
+    /api/tickets/{ticket}/assign:
+        post:
+            tags: [Tickets]
+            summary: Assign a technician
+            operationId: assignTicket
+            x-required-permission: tickets.assign
+            parameters: [{ $ref: '#/components/parameters/TicketUuid' }]
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AssignTicketRequest' } } } }
+            responses:
+                '200':
+                    {
+                        description: Assigned ticket and repair relationship.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/TicketEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/tickets/{ticket}/priority:
+        post:
+            tags: [Tickets]
+            summary: Change ticket priority
+            operationId: changeTicketPriority
+            x-required-permission: tickets.update
+            parameters: [{ $ref: '#/components/parameters/TicketUuid' }]
+            requestBody:
+                {
+                    required: true,
+                    content:
+                        {
+                            application/json:
+                                {
+                                    schema:
+                                        {
+                                            type: object,
+                                            required: [priority],
+                                            properties: { priority: { $ref: '#/components/schemas/TicketPriority' } },
+                                        },
+                                },
+                        },
+                }
+            responses:
+                '200':
+                    {
+                        description: Updated ticket.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/TicketEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/tickets/{ticket}/transition:
+        post:
+            tags: [Tickets]
+            summary: Transition ticket status
+            description: The workflow service rejects an invalid transition with 422.
+            operationId: transitionTicket
+            x-required-permission: tickets.update
+            parameters: [{ $ref: '#/components/parameters/TicketUuid' }]
+            requestBody:
+                { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TransitionTicketRequest' } } } }
+            responses:
+                '200':
+                    {
+                        description: Transitioned ticket with status history.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/TicketEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/tickets/{ticket}/cancel:
+        post:
+            tags: [Tickets]
+            summary: Cancel a ticket
+            operationId: cancelTicket
+            x-required-permission: tickets.close
+            parameters: [{ $ref: '#/components/parameters/TicketUuid' }]
+            requestBody:
+                {
+                    required: true,
+                    content:
+                        {
+                            application/json:
+                                {
+                                    schema:
+                                        {
+                                            type: object,
+                                            required: [reason],
+                                            properties: { reason: { type: string, minLength: 3, maxLength: 5000 } },
+                                        },
+                                },
+                        },
+                }
+            responses:
+                '200':
+                    {
+                        description: Cancelled ticket.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/TicketEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/client/tickets:
+        get:
+            tags: [Tickets]
+            summary: List the current client's tickets
+            operationId: listPortalTickets
+            x-required-permission: linked client owner
+            parameters:
+                - { $ref: '#/components/parameters/Search' }
+                - { name: status, in: query, schema: { $ref: '#/components/schemas/TicketStatus' } }
+                - { $ref: '#/components/parameters/PerPage50' }
+                - { $ref: '#/components/parameters/Page' }
+            responses:
+                '200':
+                    {
+                        description: Paginated portal-safe ticket history.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        post:
+            tags: [Tickets]
+            summary: Submit a client SAV request
+            description: The purchased product must belong to the linked client; otherwise the resource is hidden as 404.
+            operationId: createPortalTicket
+            x-required-permission: linked client owner
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PortalTicketCreate' } } } }
+            responses:
+                '201':
+                    {
+                        description: Portal-safe created ticket.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/client/tickets/{ticket}:
+        get:
+            tags: [Tickets]
+            summary: Follow an owned ticket's progress and repair outcome
+            description: Internal technician notes are excluded. Another client's ticket is returned as 404.
+            operationId: getPortalTicket
+            x-required-permission: linked client owner
+            parameters: [{ $ref: '#/components/parameters/TicketUuid' }]
+            responses:
+                '200':
+                    {
+                        description: Portal-safe ticket,
+                        status history,
+                        attachments,
+                        and repair outcome.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/repairs:
+        get:
+            tags: [Repairs]
+            summary: List repairs
+            operationId: listRepairs
+            x-required-permission: repairs.view
+            parameters:
+                - { name: technician_id, in: query, schema: { type: integer } }
+                - { name: state, in: query, schema: { type: string, enum: [current, completed] } }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated repairs.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/repairs/{repair}:
+        parameters: [{ $ref: '#/components/parameters/RepairId' }]
+        get:
+            tags: [Repairs]
+            summary: Get a repair
+            operationId: getRepair
+            x-required-permission: admin/super admin or assigned technician
+            responses:
+                '200':
+                    {
+                        description: Repair with ticket,
+                        technician,
+                        and history when loaded.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/RepairEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        put: &updateRepair
+            tags: [Repairs]
+            summary: Update repair work details
+            description: Total cost is calculated by the server. Internal notes are staff-only.
+            operationId: replaceRepair
+            x-required-permission: admin/super admin or assigned technician with repairs.update
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RepairUpdate' } } } }
+            responses:
+                '200':
+                    {
+                        description: Updated repair.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/RepairEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+        patch: { <<: *updateRepair, operationId: updateRepair }
+
+    /api/repairs/my-tickets:
+        get:
+            tags: [Repairs]
+            summary: List tickets assigned to the current technician
+            operationId: listMyRepairTickets
+            x-required-permission: authenticated technician
+            parameters: [{ $ref: '#/components/parameters/PerPage100' }]
+            responses:
+                '200':
+                    {
+                        description: Paginated assigned tickets.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+
+    /api/tickets/{ticket}/repair/diagnosis:
+        post:
+            tags: [Repairs]
+            summary: Start diagnosis for an assigned ticket
+            operationId: startTicketDiagnosis
+            x-required-permission: admin/super admin or assigned technician with repairs.update
+            parameters: [{ $ref: '#/components/parameters/TicketUuid' }]
+            responses:
+                '200':
+                    {
+                        description: Repair initialized/in diagnosis.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/RepairEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/repairs/{repair}/diagnosis:
+        post:
+            tags: [Repairs]
+            summary: Record a diagnosis
+            operationId: diagnoseRepair
+            x-required-permission: admin/super admin or assigned technician with repairs.update
+            parameters: [{ $ref: '#/components/parameters/RepairId' }]
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DiagnosisRequest' } } } }
+            responses:
+                '200':
+                    {
+                        description: Diagnosed repair and transitioned ticket.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/RepairEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/repairs/{repair}/start:
+        post:
+            tags: [Repairs]
+            summary: Start repair work
+            operationId: startRepair
+            x-required-permission: admin/super admin or assigned technician with repairs.update
+            parameters: [{ $ref: '#/components/parameters/RepairId' }]
+            responses:
+                '200':
+                    {
+                        description: Started repair.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/RepairEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/repairs/{repair}/complete:
+        post:
+            tags: [Repairs]
+            summary: Complete a repair
+            operationId: completeRepair
+            x-required-permission: admin/super admin or assigned technician with repairs.update
+            parameters: [{ $ref: '#/components/parameters/RepairId' }]
+            requestBody:
+                { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CompleteRepairRequest' } } } }
+            responses:
+                '200':
+                    {
+                        description: Completed repair and repair outcome.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/RepairEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/tickets/{ticket}/attachments:
+        get: &ticketAttachments
+            tags: [Attachments]
+            summary: List ticket attachments
+            operationId: listTicketAttachments
+            x-required-permission: tickets.view
+            parameters: [{ $ref: '#/components/parameters/TicketUuid' }]
+            responses:
+                '200':
+                    {
+                        description: Attachment collection.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/ListEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        post: &uploadTicketAttachment
+            tags: [Attachments]
+            summary: Upload a ticket attachment
+            operationId: uploadTicketAttachment
+            x-required-permission: tickets.update
+            parameters: [{ $ref: '#/components/parameters/TicketUuid' }]
+            requestBody: { $ref: '#/components/requestBodies/AttachmentUpload' }
+            responses:
+                '201':
+                    {
+                        description: Created attachment metadata.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/AttachmentEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+                '429': { $ref: '#/components/responses/TooManyRequests' }
+
+    /api/products/{product}/attachments:
+        get:
+            tags: [Attachments]
+            summary: List product attachments
+            operationId: listProductAttachments
+            x-required-permission: products.view
+            parameters: [{ $ref: '#/components/parameters/ProductUuid' }]
+            responses:
+                '200':
+                    {
+                        description: Attachment collection.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/ListEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        post:
+            tags: [Attachments]
+            summary: Upload a product attachment
+            operationId: uploadProductAttachment
+            x-required-permission: products.update
+            parameters: [{ $ref: '#/components/parameters/ProductUuid' }]
+            requestBody: { $ref: '#/components/requestBodies/AttachmentUpload' }
+            responses:
+                '201':
+                    {
+                        description: Created attachment metadata.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/AttachmentEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+                '429': { $ref: '#/components/responses/TooManyRequests' }
+
+    /api/repairs/{repair}/attachments:
+        get:
+            tags: [Attachments]
+            summary: List repair attachments
+            operationId: listRepairAttachments
+            x-required-permission: repair view policy
+            parameters: [{ $ref: '#/components/parameters/RepairId' }]
+            responses:
+                '200':
+                    {
+                        description: Attachment collection.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/ListEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        post:
+            tags: [Attachments]
+            summary: Upload a repair attachment
+            operationId: uploadRepairAttachment
+            x-required-permission: repair update policy
+            parameters: [{ $ref: '#/components/parameters/RepairId' }]
+            requestBody: { $ref: '#/components/requestBodies/AttachmentUpload' }
+            responses:
+                '201':
+                    {
+                        description: Created attachment metadata.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/AttachmentEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+                '429': { $ref: '#/components/responses/TooManyRequests' }
+
+    /api/client/tickets/{ticket}/attachments:
+        get:
+            <<: *ticketAttachments
+            summary: List attachments for an owned portal ticket
+            operationId: listPortalTicketAttachments
+            x-required-permission: linked client owner
+        post:
+            <<: *uploadTicketAttachment
+            summary: Upload to an owned, non-terminal portal ticket
+            operationId: uploadPortalTicketAttachment
+            x-required-permission: linked client owner
+
+    /api/attachments/{attachment}/preview:
+        get:
+            tags: [Attachments]
+            summary: Preview a private attachment
+            operationId: previewAttachment
+            x-required-permission: parent resource view policy
+            parameters: [{ $ref: '#/components/parameters/AttachmentUuid' }]
+            responses:
+                '200': { $ref: '#/components/responses/BinaryResponse' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/attachments/{attachment}/download:
+        get:
+            tags: [Attachments]
+            summary: Download a private attachment
+            operationId: downloadAttachment
+            x-required-permission: parent resource view policy
+            parameters: [{ $ref: '#/components/parameters/AttachmentUuid' }]
+            responses:
+                '200': { $ref: '#/components/responses/BinaryResponse' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/attachments/{attachment}:
+        delete:
+            tags: [Attachments]
+            summary: Delete a private attachment
+            operationId: deleteAttachment
+            x-required-permission: parent resource update policy
+            parameters: [{ $ref: '#/components/parameters/AttachmentUuid' }]
+            responses:
+                '200': { $ref: '#/components/responses/MessageResponse' }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/notifications:
+        get:
+            tags: [Notifications]
+            summary: List the current user's notifications
+            operationId: listNotifications
+            x-required-permission: current user scope
+            parameters:
+                - { name: unread, in: query, schema: { type: boolean } }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated current-user notifications.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/notifications/unread-count:
+        get:
+            tags: [Notifications]
+            summary: Get the current user's unread count
+            operationId: unreadNotificationCount
+            x-required-permission: current user scope
+            responses:
+                '200':
+                    {
+                        description: Unread count.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/CountEnvelope' } } },
+                    }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+
+    /api/notifications/{notification}/read:
+        patch:
+            tags: [Notifications]
+            summary: Mark one current-user notification as read
+            description: A notification owned by another user is returned as 404.
+            operationId: markNotificationRead
+            x-required-permission: current user scope
+            parameters: [{ $ref: '#/components/parameters/NotificationId' }]
+            responses:
+                '200':
+                    {
+                        description: Updated notification.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/notifications/mark-all-read:
+        post:
+            tags: [Notifications]
+            summary: Mark all current-user notifications as read
+            operationId: markAllNotificationsRead
+            x-required-permission: current user scope
+            responses:
+                '200':
+                    {
+                        description: Number marked as read.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/MarkedReadEnvelope' } } },
+                    }
+                '401': { $ref: '#/components/responses/Unauthenticated' }
+
+    /api/dashboard:
+        get:
+            tags: [Dashboard]
+            summary: Get the role-aware dashboard
+            operationId: dashboard
+            x-required-permission: dashboard.view or linked client portal access
+            responses:
+                '200':
+                    {
+                        description: Dashboard metrics scoped to the caller.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+
+    /api/reports/{type}:
+        get:
+            tags: [Reports]
+            summary: Generate a paginated report
+            operationId: getReport
+            x-required-permission: reports.view
+            parameters:
+                - { $ref: '#/components/parameters/ReportType' }
+                - { $ref: '#/components/parameters/DateFrom' }
+                - { $ref: '#/components/parameters/DateTo' }
+                - { name: technician_id, in: query, schema: { type: integer } }
+                - { name: status, in: query, schema: { type: string }, description: Ticket status, or repair result for repairs reports. }
+                - { name: priority, in: query, schema: { $ref: '#/components/schemas/TicketPriority' } }
+                - { name: brand_id, in: query, schema: { type: integer } }
+                - { name: category_id, in: query, schema: { type: integer } }
+                - { name: product_id, in: query, schema: { type: integer } }
+                - { name: warranty_state, in: query, schema: { $ref: '#/components/schemas/WarrantyStatus' } }
+                - { name: client_id, in: query, schema: { type: integer } }
+                - { $ref: '#/components/parameters/PerPage100' }
+                - { $ref: '#/components/parameters/Page' }
+            responses:
+                '200':
+                    {
+                        description: Report type,
+                        columns,
+                        applied filters,
+                        rows,
+                        pagination metadata,
+                        and links.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/ReportEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+    /api/reports/{type}/exports:
+        post:
+            tags: [Reports]
+            summary: Queue a CSV report export
+            description: Accepts the same filters as the report endpoint plus required format=csv. Limited to 10/minute.
+            operationId: exportReport
+            x-required-permission: reports.view
+            parameters: [{ $ref: '#/components/parameters/ReportType' }]
+            requestBody: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReportExportRequest' } } } }
+            responses:
+                '202':
+                    {
+                        description: Queued report export.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+                '429': { $ref: '#/components/responses/TooManyRequests' }
+
+    /api/reports/exports/{export}:
+        get:
+            tags: [Reports]
+            summary: Get report export status
+            operationId: getReportExport
+            x-required-permission: reports.view and requesting user; admin/super admin override
+            parameters: [{ $ref: '#/components/parameters/ExportUuid' }]
+            responses:
+                '200':
+                    {
+                        description: Export status and download metadata.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+
+    /api/reports/exports/{export}/download:
+        get:
+            tags: [Reports]
+            summary: Download a completed report export
+            operationId: downloadReportExport
+            x-required-permission: reports.view and requesting user; admin/super admin override
+            parameters: [{ $ref: '#/components/parameters/ExportUuid' }]
+            responses:
+                '200': { description: CSV download., content: { text/csv: { schema: { type: string, format: binary } } } }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '409':
+                    {
+                        description: Export is not complete.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } },
+                    }
+                '410':
+                    { description: Export has expired., content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+
+    /api/audit-logs:
+        get:
+            tags: [Audit Logs]
+            summary: List administrative audit logs
+            operationId: listAuditLogs
+            x-required-permission: admin or super_admin role
+            parameters:
+                - { name: user_id, in: query, schema: { type: integer } }
+                - { name: action, in: query, schema: { type: string, maxLength: 100 } }
+                - { name: entity_type, in: query, schema: { type: string, maxLength: 150 } }
+                - { $ref: '#/components/parameters/DateFrom' }
+                - { $ref: '#/components/parameters/DateTo' }
+                - { $ref: '#/components/parameters/PerPage100' }
+            responses:
+                '200':
+                    {
+                        description: Paginated audit records.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/PaginatedEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
+components:
+    securitySchemes:
+        cookieAuth:
+            type: apiKey
+            in: cookie
+            name: laravel_session
+            description: Stateful Laravel Sanctum session. Fetch `/sanctum/csrf-cookie`; send cookies and `X-XSRF-TOKEN` for mutations.
+
+    parameters:
+        Search: { name: search, in: query, required: false, schema: { type: string, maxLength: 100 } }
+        Direction: { name: direction, in: query, required: false, schema: { type: string, enum: [asc, desc] } }
+        PerPage100: { name: per_page, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100 } }
+        PerPage50: { name: per_page, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50 } }
+        Page: { name: page, in: query, required: false, schema: { type: integer, minimum: 1 } }
+        DateFrom: { name: date_from, in: query, required: false, schema: { type: string, format: date } }
+        DateTo:
+            {
+                name: date_to,
+                in: query,
+                required: false,
+                schema: { type: string, format: date },
+                description: Must be on or after date_from.,
+            }
+        UserUuid: { name: user, in: path, required: true, schema: { type: string, format: uuid } }
+        ClientUuid: { name: client, in: path, required: true, schema: { type: string, format: uuid } }
+        ProductUuid: { name: product, in: path, required: true, schema: { type: string, format: uuid } }
+        TicketUuid: { name: ticket, in: path, required: true, schema: { type: string, format: uuid } }
+        WarrantyUuid: { name: warranty, in: path, required: true, schema: { type: string, format: uuid } }
+        AttachmentUuid: { name: attachment, in: path, required: true, schema: { type: string, format: uuid } }
+        ExportUuid: { name: export, in: path, required: true, schema: { type: string, format: uuid } }
+        CategoryId: { name: category, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        BrandId: { name: brand, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        InvoiceId: { name: invoice, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        TechnicianId: { name: technician, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        RepairId: { name: repair, in: path, required: true, schema: { type: integer, minimum: 1 } }
+        NotificationId: { name: notification, in: path, required: true, schema: { type: string, format: uuid } }
+        ReportType:
+            name: type
+            in: path
+            required: true
+            schema: { type: string, enum: [tickets, repairs, warranties, technician_performance, defective_products, client_history] }
+
+    requestBodies:
+        AttachmentUpload:
+            required: true
+            description: Private file, maximum 10,240 KiB by default. JPEG, PNG, WebP, PDF, TXT, CSV, DOC/DOCX, XLS/XLSX.
+            content:
+                multipart/form-data:
+                    schema:
+                        type: object
+                        required: [file]
+                        properties:
+                            file: { type: string, format: binary }
+
+    responses:
+        MessageResponse:
+            description: Operation completed.
+            content: { application/json: { schema: { $ref: '#/components/schemas/Message' } } }
+        BinaryResponse:
+            description: Authorized private binary content.
+            content: { application/octet-stream: { schema: { type: string, format: binary } } }
+        Unauthenticated:
+            description: Missing or invalid authentication session.
+            content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { message: Unauthenticated. } } }
+        Forbidden:
+            description: The authenticated user is not authorized.
+            content:
+                { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { message: This action is unauthorized. } } }
+        NotFound:
+            description: Resource not found. Ownership-protected portal resources also use this response.
+            content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { message: Resource not found. } } }
+        ValidationError:
+            description: Input or business-rule validation failed.
+            content: { application/json: { schema: { $ref: '#/components/schemas/ValidationError' } } }
+        PageExpired:
+            description: CSRF token missing or expired.
+            content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { message: Page expired. } } }
+        TooManyRequests:
+            description: Rate limit exceeded.
+            headers:
+                Retry-After: { schema: { type: integer }, description: Seconds until retry. }
+            content: { application/json: { schema: { $ref: '#/components/schemas/Error' }, example: { message: Too many requests. } } }
+
+    schemas:
+        Error:
+            type: object
+            required: [message]
+            properties:
+                message: { type: string }
+        ValidationError:
+            type: object
+            required: [message, errors]
+            properties:
+                message: { type: string, example: The given data was invalid. }
+                errors:
+                    type: object
+                    additionalProperties:
+                        type: array
+                        items: { type: string }
+        Message:
+            type: object
+            required: [message]
+            properties:
+                message: { type: string }
+        DataEnvelope:
+            type: object
+            required: [data]
+            properties:
+                data: { type: object, additionalProperties: true }
+        ListEnvelope:
+            type: object
+            required: [data]
+            properties:
+                data: { type: array, items: { type: object, additionalProperties: true } }
+        PaginatedEnvelope:
+            type: object
+            required: [data, links, meta]
+            properties:
+                data: { type: array, items: { type: object, additionalProperties: true } }
+                links:
+                    type: object
+                    properties:
+                        first: { type: string, nullable: true }
+                        last: { type: string, nullable: true }
+                        prev: { type: string, nullable: true }
+                        next: { type: string, nullable: true }
+                meta:
+                    type: object
+                    properties:
+                        current_page: { type: integer }
+                        from: { type: integer, nullable: true }
+                        last_page: { type: integer }
+                        path: { type: string }
+                        per_page: { type: integer }
+                        to: { type: integer, nullable: true }
+                        total: { type: integer }
+        HealthEnvelope:
+            type: object
+            required: [data]
+            properties:
+                data:
+                    type: object
+                    required: [status, service, timestamp]
+                    properties:
+                        status: { type: string, enum: [ok] }
+                        service: { type: string }
+                        timestamp: { type: string, format: date-time }
+        CountEnvelope:
+            type: object
+            required: [data]
+            properties:
+                data:
+                    type: object
+                    required: [count]
+                    properties: { count: { type: integer, minimum: 0 } }
+        MarkedReadEnvelope:
+            type: object
+            required: [data]
+            properties:
+                data:
+                    type: object
+                    required: [marked_as_read]
+                    properties: { marked_as_read: { type: integer, minimum: 0 } }
+
+        UserStatus: { type: string, enum: [active, invited, suspended, archived] }
+        ClientType: { type: string, enum: [individual, company] }
+        WarrantyStatus: { type: string, enum: [active, expired, void, replaced] }
+        TechnicianAvailability: { type: string, enum: [available, busy, unavailable, leave] }
+        TicketPriority: { type: string, enum: [low, normal, high, urgent] }
+        TicketSource: { type: string, enum: [store, phone, email, web] }
+        TicketStatus:
+            type: string
+            enum:
+                [
+                    opened,
+                    received,
+                    awaiting_diagnosis,
+                    diagnosing,
+                    awaiting_customer_approval,
+                    awaiting_part,
+                    repairing,
+                    testing,
+                    repaired,
+                    ready_for_pickup,
+                    delivered,
+                    closed,
+                    cancelled,
+                ]
+        RepairResult: { type: string, enum: [repaired, partially_repaired, unrepairable, replacement_required] }
+
+        LoginRequest:
+            type: object
+            additionalProperties: false
+            required: [email, password]
+            properties:
+                email: { type: string, format: email, maxLength: 255 }
+                password: { type: string, format: password, maxLength: 255 }
+                remember: { type: boolean, default: false }
+        ForgotPasswordRequest:
+            type: object
+            additionalProperties: false
+            required: [email]
+            properties: { email: { type: string, format: email, maxLength: 255 } }
+        ResetPasswordRequest:
+            type: object
+            additionalProperties: false
+            required: [token, email, password, password_confirmation]
+            properties:
+                token: { type: string }
+                email: { type: string, format: email, maxLength: 255 }
+                password: { type: string, format: password, maxLength: 255, description: Laravel Password::defaults(). }
+                password_confirmation: { type: string, format: password, description: Must equal password. }
+        ChangePasswordRequest:
+            type: object
+            additionalProperties: false
+            required: [current_password, password, password_confirmation]
+            properties:
+                current_password: { type: string, format: password, description: Must match the current web-guard password. }
+                password: { type: string, format: password, maxLength: 255, description: Laravel Password::defaults(). }
+                password_confirmation: { type: string, format: password, description: Must equal password. }
+
+        User:
+            type: object
+            required: [id, uuid, first_name, last_name, email, locale, timezone, status, roles, permissions]
+            properties:
+                id: { type: integer }
+                uuid: { type: string, format: uuid }
+                first_name: { type: string }
+                last_name: { type: string }
+                email: { type: string, format: email }
+                phone: { type: string, nullable: true }
+                locale: { type: string }
+                timezone: { type: string }
+                client_id: { type: integer, nullable: true }
+                client: { type: object, nullable: true, additionalProperties: true }
+                status: { $ref: '#/components/schemas/UserStatus' }
+                last_login_at: { type: string, format: date-time, nullable: true }
+                roles: { type: array, items: { type: string } }
+                permissions: { type: array, items: { type: string } }
+                technician: { type: object, nullable: true, additionalProperties: true }
+        UserEnvelope:
+            type: object
+            required: [data]
+            properties: { data: { $ref: '#/components/schemas/User' } }
+        CreateUserRequest:
+            type: object
+            additionalProperties: false
+            required: [first_name, last_name, email, status, locale, timezone, password, password_confirmation, roles]
+            properties:
+                first_name: { type: string, maxLength: 100 }
+                last_name: { type: string, maxLength: 100 }
+                email: { type: string, format: email, maxLength: 255, description: Must be unique among users. }
+                phone: { type: string, nullable: true, maxLength: 30 }
+                status: { $ref: '#/components/schemas/UserStatus' }
+                locale: { type: string, maxLength: 10 }
+                timezone: { type: string, description: Valid PHP timezone identifier. }
+                client_id: { type: integer, nullable: true, description: Existing non-deleted client ID. }
+                password: { type: string, format: password, maxLength: 255, description: Laravel Password::defaults(). }
+                password_confirmation: { type: string, format: password, description: Must equal password. }
+                roles: { type: array, minItems: 1, uniqueItems: true, items: { type: string }, description: Existing web-guard role names. }
+        UpdateUserRequest:
+            type: object
+            additionalProperties: false
+            description: All fields are optional. Password may be null; confirmation is required when password is present. Email remains unique.
+            properties:
+                first_name: { type: string, maxLength: 100 }
+                last_name: { type: string, maxLength: 100 }
+                email: { type: string, format: email, maxLength: 255 }
+                phone: { type: string, nullable: true, maxLength: 30 }
+                status: { $ref: '#/components/schemas/UserStatus' }
+                locale: { type: string, maxLength: 10 }
+                timezone: { type: string, description: Valid PHP timezone identifier. }
+                client_id: { type: integer, nullable: true }
+                password: { type: string, format: password, nullable: true, maxLength: 255, description: Laravel Password::defaults(). }
+                password_confirmation: { type: string, format: password, description: Must equal password when password is present. }
+                roles: { type: array, minItems: 1, uniqueItems: true, items: { type: string } }
+
+        TechnicianWrite:
+            type: object
+            additionalProperties: false
+            required: [user_id, employee_code, skill_level, availability_status]
+            properties:
+                user_id: { type: integer, minimum: 1 }
+                employee_code: { type: string, maxLength: 50, pattern: '^[A-Za-z0-9_-]+$', description: Unique. }
+                specialization: { type: string, nullable: true, maxLength: 150 }
+                skill_level: { type: integer, minimum: 1, maximum: 5 }
+                availability_status: { $ref: '#/components/schemas/TechnicianAvailability' }
+                notes: { type: string, nullable: true, maxLength: 5000 }
+        TechnicianUpdate:
+            type: object
+            additionalProperties: false
+            description: All properties are optional; `user_id` cannot be changed.
+            properties:
+                employee_code: { type: string, maxLength: 50, pattern: '^[A-Za-z0-9_-]+$', description: Unique. }
+                specialization: { type: string, nullable: true, maxLength: 150 }
+                skill_level: { type: integer, minimum: 1, maximum: 5 }
+                availability_status: { $ref: '#/components/schemas/TechnicianAvailability' }
+                notes: { type: string, nullable: true, maxLength: 5000 }
+
+        Client:
+            type: object
+            required: [id, uuid, type, first_name, last_name, phone]
+            properties:
+                id: { type: integer }
+                uuid: { type: string, format: uuid }
+                type: { $ref: '#/components/schemas/ClientType' }
+                company_name: { type: string, nullable: true }
+                first_name: { type: string }
+                last_name: { type: string }
+                display_name: { type: string }
+                email: { type: string, format: email, nullable: true }
+                phone: { type: string }
+                address: { type: string, nullable: true }
+                city: { type: string, nullable: true }
+                tax_identifier: { type: string, nullable: true }
+                notes: { type: string, nullable: true }
+                created_at: { type: string, format: date-time, nullable: true }
+                updated_at: { type: string, format: date-time, nullable: true }
+        ClientEnvelope:
+            type: object
+            required: [data]
+            properties: { data: { $ref: '#/components/schemas/Client' } }
+        ClientCreate:
+            type: object
+            additionalProperties: false
+            required: [type, first_name, last_name, phone]
+            properties:
+                type: { $ref: '#/components/schemas/ClientType' }
+                company_name: { type: string, nullable: true, maxLength: 255, description: Required when type=company. }
+                first_name: { type: string, maxLength: 100 }
+                last_name: { type: string, maxLength: 100 }
+                email: { type: string, format: email, nullable: true, maxLength: 255 }
+                phone: { type: string, maxLength: 30 }
+                address: { type: string, nullable: true, maxLength: 1000 }
+                city: { type: string, nullable: true, maxLength: 100 }
+                tax_identifier: { type: string, nullable: true, maxLength: 100, description: Required for companies and unique. }
+                notes: { type: string, nullable: true, maxLength: 5000 }
+        ClientUpdate:
+            type: object
+            additionalProperties: false
+            description: Partial client update. Company name and unique tax identifier become required when the effective type is company.
+            properties:
+                type: { $ref: '#/components/schemas/ClientType' }
+                company_name: { type: string, nullable: true, maxLength: 255 }
+                first_name: { type: string, maxLength: 100 }
+                last_name: { type: string, maxLength: 100 }
+                email: { type: string, format: email, nullable: true, maxLength: 255 }
+                phone: { type: string, maxLength: 30 }
+                address: { type: string, nullable: true, maxLength: 1000 }
+                city: { type: string, nullable: true, maxLength: 100 }
+                tax_identifier: { type: string, nullable: true, maxLength: 100 }
+                notes: { type: string, nullable: true, maxLength: 5000 }
+
+        CategoryWrite:
+            type: object
+            additionalProperties: false
+            required: [name]
+            properties:
+                name: { type: string, maxLength: 255, description: Unique. }
+                slug: { type: string, nullable: true, maxLength: 255 }
+                description: { type: string, nullable: true, maxLength: 5000 }
+                active: { type: boolean }
+        CategoryUpdate:
+            type: object
+            additionalProperties: false
+            properties:
+                name: { type: string, maxLength: 255, description: Unique. }
+                slug: { type: string, nullable: true, maxLength: 255 }
+                description: { type: string, nullable: true, maxLength: 5000 }
+                active: { type: boolean }
+        BrandWrite:
+            type: object
+            additionalProperties: false
+            required: [name]
+            properties:
+                name: { type: string, maxLength: 255, description: Unique. }
+                slug: { type: string, nullable: true, maxLength: 255 }
+                logo_path: { type: string, nullable: true, maxLength: 2048 }
+                active: { type: boolean }
+        BrandUpdate:
+            type: object
+            additionalProperties: false
+            properties:
+                name: { type: string, maxLength: 255, description: Unique. }
+                slug: { type: string, nullable: true, maxLength: 255 }
+                logo_path: { type: string, nullable: true, maxLength: 2048 }
+                active: { type: boolean }
+        ProductCreate:
+            type: object
+            additionalProperties: false
+            required: [sku, name, category_id, brand_id, model, default_warranty_months, serial_number_required]
+            properties:
+                sku: { type: string, maxLength: 100, description: Trimmed, uppercased, unique. }
+                name: { type: string, maxLength: 255 }
+                slug: { type: string, nullable: true, maxLength: 255 }
+                description: { type: string, nullable: true, maxLength: 5000 }
+                category_id: { type: integer, minimum: 1 }
+                brand_id: { type: integer, minimum: 1 }
+                model: { type: string, maxLength: 255 }
+                default_warranty_months: { type: integer, minimum: 0, maximum: 120 }
+                serial_number_required: { type: boolean }
+                active: { type: boolean }
+        ProductUpdate:
+            type: object
+            additionalProperties: false
+            description: Partial product update; supplied non-null fields remain required and SKU remains unique.
+            properties:
+                sku: { type: string, maxLength: 100 }
+                name: { type: string, maxLength: 255 }
+                slug: { type: string, nullable: true, maxLength: 255 }
+                description: { type: string, nullable: true, maxLength: 5000 }
+                category_id: { type: integer, minimum: 1 }
+                brand_id: { type: integer, minimum: 1 }
+                model: { type: string, maxLength: 255 }
+                default_warranty_months: { type: integer, minimum: 0, maximum: 120 }
+                serial_number_required: { type: boolean }
+                active: { type: boolean }
+        Product:
+            type: object
+            required: [id, uuid, sku, name, model, default_warranty_months, serial_number_required, active]
+            properties:
+                id: { type: integer }
+                uuid: { type: string, format: uuid }
+                sku: { type: string }
+                name: { type: string }
+                slug: { type: string, nullable: true }
+                description: { type: string, nullable: true }
+                category_id: { type: integer }
+                brand_id: { type: integer }
+                model: { type: string }
+                default_warranty_months: { type: integer }
+                serial_number_required: { type: boolean }
+                active: { type: boolean }
+                category: { type: object, nullable: true, additionalProperties: true }
+                brand: { type: object, nullable: true, additionalProperties: true }
+                created_at: { type: string, format: date-time, nullable: true }
+                updated_at: { type: string, format: date-time, nullable: true }
+        ProductEnvelope:
+            type: object
+            required: [data]
+            properties: { data: { $ref: '#/components/schemas/Product' } }
+
+        InvoiceItemWrite:
+            type: object
+            additionalProperties: false
+            required: [product_id, quantity, unit_price]
+            properties:
+                product_id: { type: integer, minimum: 1 }
+                serial_number: { type: string, nullable: true, maxLength: 100, description: Trimmed and uppercased. }
+                quantity: { type: integer, minimum: 1, maximum: 10000 }
+                unit_price: { type: number, format: double, minimum: 0, maximum: 999999, multipleOf: 0.01 }
+                warranty_months: { type: integer, nullable: true, minimum: 0, maximum: 120 }
+                warranty_start_date: { type: string, format: date, nullable: true }
+        InvoiceWrite:
+            type: object
+            additionalProperties: false
+            required: [client_id, invoice_date, items]
+            properties:
+                invoice_number: { type: string, nullable: true, maxLength: 40, description: Trimmed/uppercased; generated when absent. }
+                client_id: { type: integer, minimum: 1, description: Existing non-deleted client. }
+                invoice_date: { type: string, format: date }
+                tax_rate: { type: number, format: double, minimum: 0, maximum: 100, multipleOf: 0.01 }
+                status: { type: string, enum: [draft, issued, void] }
+                notes: { type: string, nullable: true, maxLength: 5000 }
+                items: { type: array, minItems: 1, maxItems: 100, items: { $ref: '#/components/schemas/InvoiceItemWrite' } }
+        Invoice:
+            type: object
+            required: [id, invoice_number, client_id, invoice_date, subtotal_amount, tax_rate, tax_amount, total_amount, status, items]
+            properties:
+                id: { type: integer }
+                invoice_number: { type: string }
+                client_id: { type: integer }
+                invoice_date: { type: string, format: date }
+                subtotal_amount: { type: string, pattern: '^\d+\.\d{2}$', readOnly: true }
+                tax_rate: { type: string, readOnly: true }
+                tax_amount: { type: string, pattern: '^\d+\.\d{2}$', readOnly: true }
+                total_amount: { type: string, pattern: '^\d+\.\d{2}$', readOnly: true }
+                status: { type: string, enum: [draft, issued, void] }
+                notes: { type: string, nullable: true }
+                client: { type: object, nullable: true, additionalProperties: true }
+                items: { type: array, items: { type: object, additionalProperties: true } }
+                created_at: { type: string, format: date-time, nullable: true }
+                updated_at: { type: string, format: date-time, nullable: true }
+        InvoiceEnvelope:
+            type: object
+            required: [data]
+            properties: { data: { $ref: '#/components/schemas/Invoice' } }
+
+        Warranty:
+            type: object
+            required: [id, uuid, client_id, invoice_item_id, product_id, quantity, starts_at, expires_at, status]
+            properties:
+                id: { type: integer }
+                uuid: { type: string, format: uuid }
+                client_id: { type: integer }
+                invoice_item_id: { type: integer }
+                product_id: { type: integer }
+                serial_number: { type: string, nullable: true }
+                quantity: { type: integer }
+                starts_at: { type: string, format: date }
+                expires_at: { type: string, format: date }
+                status: { $ref: '#/components/schemas/WarrantyStatus' }
+                void_reason: { type: string, nullable: true }
+                notes: { type: string, nullable: true }
+                client: { type: object, nullable: true, additionalProperties: true }
+                product: { type: object, nullable: true, additionalProperties: true }
+                invoice_item: { type: object, nullable: true, additionalProperties: true }
+                created_at: { type: string, format: date-time, nullable: true }
+                updated_at: { type: string, format: date-time, nullable: true }
+        WarrantyEnvelope:
+            type: object
+            required: [data]
+            properties: { data: { $ref: '#/components/schemas/Warranty' } }
+        WarrantyUpdate:
+            type: object
+            additionalProperties: false
+            properties:
+                status: { $ref: '#/components/schemas/WarrantyStatus' }
+                void_reason: { type: string, nullable: true, maxLength: 1000, description: Required when status=void. }
+                notes: { type: string, nullable: true, maxLength: 5000 }
+        EligibilityEnvelope:
+            type: object
+            required: [data]
+            properties:
+                data:
+                    type: object
+                    required: [is_under_warranty, reason, starts_at, expires_at, remaining_days, status]
+                    properties:
+                        is_under_warranty: { type: boolean }
+                        reason: { type: string }
+                        starts_at: { type: string, format: date }
+                        expires_at: { type: string, format: date }
+                        remaining_days: { type: integer, minimum: 0 }
+                        status: { $ref: '#/components/schemas/WarrantyStatus' }
+        LookupWarrantyEnvelope:
+            type: object
+            required: [data]
+            properties:
+                data:
+                    type: object
+                    required: [warranty, eligibility]
+                    properties:
+                        warranty: { $ref: '#/components/schemas/Warranty' }
+                        eligibility:
+                            type: object
+                            required: [is_under_warranty, reason, starts_at, expires_at, remaining_days, status]
+                            properties:
+                                is_under_warranty: { type: boolean }
+                                reason: { type: string }
+                                starts_at: { type: string, format: date }
+                                expires_at: { type: string, format: date }
+                                remaining_days: { type: integer, minimum: 0 }
+                                status: { $ref: '#/components/schemas/WarrantyStatus' }
+
+        TicketCreate:
+            type: object
+            additionalProperties: false
+            required: [client_id, product_id, title, problem_description]
+            properties:
+                client_id: { type: integer, minimum: 1 }
+                product_id: { type: integer, minimum: 1 }
+                warranty_id: { type: integer, nullable: true, minimum: 1 }
+                invoice_item_id: { type: integer, nullable: true, minimum: 1 }
+                title: { type: string, minLength: 3, maxLength: 255 }
+                problem_description: { type: string, minLength: 3, maxLength: 10000 }
+                priority: { $ref: '#/components/schemas/TicketPriority' }
+                source: { $ref: '#/components/schemas/TicketSource' }
+        TicketUpdate:
+            type: object
+            additionalProperties: false
+            properties:
+                title: { type: string, minLength: 3, maxLength: 255 }
+                problem_description: { type: string, minLength: 3, maxLength: 10000 }
+                source: { $ref: '#/components/schemas/TicketSource' }
+            description: Partial update. status, priority, client_id, product_id, warranty_id, invoice_item_id, and assigned_technician_id are explicitly prohibited.
+        AssignTicketRequest:
+            type: object
+            additionalProperties: false
+            required: [assigned_technician_id]
+            properties: { assigned_technician_id: { type: integer, minimum: 1, description: Existing non-deleted technician. } }
+        TransitionTicketRequest:
+            type: object
+            additionalProperties: false
+            required: [status]
+            properties:
+                status: { $ref: '#/components/schemas/TicketStatus' }
+                notes: { type: string, nullable: true, maxLength: 5000 }
+        PortalTicketCreate:
+            type: object
+            additionalProperties: false
+            required: [purchased_product_uuid, title, problem_description]
+            properties:
+                purchased_product_uuid: { type: string, format: uuid, description: Must identify a purchase owned by the current client. }
+                title: { type: string, minLength: 3, maxLength: 255 }
+                problem_description: { type: string, minLength: 10, maxLength: 10000 }
+        Ticket:
+            type: object
+            required:
+                [id, uuid, ticket_number, client_id, product_id, title, problem_description, priority, status, source, warranty_eligible]
+            properties:
+                id: { type: integer }
+                uuid: { type: string, format: uuid }
+                ticket_number: { type: string }
+                client_id: { type: integer }
+                product_id: { type: integer }
+                warranty_id: { type: integer, nullable: true }
+                invoice_item_id: { type: integer, nullable: true }
+                title: { type: string }
+                problem_description: { type: string }
+                priority: { $ref: '#/components/schemas/TicketPriority' }
+                status: { $ref: '#/components/schemas/TicketStatus' }
+                source: { $ref: '#/components/schemas/TicketSource' }
+                warranty_eligible: { type: boolean }
+                created_by: { type: integer }
+                assigned_technician_id: { type: integer, nullable: true }
+                received_at: { type: string, format: date-time, nullable: true }
+                closed_at: { type: string, format: date-time, nullable: true }
+                status_history_count: { type: integer }
+                client: { type: object, nullable: true, additionalProperties: true }
+                product: { type: object, nullable: true, additionalProperties: true }
+                warranty: { type: object, nullable: true, additionalProperties: true }
+                invoice_item: { type: object, nullable: true, additionalProperties: true }
+                created_by_user: { type: object, nullable: true, additionalProperties: true }
+                assigned_technician: { type: object, nullable: true, additionalProperties: true }
+                status_history: { type: array, items: { type: object, additionalProperties: true } }
+                ticket_history: { type: array, items: { type: object, additionalProperties: true } }
+                attachments: { type: array, items: { $ref: '#/components/schemas/Attachment' } }
+                created_at: { type: string, format: date-time, nullable: true }
+                updated_at: { type: string, format: date-time, nullable: true }
+        TicketEnvelope:
+            type: object
+            required: [data]
+            properties: { data: { $ref: '#/components/schemas/Ticket' } }
+
+        RepairUpdate:
+            type: object
+            additionalProperties: false
+            properties:
+                repair_action: { type: string, nullable: true, maxLength: 10000 }
+                internal_notes:
+                    { type: string, nullable: true, maxLength: 10000, description: Staff-only; never exposed by client portal resources. }
+                customer_notes: { type: string, nullable: true, maxLength: 10000 }
+                labor_cost: { type: number, minimum: 0, maximum: 9999999, multipleOf: 0.01 }
+                parts_cost: { type: number, minimum: 0, maximum: 9999999, multipleOf: 0.01 }
+        DiagnosisRequest:
+            type: object
+            additionalProperties: false
+            required: [diagnosis, next_status]
+            properties:
+                diagnosis: { type: string, minLength: 3, maxLength: 10000 }
+                root_cause: { type: string, nullable: true, maxLength: 10000 }
+                customer_notes: { type: string, nullable: true, maxLength: 10000 }
+                next_status: { type: string, enum: [awaiting_customer_approval, awaiting_part, repairing] }
+        CompleteRepairRequest:
+            type: object
+            additionalProperties: false
+            required: [result]
+            properties:
+                result: { $ref: '#/components/schemas/RepairResult' }
+                customer_notes: { type: string, nullable: true, maxLength: 10000 }
+        Repair:
+            type: object
+            required: [id, ticket_id, technician_id]
+            properties:
+                id: { type: integer }
+                ticket_id: { type: integer }
+                technician_id: { type: integer }
+                diagnosis: { type: string, nullable: true }
+                root_cause: { type: string, nullable: true }
+                repair_action: { type: string, nullable: true }
+                internal_notes: { type: string, nullable: true, description: Staff resource only. }
+                customer_notes: { type: string, nullable: true }
+                labor_cost: { type: string, nullable: true }
+                parts_cost: { type: string, nullable: true }
+                total_cost: { type: string, nullable: true, readOnly: true }
+                started_at: { type: string, format: date-time, nullable: true }
+                completed_at: { type: string, format: date-time, nullable: true }
+                result: { allOf: [{ $ref: '#/components/schemas/RepairResult' }], nullable: true }
+                ticket: { type: object, nullable: true, additionalProperties: true }
+                technician: { type: object, nullable: true, additionalProperties: true }
+                history: { type: array, items: { type: object, additionalProperties: true } }
+                created_at: { type: string, format: date-time, nullable: true }
+                updated_at: { type: string, format: date-time, nullable: true }
+        RepairEnvelope:
+            type: object
+            required: [data]
+            properties: { data: { $ref: '#/components/schemas/Repair' } }
+
+        Attachment:
+            type: object
+            required: [uuid, original_filename, mime_type, size]
+            properties:
+                id: { type: integer }
+                uuid: { type: string, format: uuid }
+                original_filename: { type: string }
+                mime_type: { type: string }
+                size: { type: integer, description: Bytes. }
+                is_previewable_image: { type: boolean }
+                uploaded_by:
+                    {
+                        type: object,
+                        nullable: true,
+                        additionalProperties: true,
+                        description: Uploader summary; numeric ID is omitted in the client portal.,
+                    }
+                preview_url: { type: string, nullable: true }
+                download_url: { type: string, nullable: true }
+                created_at: { type: string, format: date-time, nullable: true }
+        AttachmentEnvelope:
+            type: object
+            required: [data]
+            properties: { data: { $ref: '#/components/schemas/Attachment' } }
+
+        SearchEnvelope:
+            type: object
+            required: [data]
+            properties:
+                data:
+                    type: object
+                    required: [query, groups, total, limit_per_category]
+                    description: Only authorized categories are populated.
+                    properties:
+                        query: { type: string }
+                        groups:
+                            type: object
+                            properties:
+                                clients: { type: array, items: { $ref: '#/components/schemas/SearchResult' } }
+                                tickets: { type: array, items: { $ref: '#/components/schemas/SearchResult' } }
+                                invoices: { type: array, items: { $ref: '#/components/schemas/SearchResult' } }
+                                serial_numbers: { type: array, items: { $ref: '#/components/schemas/SearchResult' } }
+                                products: { type: array, items: { $ref: '#/components/schemas/SearchResult' } }
+                                technicians: { type: array, items: { $ref: '#/components/schemas/SearchResult' } }
+                        total: { type: integer, minimum: 0 }
+                        limit_per_category: { type: integer, minimum: 1, maximum: 10 }
+        SearchResult:
+            type: object
+            required: [id, title, url]
+            properties:
+                id: { type: string }
+                title: { type: string }
+                subtitle: { type: string, nullable: true }
+                url: { type: string }
+        ReportEnvelope:
+            type: object
+            required: [data]
+            properties:
+                data:
+                    type: object
+                    required: [report_type, columns, filters, data, meta, links]
+                    properties:
+                        report_type: { type: string }
+                        columns: { type: array, items: { type: object, additionalProperties: true } }
+                        filters: { type: object, additionalProperties: true }
+                        data: { type: array, items: { type: object, additionalProperties: true } }
+                        meta: { type: object, additionalProperties: true }
+                        links: { type: object, additionalProperties: true }
+        ReportExportRequest:
+            type: object
+            required: [format]
+            properties:
+                format: { type: string, enum: [csv] }
+                date_from: { type: string, format: date, nullable: true }
+                date_to: { type: string, format: date, nullable: true, description: Must be on or after date_from. }
+                technician_id: { type: integer, nullable: true }
+                status: { type: string, nullable: true }
+                priority: { allOf: [{ $ref: '#/components/schemas/TicketPriority' }], nullable: true }
+                brand_id: { type: integer, nullable: true }
+                category_id: { type: integer, nullable: true }
+                product_id: { type: integer, nullable: true }
+                warranty_state: { allOf: [{ $ref: '#/components/schemas/WarrantyStatus' }], nullable: true }
+                client_id: { type: integer, nullable: true }
+                per_page: { type: integer, minimum: 1, maximum: 100 }
+                page: { type: integer, minimum: 1 }
