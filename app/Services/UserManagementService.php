@@ -30,7 +30,7 @@ class UserManagementService
         $direction = $filters['direction'] ?? 'desc';
 
         return User::query()
-            ->with(['roles.permissions', 'technician', 'client'])
+            ->with(['permissions', 'roles.permissions', 'technician', 'client'])
             ->when($search, function ($query, string $term): void {
                 $query->where(function ($query) use ($term): void {
                     $query->where('first_name', 'like', "%{$term}%")
@@ -195,6 +195,6 @@ class UserManagementService
 
     private function loadRelations(User $user): User
     {
-        return $user->load(['roles.permissions', 'technician', 'client']);
+        return $user->load(['permissions', 'roles.permissions', 'technician', 'client']);
     }
 }

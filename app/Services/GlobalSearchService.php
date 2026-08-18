@@ -50,6 +50,7 @@ class GlobalSearchService
 
         if (Gate::forUser($user)->allows('viewAny', Client::class)) {
             $groups['clients'] = Client::query()
+                ->select(['id', 'uuid', 'company_name', 'first_name', 'last_name', 'email', 'phone'])
                 ->where(function ($query) use ($prefix): void {
                     $query->where('company_name', 'like', $prefix)
                         ->orWhere('first_name', 'like', $prefix)
@@ -72,7 +73,8 @@ class GlobalSearchService
 
         if (Gate::forUser($user)->allows('viewAny', Ticket::class)) {
             $groups['tickets'] = Ticket::query()
-                ->with('client')
+                ->select(['id', 'uuid', 'ticket_number', 'title', 'status', 'client_id', 'received_at'])
+                ->with('client:id,uuid,company_name,first_name,last_name')
                 ->where('ticket_number', 'like', $prefix)
                 ->orderByRaw('CASE WHEN ticket_number = ? THEN 0 ELSE 1 END', [$term])
                 ->orderByDesc('received_at')
@@ -89,7 +91,8 @@ class GlobalSearchService
 
         if (Gate::forUser($user)->allows('viewAny', Invoice::class)) {
             $groups['invoices'] = Invoice::query()
-                ->with('client')
+                ->select(['id', 'invoice_number', 'client_id', 'invoice_date'])
+                ->with('client:id,uuid,company_name,first_name,last_name')
                 ->where('invoice_number', 'like', $prefix)
                 ->orderByRaw('CASE WHEN invoice_number = ? THEN 0 ELSE 1 END', [$term])
                 ->orderByDesc('invoice_date')
@@ -106,7 +109,11 @@ class GlobalSearchService
 
         if (Gate::forUser($user)->allows('viewAny', Warranty::class)) {
             $groups['serial_numbers'] = Warranty::query()
-                ->with(['product', 'client'])
+                ->select(['id', 'uuid', 'serial_number', 'product_id', 'customer_id', 'status', 'purchase_date'])
+                ->with([
+                    'product:id,uuid,name',
+                    'client:id,uuid,company_name,first_name,last_name',
+                ])
                 ->where('serial_number', 'like', $prefix)
                 ->orderByRaw('CASE WHEN serial_number = ? THEN 0 ELSE 1 END', [$term])
                 ->orderByDesc('purchase_date')
@@ -118,7 +125,8 @@ class GlobalSearchService
 
         if (Gate::forUser($user)->allows('viewAny', Product::class)) {
             $groups['products'] = Product::query()
-                ->with('brand')
+                ->select(['id', 'uuid', 'name', 'sku', 'model', 'brand_id'])
+                ->with('brand:id,name')
                 ->where(function ($query) use ($prefix): void {
                     $query->where('name', 'like', $prefix)
                         ->orWhere('model', 'like', $prefix)
@@ -138,7 +146,8 @@ class GlobalSearchService
 
         if (Gate::forUser($user)->allows('viewAny', Technician::class)) {
             $groups['technicians'] = Technician::query()
-                ->with('user')
+                ->select(['id', 'user_id', 'employee_code', 'specialization', 'availability_status'])
+                ->with('user:id,uuid,first_name,last_name,email')
                 ->where(function ($query) use ($prefix): void {
                     $query->where('employee_code', 'like', $prefix)
                         ->orWhere('specialization', 'like', $prefix)
@@ -171,6 +180,7 @@ class GlobalSearchService
         $groups = $this->emptyGroups();
 
         $groups['clients'] = Client::query()
+            ->select(['id', 'uuid', 'company_name', 'first_name', 'last_name', 'email', 'phone'])
             ->whereKey($user->client_id)
             ->where(function ($query) use ($prefix): void {
                 $query->where('company_name', 'like', $prefix)
@@ -190,6 +200,7 @@ class GlobalSearchService
             ->all();
 
         $groups['tickets'] = Ticket::query()
+            ->select(['id', 'uuid', 'ticket_number', 'title', 'status', 'client_id', 'received_at'])
             ->where('client_id', $user->client_id)
             ->where('ticket_number', 'like', $prefix)
             ->orderByRaw('CASE WHEN ticket_number = ? THEN 0 ELSE 1 END', [$term])
@@ -205,7 +216,8 @@ class GlobalSearchService
             ->all();
 
         $groups['serial_numbers'] = Warranty::query()
-            ->with('product')
+            ->select(['id', 'uuid', 'serial_number', 'product_id', 'customer_id', 'status', 'purchase_date'])
+            ->with('product:id,uuid,name')
             ->where('customer_id', $user->client_id)
             ->where('serial_number', 'like', $prefix)
             ->orderByRaw('CASE WHEN serial_number = ? THEN 0 ELSE 1 END', [$term])
@@ -216,7 +228,11 @@ class GlobalSearchService
             ->all();
 
         $groups['products'] = Warranty::query()
-            ->with('product.brand')
+            ->select(['id', 'uuid', 'serial_number', 'product_id', 'customer_id', 'purchase_date'])
+            ->with([
+                'product:id,uuid,name,sku,model,brand_id',
+                'product.brand:id,name',
+            ])
             ->where('customer_id', $user->client_id)
             ->whereHas('product', fn ($query) => $query->where(fn ($query) => $query
                 ->where('name', 'like', $prefix)

@@ -1,40 +1,82 @@
 import './bootstrap';
 import '../css/app.css';
 
-import { StrictMode, useEffect } from 'react';
+import { lazy, StrictMode, Suspense, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom';
-import { ForgotPasswordPage, LoginPage, ResetPasswordPage } from '@/features/auth/AuthPages';
-import { BrandsPage, CategoriesPage } from '@/features/catalog/CatalogEntityPages';
-import { ProductDetailsPage, ProductFormPage, ProductsPage } from '@/features/catalog/ProductPages';
-import { ClientDetailsPage, ClientFormPage, ClientsPage } from '@/features/clients/ClientPages';
-import { InvoiceDetailsPage, InvoiceFormPage, InvoicesPage } from '@/features/invoices/InvoicePages';
-import { WarrantyDetailsPage, WarrantiesPage } from '@/features/warranties/WarrantyPages';
-import { UserDetailsPage, UserFormPage, UsersPage } from '@/features/users/UsersPages';
-import { TechnicianDetailsPage, TechnicianFormPage, TechniciansPage } from '@/features/technicians/TechnicianPages';
-import { TicketDetailsPage, TicketFormPage, TicketsPage } from '@/features/tickets/TicketPages';
-import { RepairDetailsPage, RepairsPage } from '@/features/repairs/RepairPages';
-import { AuditLogsPage } from '@/features/audit-logs/AuditLogsPage';
 import { NotificationBell } from '@/components/NotificationBell';
 import { GlobalSearchPalette } from '@/components/GlobalSearchPalette';
-import { NotificationsPage } from '@/features/notifications/NotificationPages';
-import { DashboardPage } from '@/features/dashboard/DashboardPages';
-import { ReportsPage } from '@/features/reports/ReportsPage';
 import { ClientRoute, GuestRoute, LoadingScreen, PermissionRoute, ProtectedRoute } from '@/components/RouteGuards';
 import { useAuth } from '@/hooks/useAuth';
 import { Can } from '@/hooks/usePermissions';
 import { useRealtime } from '@/hooks/useRealtime';
-import { UnauthorizedPage } from '@/pages/UnauthorizedPage';
-import {
-    ClientOverviewPage,
-    ClientProductDetailsPage,
-    ClientProductsPage,
-    ClientProfilePage,
-    ClientTicketDetailsPage,
-    ClientTicketFormPage,
-    ClientTicketsPage,
-} from '@/features/client-portal/ClientPortalPages';
+
+const LoginPage = lazy(() => import('@/features/auth/AuthPages').then((module) => ({ default: module.LoginPage })));
+const ForgotPasswordPage = lazy(() => import('@/features/auth/AuthPages').then((module) => ({ default: module.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import('@/features/auth/AuthPages').then((module) => ({ default: module.ResetPasswordPage })));
+const CategoriesPage = lazy(() => import('@/features/catalog/CatalogEntityPages').then((module) => ({ default: module.CategoriesPage })));
+const BrandsPage = lazy(() => import('@/features/catalog/CatalogEntityPages').then((module) => ({ default: module.BrandsPage })));
+const ProductsPage = lazy(() => import('@/features/catalog/ProductPages').then((module) => ({ default: module.ProductsPage })));
+const ProductFormPage = lazy(() => import('@/features/catalog/ProductPages').then((module) => ({ default: module.ProductFormPage })));
+const ProductDetailsPage = lazy(() => import('@/features/catalog/ProductPages').then((module) => ({ default: module.ProductDetailsPage })));
+const ClientsPage = lazy(() => import('@/features/clients/ClientPages').then((module) => ({ default: module.ClientsPage })));
+const ClientFormPage = lazy(() => import('@/features/clients/ClientPages').then((module) => ({ default: module.ClientFormPage })));
+const ClientDetailsPage = lazy(() => import('@/features/clients/ClientPages').then((module) => ({ default: module.ClientDetailsPage })));
+const InvoicesPage = lazy(() => import('@/features/invoices/InvoicePages').then((module) => ({ default: module.InvoicesPage })));
+const InvoiceFormPage = lazy(() => import('@/features/invoices/InvoicePages').then((module) => ({ default: module.InvoiceFormPage })));
+const InvoiceDetailsPage = lazy(() =>
+    import('@/features/invoices/InvoicePages').then((module) => ({ default: module.InvoiceDetailsPage })),
+);
+const WarrantiesPage = lazy(() => import('@/features/warranties/WarrantyPages').then((module) => ({ default: module.WarrantiesPage })));
+const WarrantyDetailsPage = lazy(() =>
+    import('@/features/warranties/WarrantyPages').then((module) => ({ default: module.WarrantyDetailsPage })),
+);
+const UsersPage = lazy(() => import('@/features/users/UsersPages').then((module) => ({ default: module.UsersPage })));
+const UserFormPage = lazy(() => import('@/features/users/UsersPages').then((module) => ({ default: module.UserFormPage })));
+const UserDetailsPage = lazy(() => import('@/features/users/UsersPages').then((module) => ({ default: module.UserDetailsPage })));
+const TechniciansPage = lazy(() =>
+    import('@/features/technicians/TechnicianPages').then((module) => ({ default: module.TechniciansPage })),
+);
+const TechnicianFormPage = lazy(() =>
+    import('@/features/technicians/TechnicianPages').then((module) => ({ default: module.TechnicianFormPage })),
+);
+const TechnicianDetailsPage = lazy(() =>
+    import('@/features/technicians/TechnicianPages').then((module) => ({ default: module.TechnicianDetailsPage })),
+);
+const TicketsPage = lazy(() => import('@/features/tickets/TicketPages').then((module) => ({ default: module.TicketsPage })));
+const TicketFormPage = lazy(() => import('@/features/tickets/TicketPages').then((module) => ({ default: module.TicketFormPage })));
+const TicketDetailsPage = lazy(() => import('@/features/tickets/TicketPages').then((module) => ({ default: module.TicketDetailsPage })));
+const RepairsPage = lazy(() => import('@/features/repairs/RepairPages').then((module) => ({ default: module.RepairsPage })));
+const RepairDetailsPage = lazy(() => import('@/features/repairs/RepairPages').then((module) => ({ default: module.RepairDetailsPage })));
+const AuditLogsPage = lazy(() => import('@/features/audit-logs/AuditLogsPage').then((module) => ({ default: module.AuditLogsPage })));
+const NotificationsPage = lazy(() =>
+    import('@/features/notifications/NotificationPages').then((module) => ({ default: module.NotificationsPage })),
+);
+const DashboardPage = lazy(() => import('@/features/dashboard/DashboardPages').then((module) => ({ default: module.DashboardPage })));
+const ReportsPage = lazy(() => import('@/features/reports/ReportsPage').then((module) => ({ default: module.ReportsPage })));
+const UnauthorizedPage = lazy(() => import('@/pages/UnauthorizedPage').then((module) => ({ default: module.UnauthorizedPage })));
+const ClientOverviewPage = lazy(() =>
+    import('@/features/client-portal/ClientPortalPages').then((module) => ({ default: module.ClientOverviewPage })),
+);
+const ClientProfilePage = lazy(() =>
+    import('@/features/client-portal/ClientPortalPages').then((module) => ({ default: module.ClientProfilePage })),
+);
+const ClientProductsPage = lazy(() =>
+    import('@/features/client-portal/ClientPortalPages').then((module) => ({ default: module.ClientProductsPage })),
+);
+const ClientProductDetailsPage = lazy(() =>
+    import('@/features/client-portal/ClientPortalPages').then((module) => ({ default: module.ClientProductDetailsPage })),
+);
+const ClientTicketsPage = lazy(() =>
+    import('@/features/client-portal/ClientPortalPages').then((module) => ({ default: module.ClientTicketsPage })),
+);
+const ClientTicketFormPage = lazy(() =>
+    import('@/features/client-portal/ClientPortalPages').then((module) => ({ default: module.ClientTicketFormPage })),
+);
+const ClientTicketDetailsPage = lazy(() =>
+    import('@/features/client-portal/ClientPortalPages').then((module) => ({ default: module.ClientTicketDetailsPage })),
+);
 
 const queryClient = new QueryClient({
     defaultOptions: {
@@ -566,7 +608,9 @@ if (!root) throw new Error('Application root element was not found.');
 createRoot(root).render(
     <StrictMode>
         <QueryClientProvider client={queryClient}>
-            <App />
+            <Suspense fallback={<LoadingScreen />}>
+                <App />
+            </Suspense>
         </QueryClientProvider>
     </StrictMode>,
 );

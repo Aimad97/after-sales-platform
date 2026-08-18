@@ -1,6 +1,7 @@
 import type { ApexOptions } from 'apexcharts';
-import { Component, type ReactNode } from 'react';
-import Chart from 'react-apexcharts';
+import { Component, lazy, type ReactNode, Suspense } from 'react';
+
+const Chart = lazy(() => import('react-apexcharts'));
 
 type ChartType = 'bar' | 'donut' | 'line';
 
@@ -59,7 +60,15 @@ export function DashboardChart({ title, description, type, categories, series, e
             ) : (
                 <div className="mt-4 overflow-hidden">
                     <ChartRenderBoundary>
-                        <Chart options={options} series={series} type={type} height={280} />
+                        <Suspense
+                            fallback={
+                                <div className="grid h-72 place-items-center text-sm text-slate-500" aria-busy="true">
+                                    Loading chart...
+                                </div>
+                            }
+                        >
+                            <Chart options={options} series={series} type={type} height={280} />
+                        </Suspense>
                     </ChartRenderBoundary>
                 </div>
             )}

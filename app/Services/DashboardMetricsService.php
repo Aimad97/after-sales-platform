@@ -46,21 +46,13 @@ class DashboardMetricsService
      */
     private function adminDashboard(): array
     {
-        $today = today();
+        $ticketKpis = $this->adminTicketKpis();
 
         return [
             'role' => 'admin',
             'generated_at' => now()->toIso8601String(),
             'kpis' => [
-                'open_tickets' => Ticket::query()->whereNotIn('status', self::TERMINAL_TICKET_STATUSES)->count(),
-                'tickets_created_today' => Ticket::query()->whereDate('created_at', $today)->count(),
-                'tickets_resolved_today' => Ticket::query()->where('status', TicketStatus::Closed->value)->whereDate('closed_at', $today)->count(),
-                'urgent_tickets' => Ticket::query()->where('priority', TicketPriority::Urgent->value)->whereNotIn('status', self::TERMINAL_TICKET_STATUSES)->count(),
-                'average_resolution_seconds' => $this->averageSeconds(
-                    Ticket::query()->where('status', TicketStatus::Closed->value)->whereNotNull('received_at')->whereNotNull('closed_at'),
-                    'received_at',
-                    'closed_at',
-                ),
+                ...$ticketKpis,
                 'active_warranties' => Warranty::query()->active()->count(),
                 'expired_warranties' => Warranty::query()->expired()->count(),
             ],
@@ -75,6 +67,53 @@ class DashboardMetricsService
                 'performance' => $this->technicianPerformance(),
             ],
             'defective_products' => $this->defectiveProducts(),
+        ];
+    }
+
+    /**
+     * Compute the ticket KPI snapshot in one scan instead of issuing a query
+     * per card. DashboardCache keeps this aggregate off the request path for
+     * subsequent reads until an observed domain model changes.
+     *
+     * @return array{open_tickets: int, tickets_created_today: int, tickets_resolved_today: int, urgent_tickets: int, average_resolution_seconds: int|null}
+     */
+    private function adminTicketKpis(): array
+    {
+        $dateFunction = DB::connection()->getDriverName() === 'sqlite' ? 'date' : 'DATE';
+        $averageSeconds = $this->secondsDifferenceExpression('received_at', 'closed_at');
+        $today = today()->toDateString();
+
+        $metrics = Ticket::query()
+            ->selectRaw(
+                'SUM(CASE WHEN status NOT IN (?, ?) THEN 1 ELSE 0 END) as open_tickets',
+                self::TERMINAL_TICKET_STATUSES,
+            )
+            ->selectRaw(
+                "SUM(CASE WHEN {$dateFunction}(created_at) = ? THEN 1 ELSE 0 END) as tickets_created_today",
+                [$today],
+            )
+            ->selectRaw(
+                "SUM(CASE WHEN status = ? AND {$dateFunction}(closed_at) = ? THEN 1 ELSE 0 END) as tickets_resolved_today",
+                [TicketStatus::Closed->value, $today],
+            )
+            ->selectRaw(
+                'SUM(CASE WHEN priority = ? AND status NOT IN (?, ?) THEN 1 ELSE 0 END) as urgent_tickets',
+                [TicketPriority::Urgent->value, ...self::TERMINAL_TICKET_STATUSES],
+            )
+            ->selectRaw(
+                "AVG(CASE WHEN status = ? AND received_at IS NOT NULL AND closed_at IS NOT NULL THEN {$averageSeconds} ELSE NULL END) as average_resolution_seconds",
+                [TicketStatus::Closed->value],
+            )
+            ->first();
+
+        return [
+            'open_tickets' => (int) ($metrics?->open_tickets ?? 0),
+            'tickets_created_today' => (int) ($metrics?->tickets_created_today ?? 0),
+            'tickets_resolved_today' => (int) ($metrics?->tickets_resolved_today ?? 0),
+            'urgent_tickets' => (int) ($metrics?->urgent_tickets ?? 0),
+            'average_resolution_seconds' => $metrics?->average_resolution_seconds === null
+                ? null
+                : (int) round((float) $metrics->average_resolution_seconds),
         ];
     }
 
