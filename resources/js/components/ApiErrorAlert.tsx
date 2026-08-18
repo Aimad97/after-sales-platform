@@ -1,5 +1,8 @@
 import axios from 'axios';
+import { AlertCircle } from 'lucide-react';
 import type { ApiErrorResponse } from '@/api/client';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { cn } from '@/utils/cn';
 
 interface ApiErrorAlertProps {
     error: unknown;
@@ -30,8 +33,15 @@ export function ApiErrorAlert({ error, fallback, className = '' }: ApiErrorAlert
     if (!message) return null;
 
     return (
-        <p className={`rounded-md bg-rose-50 p-3 text-sm text-rose-700 ${className}`.trim()} role="alert">
-            {message}
-        </p>
+        <Alert
+            className={cn(
+                'border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-100',
+                className,
+            )}
+            role="alert"
+        >
+            <AlertCircle className="text-rose-600 dark:text-rose-400" aria-hidden="true" />
+            <AlertDescription className="text-rose-700 dark:text-rose-200">{message}</AlertDescription>
+        </Alert>
     );
 }

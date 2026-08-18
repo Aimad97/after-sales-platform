@@ -1,22 +1,30 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+import { useEffect, useMemo, useState, type ReactElement, type ReactNode } from 'react';
 import { useFieldArray, useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
 import { z } from 'zod';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { FormField } from '@/components/FormField';
+import { PageHeader as SharedPageHeader } from '@/components/PageHeader';
+import { PageSkeleton, TableSkeleton } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { listProducts } from '@/features/catalog/api';
 import { listClients } from '@/features/clients/api';
 import { createInvoice, getInvoice, listClientInvoices, listInvoices, updateInvoice } from '@/features/invoices/api';
 import type { Invoice, InvoiceFilters, InvoiceItemPayload, InvoicePayload, InvoiceStatus } from '@/features/invoices/types';
 import { Can } from '@/hooks/usePermissions';
 import { formatDate } from '@/utils/format';
-
-const inputClassName =
-    'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
 
 const invoiceItemSchema = z.object({
     product_id: z.number().int().positive('Select a product.'),
@@ -56,24 +64,26 @@ function defaultValues(): InvoiceFormValues {
 }
 
 function PageHeader({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
-    return (
-        <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
-                <p className="mt-1 text-sm text-slate-600">{description}</p>
-            </div>
-            {action}
-        </div>
-    );
+    return <SharedPageHeader title={title} description={description} actions={action} />;
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
+function Field({
+    label,
+    error,
+    hint,
+    required = false,
+    children,
+}: {
+    label: string;
+    error?: string;
+    hint?: string;
+    required?: boolean;
+    children: ReactElement;
+}) {
     return (
-        <label className="block text-sm font-medium text-slate-800">
-            {label}
+        <FormField label={label} error={error} hint={hint} required={required}>
             {children}
-            {error && <span className="mt-1 block text-sm font-normal text-rose-700">{error}</span>}
-        </label>
+        </FormField>
     );
 }
 
@@ -103,27 +113,30 @@ export function InvoicesPage() {
             header: 'Invoice',
             cell: (invoice) => (
                 <div>
-                    <Link className="font-semibold text-slate-900 hover:text-blue-700" to={`/admin/invoices/${invoice.id}`}>
+                    <Link
+                        className="font-semibold text-foreground transition-colors hover:text-primary"
+                        to={`/admin/invoices/${invoice.id}`}
+                    >
                         {invoice.invoice_number}
                     </Link>
-                    <p className="mt-0.5 text-slate-500">{formatDateOnly(invoice.invoice_date)}</p>
+                    <p className="mt-0.5 text-muted-foreground">{formatDateOnly(invoice.invoice_date)}</p>
                 </div>
             ),
         },
         {
             id: 'client',
             header: 'Client',
-            cell: (invoice) => <span className="text-slate-700">{invoice.client?.display_name ?? 'Unknown client'}</span>,
+            cell: (invoice) => <span>{invoice.client?.display_name ?? 'Unknown client'}</span>,
         },
         {
             id: 'items',
             header: 'Items',
-            cell: (invoice) => <span className="text-slate-600">{invoice.items_count ?? invoice.items.length}</span>,
+            cell: (invoice) => <span className="text-muted-foreground">{invoice.items_count ?? invoice.items.length}</span>,
         },
         {
             id: 'total',
             header: 'Total',
-            cell: (invoice) => <span className="font-medium text-slate-900">{formatAmount(invoice.total_amount)}</span>,
+            cell: (invoice) => <span className="font-semibold tabular-nums text-foreground">{formatAmount(invoice.total_amount)}</span>,
         },
         { id: 'status', header: 'Status', cell: (invoice) => <StatusBadge value={invoice.status} /> },
         {
@@ -132,13 +145,13 @@ export function InvoicesPage() {
             headerClassName: 'text-right',
             cellClassName: 'text-right',
             cell: (invoice) => (
-                <div className="flex justify-end gap-3">
-                    <Link className="font-medium text-blue-700" to={`/admin/invoices/${invoice.id}`}>
+                <div className="flex justify-end gap-1">
+                    <Link className={buttonVariants({ variant: 'ghost', size: 'sm' })} to={`/admin/invoices/${invoice.id}`}>
                         View
                     </Link>
                     {invoice.status === 'draft' && (
                         <Can permission="invoices.update">
-                            <Link className="font-medium text-blue-700" to={`/admin/invoices/${invoice.id}/edit`}>
+                            <Link className={buttonVariants({ variant: 'ghost', size: 'sm' })} to={`/admin/invoices/${invoice.id}/edit`}>
                                 Edit
                             </Link>
                         </Can>
@@ -155,61 +168,67 @@ export function InvoicesPage() {
                 description="Track sold products, invoice totals, and their warranty coverage."
                 action={
                     <Can permission="invoices.create">
-                        <Link
-                            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm"
-                            to="/admin/invoices/new"
-                        >
+                        <Link className={buttonVariants()} to="/admin/invoices/new">
+                            <Plus aria-hidden="true" />
                             Create invoice
                         </Link>
                     </Can>
                 }
             />
-            <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-5">
-                <input
-                    className={inputClassName}
-                    placeholder="Invoice number or client..."
-                    value={filters.search ?? ''}
-                    onChange={(event) => updateFilters({ search: event.target.value || undefined })}
-                />
-                <select
-                    className={inputClassName}
-                    value={filters.client_id ?? ''}
-                    onChange={(event) => updateFilters({ client_id: event.target.value === '' ? '' : Number(event.target.value) })}
-                >
-                    <option value="">All clients</option>
-                    {clientsQuery.data?.data.map((client) => (
-                        <option key={client.id} value={client.id}>
-                            {client.display_name}
-                        </option>
-                    ))}
-                </select>
-                <select
-                    className={inputClassName}
-                    value={filters.status ?? ''}
-                    onChange={(event) => updateFilters({ status: event.target.value === '' ? '' : (event.target.value as InvoiceStatus) })}
-                >
-                    <option value="">All statuses</option>
-                    <option value="draft">Draft</option>
-                    <option value="issued">Issued</option>
-                    <option value="void">Void</option>
-                </select>
-                <input
-                    className={inputClassName}
-                    type="date"
-                    aria-label="Invoice date from"
-                    value={filters.date_from ?? ''}
-                    onChange={(event) => updateFilters({ date_from: event.target.value || undefined })}
-                />
-                <input
-                    className={inputClassName}
-                    type="date"
-                    aria-label="Invoice date to"
-                    value={filters.date_to ?? ''}
-                    onChange={(event) => updateFilters({ date_to: event.target.value || undefined })}
-                />
-            </div>
+            <Card aria-label="Invoice filters">
+                <CardContent className="grid gap-4 pt-5 sm:grid-cols-2 sm:pt-6 xl:grid-cols-5">
+                    <FormField label="Search invoices">
+                        <Input
+                            type="search"
+                            placeholder="Number or client name"
+                            value={filters.search ?? ''}
+                            onChange={(event) => updateFilters({ search: event.target.value || undefined })}
+                        />
+                    </FormField>
+                    <FormField label="Client">
+                        <Select
+                            value={filters.client_id ?? ''}
+                            onChange={(event) => updateFilters({ client_id: event.target.value === '' ? '' : Number(event.target.value) })}
+                        >
+                            <option value="">All clients</option>
+                            {clientsQuery.data?.data.map((client) => (
+                                <option key={client.id} value={client.id}>
+                                    {client.display_name}
+                                </option>
+                            ))}
+                        </Select>
+                    </FormField>
+                    <FormField label="Status">
+                        <Select
+                            value={filters.status ?? ''}
+                            onChange={(event) =>
+                                updateFilters({ status: event.target.value === '' ? '' : (event.target.value as InvoiceStatus) })
+                            }
+                        >
+                            <option value="">All statuses</option>
+                            <option value="draft">Draft</option>
+                            <option value="issued">Issued</option>
+                            <option value="void">Void</option>
+                        </Select>
+                    </FormField>
+                    <FormField label="From date">
+                        <Input
+                            type="date"
+                            value={filters.date_from ?? ''}
+                            onChange={(event) => updateFilters({ date_from: event.target.value || undefined })}
+                        />
+                    </FormField>
+                    <FormField label="To date">
+                        <Input
+                            type="date"
+                            value={filters.date_to ?? ''}
+                            onChange={(event) => updateFilters({ date_to: event.target.value || undefined })}
+                        />
+                    </FormField>
+                </CardContent>
+            </Card>
             {invoicesQuery.isLoading ? (
-                <p className="text-sm text-slate-600">Loading invoices...</p>
+                <TableSkeleton columns={6} />
             ) : (
                 <>
                     <ErrorMessage error={invoicesQuery.error} />
@@ -217,7 +236,9 @@ export function InvoicesPage() {
                         rows={invoicesQuery.data?.data ?? []}
                         columns={columns}
                         getRowKey={(invoice) => invoice.id}
+                        ariaLabel="Invoices"
                         emptyMessage="No invoices match these filters."
+                        emptyDescription="Adjust the filters or create a new invoice to get started."
                     />
                     {invoicesQuery.data && (
                         <Pagination
@@ -251,6 +272,7 @@ export function InvoiceFormPage() {
         queryFn: () => listProducts({ per_page: 100, sort: 'name', direction: 'asc', active: '' }),
     });
     const form = useForm<InvoiceFormValues>({ resolver: zodResolver(invoiceSchema), defaultValues: defaultValues() });
+    const [pendingVoidValues, setPendingVoidValues] = useState<InvoiceFormValues | null>(null);
     const { fields, append, remove } = useFieldArray({ control: form.control, name: 'items' });
     const watchedItems = form.watch('items');
     const taxRate = form.watch('tax_rate');
@@ -316,14 +338,28 @@ export function InvoiceFormPage() {
         },
     });
 
-    if (isEditing && invoiceQuery.isLoading) return <p className="text-sm text-slate-600">Loading invoice...</p>;
+    if (isEditing && invoiceQuery.isLoading) return <PageSkeleton />;
     if (isEditing && !invoiceQuery.data) return <ErrorMessage error={invoiceQuery.error ?? new Error('Invoice not found.')} />;
     if (isEditing && invoiceQuery.data?.status !== 'draft')
-        return <p className="rounded-md bg-amber-50 p-4 text-sm text-amber-800">Only draft invoices can be edited.</p>;
+        return (
+            <Alert className="border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
+                <AlertTitle>Invoice cannot be edited</AlertTitle>
+                <AlertDescription>Only draft invoices can be edited.</AlertDescription>
+            </Alert>
+        );
+    if (clientsQuery.isLoading || productsQuery.isLoading) return <PageSkeleton />;
 
     const clients = clientsQuery.data?.data ?? [];
     const products = productsQuery.data?.data ?? [];
     const submitDisabled = saveMutation.isPending || clients.length === 0 || products.length === 0;
+    const submitInvoice = (values: InvoiceFormValues) => {
+        if (values.status === 'void') {
+            setPendingVoidValues(values);
+            return;
+        }
+
+        saveMutation.mutate(values);
+    };
 
     return (
         <section className="max-w-6xl space-y-6">
@@ -331,27 +367,36 @@ export function InvoiceFormPage() {
                 title={isEditing ? 'Edit draft invoice' : 'Create invoice'}
                 description="Add sold products and warranty terms. Totals are recalculated securely by the server."
             />
-            {!clientsQuery.isLoading && !productsQuery.isLoading && (clients.length === 0 || products.length === 0) ? (
-                <p className="rounded-md bg-amber-50 p-4 text-sm text-amber-800">
-                    Create at least one client and one product before creating an invoice.
-                </p>
+            <ConfirmDialog
+                open={pendingVoidValues !== null}
+                title={isEditing ? 'Void this invoice?' : 'Create a void invoice?'}
+                description="Void invoices cannot be edited afterward. Confirm only when this record must be permanently void."
+                confirmLabel={isEditing ? 'Void invoice' : 'Create void invoice'}
+                isPending={saveMutation.isPending}
+                onCancel={() => setPendingVoidValues(null)}
+                onConfirm={() => pendingVoidValues && saveMutation.mutate(pendingVoidValues)}
+            />
+            {clients.length === 0 || products.length === 0 ? (
+                <Alert className="border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40">
+                    <AlertTitle>Invoice setup required</AlertTitle>
+                    <AlertDescription>Create at least one client and one product before creating an invoice.</AlertDescription>
+                </Alert>
             ) : null}
             <ErrorMessage error={clientsQuery.error ?? productsQuery.error} />
             <form
-                className="space-y-6 rounded-xl border border-slate-200 bg-white p-6"
-                onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}
+                className="space-y-6 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm sm:p-6"
+                onSubmit={form.handleSubmit(submitInvoice)}
             >
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                    <Field label="Invoice number" error={form.formState.errors.invoice_number?.message}>
-                        <input
-                            className={inputClassName}
-                            placeholder="Generated automatically if empty"
-                            {...form.register('invoice_number')}
-                        />
+                    <Field
+                        label="Invoice number"
+                        error={form.formState.errors.invoice_number?.message}
+                        hint="Leave blank to generate a number automatically."
+                    >
+                        <Input placeholder="Generated automatically" {...form.register('invoice_number')} />
                     </Field>
-                    <Field label="Client" error={form.formState.errors.client_id?.message}>
-                        <select
-                            className={inputClassName}
+                    <Field label="Client" error={form.formState.errors.client_id?.message} required>
+                        <Select
                             value={form.watch('client_id')}
                             onChange={(event) => form.setValue('client_id', Number(event.target.value), { shouldValidate: true })}
                         >
@@ -361,50 +406,46 @@ export function InvoiceFormPage() {
                                     {client.display_name}
                                 </option>
                             ))}
-                        </select>
+                        </Select>
                     </Field>
-                    <Field label="Invoice date" error={form.formState.errors.invoice_date?.message}>
-                        <input className={inputClassName} type="date" {...form.register('invoice_date')} />
+                    <Field label="Invoice date" error={form.formState.errors.invoice_date?.message} required>
+                        <Input type="date" {...form.register('invoice_date')} />
                     </Field>
-                    <Field label="Tax rate (%)" error={form.formState.errors.tax_rate?.message}>
-                        <input
-                            className={inputClassName}
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="0.01"
-                            {...form.register('tax_rate', { valueAsNumber: true })}
-                        />
+                    <Field label="Tax rate (%)" error={form.formState.errors.tax_rate?.message} required>
+                        <Input type="number" min="0" max="100" step="0.01" {...form.register('tax_rate', { valueAsNumber: true })} />
                     </Field>
-                    <Field label="Status" error={form.formState.errors.status?.message}>
-                        <select className={inputClassName} {...form.register('status')}>
+                    <Field label="Status" error={form.formState.errors.status?.message} required>
+                        <Select {...form.register('status')}>
                             <option value="draft">Draft</option>
                             <option value="issued">Issued</option>
                             <option value="void">Void</option>
-                        </select>
+                        </Select>
                     </Field>
                 </div>
                 <Field label="Notes" error={form.formState.errors.notes?.message}>
-                    <textarea className={inputClassName} rows={3} {...form.register('notes')} />
+                    <Textarea rows={3} {...form.register('notes')} />
                 </Field>
 
-                <section className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <section className="space-y-4 rounded-xl border border-border bg-muted/35 p-4" aria-labelledby="invoice-items-title">
                     <div className="flex flex-wrap items-center justify-between gap-3">
                         <div>
-                            <h3 className="font-bold text-slate-900">Invoice items</h3>
-                            <p className="mt-1 text-sm text-slate-600">
+                            <h2 id="invoice-items-title" className="font-semibold text-foreground">
+                                Invoice items
+                            </h2>
+                            <p className="mt-1 text-sm text-muted-foreground">
                                 Warranty end dates and monetary totals are generated by the server.
                             </p>
                         </div>
-                        <button
-                            type="button"
-                            className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-medium"
-                            onClick={() => append(defaultItem())}
-                        >
+                        <Button type="button" variant="outline" size="sm" onClick={() => append(defaultItem())}>
+                            <Plus aria-hidden="true" />
                             Add line
-                        </button>
+                        </Button>
                     </div>
-                    {form.formState.errors.items?.message && <p className="text-sm text-rose-700">{form.formState.errors.items.message}</p>}
+                    {form.formState.errors.items?.message && (
+                        <p className="text-sm font-medium text-destructive" role="alert">
+                            {form.formState.errors.items.message}
+                        </p>
+                    )}
                     {fields.map((field, index) => {
                         const selectedProduct = products.find((product) => product.id === watchedItems[index]?.product_id);
                         const itemError = form.formState.errors.items?.[index];
@@ -412,11 +453,10 @@ export function InvoiceFormPage() {
                         return (
                             <div
                                 key={field.id}
-                                className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 md:grid-cols-2 xl:grid-cols-6"
+                                className="grid gap-4 rounded-lg border border-border bg-card p-4 shadow-sm md:grid-cols-2 xl:grid-cols-6"
                             >
-                                <Field label="Product" error={itemError?.product_id?.message}>
-                                    <select
-                                        className={inputClassName}
+                                <Field label="Product" error={itemError?.product_id?.message} required>
+                                    <Select
                                         value={watchedItems[index]?.product_id ?? 0}
                                         disabled={productsQuery.isLoading || products.length === 0}
                                         onChange={(event) => {
@@ -443,20 +483,18 @@ export function InvoiceFormPage() {
                                                 {product.active ? '' : ' (inactive)'}
                                             </option>
                                         ))}
-                                    </select>
+                                    </Select>
                                 </Field>
-                                <Field label="Quantity" error={itemError?.quantity?.message}>
-                                    <input
-                                        className={inputClassName}
+                                <Field label="Quantity" error={itemError?.quantity?.message} required>
+                                    <Input
                                         type="number"
                                         min="1"
                                         max="10000"
                                         {...form.register(`items.${index}.quantity`, { valueAsNumber: true })}
                                     />
                                 </Field>
-                                <Field label="Unit price (MAD)" error={itemError?.unit_price?.message}>
-                                    <input
-                                        className={inputClassName}
+                                <Field label="Unit price (MAD)" error={itemError?.unit_price?.message} required>
+                                    <Input
                                         type="number"
                                         min="0"
                                         max="999999"
@@ -467,12 +505,12 @@ export function InvoiceFormPage() {
                                 <Field
                                     label={`Serial number${selectedProduct?.serial_number_required ? ' (required)' : ''}`}
                                     error={itemError?.serial_number?.message}
+                                    required={selectedProduct?.serial_number_required}
                                 >
-                                    <input className={inputClassName} {...form.register(`items.${index}.serial_number`)} />
+                                    <Input {...form.register(`items.${index}.serial_number`)} />
                                 </Field>
-                                <Field label="Warranty months" error={itemError?.warranty_months?.message}>
-                                    <input
-                                        className={inputClassName}
+                                <Field label="Warranty months" error={itemError?.warranty_months?.message} required>
+                                    <Input
                                         type="number"
                                         min="0"
                                         max="120"
@@ -480,55 +518,54 @@ export function InvoiceFormPage() {
                                     />
                                 </Field>
                                 <Field label="Warranty starts" error={itemError?.warranty_start_date?.message}>
-                                    <input
-                                        className={inputClassName}
-                                        type="date"
-                                        {...form.register(`items.${index}.warranty_start_date`)}
-                                    />
+                                    <Input type="date" {...form.register(`items.${index}.warranty_start_date`)} />
                                 </Field>
                                 <div className="flex items-end justify-end md:col-span-2 xl:col-span-6">
-                                    <button
+                                    <Button
                                         type="button"
-                                        className="text-sm font-medium text-rose-700 disabled:opacity-50"
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                                         disabled={fields.length === 1}
                                         onClick={() => remove(index)}
                                     >
+                                        <Trash2 aria-hidden="true" />
                                         Remove line
-                                    </button>
+                                    </Button>
                                 </div>
                             </div>
                         );
                     })}
                 </section>
 
-                <section className="ml-auto grid max-w-sm gap-2 rounded-xl bg-slate-50 p-4 text-sm">
-                    <div className="flex justify-between text-slate-600">
+                <section
+                    className="ml-auto grid w-full max-w-sm gap-2 rounded-xl border border-border bg-muted/35 p-4 text-sm"
+                    aria-label="Invoice total preview"
+                >
+                    <div className="flex justify-between gap-4 text-muted-foreground">
                         <span>Preview subtotal</span>
                         <span>{formatAmount(preview.subtotal)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-600">
+                    <div className="flex justify-between gap-4 text-muted-foreground">
                         <span>Preview tax</span>
                         <span>{formatAmount(preview.tax)}</span>
                     </div>
-                    <div className="flex justify-between border-t border-slate-200 pt-2 font-bold text-slate-900">
+                    <div className="flex justify-between gap-4 border-t border-border pt-2 font-bold text-foreground">
                         <span>Preview total</span>
                         <span>{formatAmount(preview.total)}</span>
                     </div>
                 </section>
                 <ErrorMessage error={saveMutation.error} />
-                <div className="flex justify-end gap-3">
+                <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
                     <Link
-                        className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
+                        className={buttonVariants({ variant: 'outline' })}
                         to={isEditing ? `/admin/invoices/${invoiceId}` : '/admin/invoices'}
                     >
                         Cancel
                     </Link>
-                    <button
-                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                        disabled={submitDisabled}
-                    >
+                    <Button type="submit" disabled={submitDisabled}>
                         {saveMutation.isPending ? 'Saving...' : 'Save invoice'}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </section>
@@ -545,7 +582,7 @@ export function InvoiceDetailsPage() {
     });
     const invoice = invoiceQuery.data;
 
-    if (invoiceQuery.isLoading) return <p className="text-sm text-slate-600">Loading invoice...</p>;
+    if (invoiceQuery.isLoading) return <PageSkeleton />;
     if (!invoice) return <ErrorMessage error={invoiceQuery.error ?? new Error('Invoice not found.')} />;
 
     return (
@@ -556,29 +593,30 @@ export function InvoiceDetailsPage() {
                 action={
                     invoice.status === 'draft' ? (
                         <Can permission="invoices.update">
-                            <Link
-                                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
-                                to={`/admin/invoices/${invoice.id}/edit`}
-                            >
+                            <Link className={buttonVariants()} to={`/admin/invoices/${invoice.id}/edit`}>
                                 Edit draft
                             </Link>
                         </Can>
                     ) : undefined
                 }
             />
-            <section className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 md:grid-cols-2 lg:grid-cols-4">
-                <Detail label="Status" value={<StatusBadge value={invoice.status} />} />
-                <Detail label="Client" value={invoice.client?.display_name ?? '—'} />
-                <Detail label="Invoice date" value={formatDateOnly(invoice.invoice_date)} />
-                <Detail label="Tax rate" value={`${invoice.tax_rate}%`} />
-                <Detail label="Subtotal" value={formatAmount(invoice.subtotal_amount)} />
-                <Detail label="Tax" value={formatAmount(invoice.tax_amount)} />
-                <Detail label="Total" value={<strong>{formatAmount(invoice.total_amount)}</strong>} />
-                <Detail label="Created" value={formatDate(invoice.created_at)} />
-                <div className="md:col-span-2 lg:col-span-4">
-                    <Detail label="Notes" value={<p className="whitespace-pre-wrap">{invoice.notes ?? 'No notes.'}</p>} />
-                </div>
-            </section>
+            <Card>
+                <CardContent className="pt-5 sm:pt-6">
+                    <dl className="grid gap-x-6 gap-y-5 md:grid-cols-2 lg:grid-cols-4">
+                        <Detail label="Status" value={<StatusBadge value={invoice.status} />} />
+                        <Detail label="Client" value={invoice.client?.display_name ?? '—'} />
+                        <Detail label="Invoice date" value={formatDateOnly(invoice.invoice_date)} />
+                        <Detail label="Tax rate" value={`${invoice.tax_rate}%`} />
+                        <Detail label="Subtotal" value={formatAmount(invoice.subtotal_amount)} />
+                        <Detail label="Tax" value={formatAmount(invoice.tax_amount)} />
+                        <Detail label="Total" value={<strong className="tabular-nums">{formatAmount(invoice.total_amount)}</strong>} />
+                        <Detail label="Created" value={formatDate(invoice.created_at)} />
+                        <div className="md:col-span-2 lg:col-span-4">
+                            <Detail label="Notes" value={<p className="whitespace-pre-wrap">{invoice.notes ?? 'No notes.'}</p>} />
+                        </div>
+                    </dl>
+                </CardContent>
+            </Card>
             <InvoiceItemsTable items={invoice.items} />
         </section>
     );
@@ -589,98 +627,121 @@ export function ClientInvoiceHistory({ clientUuid }: { clientUuid: string }) {
         queryKey: ['clients', clientUuid, 'invoices'],
         queryFn: () => listClientInvoices(clientUuid, { per_page: 10, sort: 'invoice_date', direction: 'desc' }),
     });
+    const columns: DataTableColumn<Invoice>[] = [
+        {
+            id: 'invoice',
+            header: 'Invoice',
+            cell: (invoice) => (
+                <Link className="font-semibold text-foreground transition-colors hover:text-primary" to={`/admin/invoices/${invoice.id}`}>
+                    {invoice.invoice_number}
+                </Link>
+            ),
+        },
+        {
+            id: 'date',
+            header: 'Date',
+            cell: (invoice) => <span className="text-muted-foreground">{formatDateOnly(invoice.invoice_date)}</span>,
+        },
+        {
+            id: 'total',
+            header: 'Total',
+            cell: (invoice) => <span className="font-medium tabular-nums">{formatAmount(invoice.total_amount)}</span>,
+        },
+        { id: 'status', header: 'Status', cell: (invoice) => <StatusBadge value={invoice.status} /> },
+    ];
 
     return (
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900">Invoice history</h3>
-            <p className="mt-1 text-sm text-slate-600">Sales invoices and their current document status.</p>
-            {historyQuery.isLoading ? (
-                <p className="mt-4 text-sm text-slate-600">Loading invoices...</p>
-            ) : historyQuery.error ? (
-                <ErrorMessage error={historyQuery.error} />
-            ) : historyQuery.data?.data.length === 0 ? (
-                <p className="mt-4 rounded-md bg-slate-50 p-4 text-sm text-slate-600">No invoices have been created for this client.</p>
-            ) : (
-                <div className="mt-4 overflow-x-auto">
-                    <table className="min-w-full text-sm">
-                        <thead className="border-b text-left text-slate-500">
-                            <tr>
-                                <th className="pb-2 font-semibold">Invoice</th>
-                                <th className="pb-2 font-semibold">Date</th>
-                                <th className="pb-2 font-semibold">Total</th>
-                                <th className="pb-2 font-semibold">Status</th>
-                            </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                            {historyQuery.data?.data.map((invoice) => (
-                                <tr key={invoice.id}>
-                                    <td className="py-3">
-                                        <Link className="font-medium text-blue-700" to={`/admin/invoices/${invoice.id}`}>
-                                            {invoice.invoice_number}
-                                        </Link>
-                                    </td>
-                                    <td className="py-3 text-slate-600">{formatDateOnly(invoice.invoice_date)}</td>
-                                    <td className="py-3 text-slate-600">{formatAmount(invoice.total_amount)}</td>
-                                    <td className="py-3">
-                                        <StatusBadge value={invoice.status} />
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            )}
-        </section>
+        <Card>
+            <CardHeader>
+                <CardTitle>Invoice history</CardTitle>
+                <p className="text-sm text-muted-foreground">Sales invoices and their current document status.</p>
+            </CardHeader>
+            <CardContent>
+                {historyQuery.isLoading ? (
+                    <TableSkeleton rows={3} columns={4} />
+                ) : historyQuery.error ? (
+                    <ErrorMessage error={historyQuery.error} />
+                ) : (
+                    <DataTable
+                        rows={historyQuery.data?.data ?? []}
+                        columns={columns}
+                        getRowKey={(invoice) => invoice.id}
+                        ariaLabel="Client invoice history"
+                        emptyMessage="No invoices yet"
+                        emptyDescription="No invoices have been created for this client."
+                        className="shadow-none"
+                    />
+                )}
+            </CardContent>
+        </Card>
     );
 }
 
 function InvoiceItemsTable({ items }: { items: Invoice['items'] }) {
+    const columns: DataTableColumn<Invoice['items'][number]>[] = [
+        {
+            id: 'product',
+            header: 'Product',
+            cell: (item) => (
+                <div className="font-medium text-foreground">
+                    {item.product ? `${item.product.name} (${item.product.model})` : 'Unknown product'}
+                    <p className="mt-0.5 text-xs font-normal text-muted-foreground">{item.product?.sku ?? '—'}</p>
+                </div>
+            ),
+        },
+        { id: 'serial', header: 'Serial', cell: (item) => <span className="text-muted-foreground">{item.serial_number ?? '—'}</span> },
+        { id: 'quantity', header: 'Quantity', cell: (item) => <span className="tabular-nums">{item.quantity}</span> },
+        {
+            id: 'unit-price',
+            header: 'Unit price',
+            cell: (item) => <span className="tabular-nums text-muted-foreground">{formatAmount(item.unit_price)}</span>,
+        },
+        {
+            id: 'warranty',
+            header: 'Warranty',
+            cell: (item) => (
+                <div className="text-muted-foreground">
+                    {item.warranty_months} months
+                    <p className="mt-0.5 whitespace-nowrap text-xs">
+                        {formatDateOnly(item.warranty_start_date)} → {formatDateOnly(item.warranty_end_date)}
+                    </p>
+                </div>
+            ),
+        },
+        {
+            id: 'line-total',
+            header: 'Line total',
+            headerClassName: 'text-right',
+            cellClassName: 'text-right',
+            cell: (item) => <span className="font-semibold tabular-nums text-foreground">{formatAmount(item.line_total)}</span>,
+        },
+    ];
+
     return (
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900">Sold products</h3>
-            <div className="mt-4 overflow-x-auto">
-                <table className="min-w-full text-sm">
-                    <thead className="border-b text-left text-slate-500">
-                        <tr>
-                            <th className="pb-2 font-semibold">Product</th>
-                            <th className="pb-2 font-semibold">Serial</th>
-                            <th className="pb-2 font-semibold">Quantity</th>
-                            <th className="pb-2 font-semibold">Unit price</th>
-                            <th className="pb-2 font-semibold">Warranty</th>
-                            <th className="pb-2 font-semibold text-right">Line total</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {items.map((item) => (
-                            <tr key={item.id}>
-                                <td className="py-3 font-medium text-slate-900">
-                                    {item.product ? `${item.product.name} (${item.product.model})` : 'Unknown product'}
-                                    <p className="mt-0.5 text-xs font-normal text-slate-500">{item.product?.sku ?? '—'}</p>
-                                </td>
-                                <td className="py-3 text-slate-600">{item.serial_number ?? '—'}</td>
-                                <td className="py-3 text-slate-600">{item.quantity}</td>
-                                <td className="py-3 text-slate-600">{formatAmount(item.unit_price)}</td>
-                                <td className="py-3 text-slate-600">
-                                    {item.warranty_months} months
-                                    <p className="mt-0.5 text-xs">
-                                        {formatDateOnly(item.warranty_start_date)} → {formatDateOnly(item.warranty_end_date)}
-                                    </p>
-                                </td>
-                                <td className="py-3 text-right font-medium text-slate-900">{formatAmount(item.line_total)}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        </section>
+        <Card>
+            <CardHeader>
+                <CardTitle>Sold products</CardTitle>
+            </CardHeader>
+            <CardContent>
+                <DataTable
+                    rows={items}
+                    columns={columns}
+                    getRowKey={(item) => item.id}
+                    ariaLabel="Sold products on this invoice"
+                    emptyMessage="No sold products"
+                    emptyDescription="This invoice does not contain any product lines."
+                    className="shadow-none"
+                />
+            </CardContent>
+        </Card>
     );
 }
 
 function Detail({ label, value }: { label: string; value: ReactNode }) {
     return (
         <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-            <div className="mt-1 text-sm text-slate-800">{value}</div>
+            <dt className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</dt>
+            <dd className="mt-1.5 text-sm text-foreground">{value}</dd>
         </div>
     );
 }

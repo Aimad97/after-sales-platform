@@ -1,12 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState, type ReactNode } from 'react';
+import { useState, type ReactElement, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
 import { AttachmentPanel } from '@/components/AttachmentPanel';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
+import { FormField } from '@/components/FormField';
+import { PageHeader as SharedPageHeader } from '@/components/PageHeader';
+import { PageSkeleton } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
 import { completeRepair, getRepair, listRepairs, recordDiagnosis, startRepair, updateRepair } from '@/features/repairs/api';
@@ -16,7 +19,7 @@ import { useTicketRealtime } from '@/hooks/useRealtime';
 import { formatDate, humanize } from '@/utils/format';
 
 const inputClassName =
-    'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
+    'mt-1 min-h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/20';
 
 const diagnosisSchema = z.object({
     diagnosis: z.string().trim().min(3, 'Describe the diagnosis.').max(10_000),
@@ -45,22 +48,14 @@ type RepairUpdateValues = z.infer<typeof repairUpdateSchema>;
 type CompletionValues = z.infer<typeof completionSchema>;
 
 function PageHeader({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
-    return (
-        <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
-                <p className="mt-1 text-sm text-slate-600">{description}</p>
-            </div>
-            {action}
-        </div>
-    );
+    return <SharedPageHeader title={title} description={description} actions={action} />;
 }
 
 function Detail({ label, value }: { label: string; value: ReactNode }) {
     return (
         <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-            <div className="mt-1 break-words text-sm text-slate-800">{value}</div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+            <div className="mt-1.5 break-words text-sm text-foreground">{value}</div>
         </div>
     );
 }
@@ -76,13 +71,23 @@ function emptyToNull(value: string): string | null {
     return normalized === '' ? null : normalized;
 }
 
-function WorkflowField({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
+function WorkflowField({
+    label,
+    error,
+    hint,
+    required = false,
+    children,
+}: {
+    label: string;
+    error?: string;
+    hint?: string;
+    required?: boolean;
+    children: ReactElement;
+}) {
     return (
-        <label className="block text-sm font-medium text-slate-800">
-            {label}
+        <FormField label={label} error={error} hint={hint} required={required}>
             {children}
-            {error && <span className="mt-1 block text-sm font-normal text-rose-700">{error}</span>}
-        </label>
+        </FormField>
     );
 }
 
@@ -110,6 +115,7 @@ export function TechnicianRepairWorkflow({ repair, onUpdated }: { repair: Repair
         resolver: zodResolver(completionSchema),
         defaultValues: { result: 'repaired', customer_notes: repair.customer_notes ?? '' },
     });
+    const [pendingCompletion, setPendingCompletion] = useState<CompletionValues | null>(null);
 
     const diagnosisMutation = useMutation({
         mutationFn: (values: DiagnosisValues) =>
@@ -118,7 +124,10 @@ export function TechnicianRepairWorkflow({ repair, onUpdated }: { repair: Repair
                 root_cause: emptyToNull(values.root_cause),
                 customer_notes: emptyToNull(values.customer_notes),
             } satisfies RepairDiagnosisPayload),
-        onSuccess: (updatedRepair) => onUpdated(updatedRepair),
+        onSuccess: (updatedRepair) => {
+            setPendingCompletion(null);
+            onUpdated(updatedRepair);
+        },
     });
     const startMutation = useMutation({
         mutationFn: () => startRepair(repair.id),
@@ -161,119 +170,138 @@ export function TechnicianRepairWorkflow({ repair, onUpdated }: { repair: Repair
     if (isComplete) return null;
 
     return (
-        <section className="space-y-6 rounded-xl border border-blue-200 bg-blue-50 p-6 shadow-sm" aria-labelledby="repair-workflow-title">
+        <section
+            className="space-y-6 rounded-xl border border-primary/20 bg-primary/[0.04] p-4 shadow-sm sm:p-6"
+            aria-labelledby="repair-workflow-title"
+        >
+            <ConfirmDialog
+                open={pendingCompletion !== null}
+                title="Complete this repair?"
+                description={`This records the final outcome${pendingCompletion ? ` as ${humanize(pendingCompletion.result)}` : ''} and completes the repair workflow.`}
+                confirmLabel="Complete repair"
+                isPending={completionMutation.isPending}
+                onCancel={() => setPendingCompletion(null)}
+                onConfirm={() => pendingCompletion && completionMutation.mutate(pendingCompletion)}
+            />
             <div>
-                <h3 id="repair-workflow-title" className="text-lg font-bold text-slate-900">
+                <h2 id="repair-workflow-title" className="text-lg font-semibold text-foreground">
                     Technician workflow
-                </h3>
-                <p className="mt-1 text-sm text-slate-700">
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
                     Record each step in sequence. The server enforces assignment and valid status transitions.
                 </p>
             </div>
 
             {canRecordDiagnosis && (
                 <form
-                    className="space-y-4 rounded-lg bg-white p-4"
+                    className="space-y-4 rounded-lg border border-border bg-card p-4 shadow-sm"
                     onSubmit={diagnosisForm.handleSubmit((values) => diagnosisMutation.mutate(values))}
                 >
-                    <h4 className="font-semibold text-slate-900">Record diagnosis</h4>
-                    <WorkflowField label="Diagnosis" error={diagnosisForm.formState.errors.diagnosis?.message}>
-                        <textarea className={inputClassName} rows={4} {...diagnosisForm.register('diagnosis')} />
+                    <h3 className="font-semibold text-foreground">Record diagnosis</h3>
+                    <WorkflowField label="Diagnosis" error={diagnosisForm.formState.errors.diagnosis?.message} required>
+                        <Textarea rows={4} {...diagnosisForm.register('diagnosis')} />
                     </WorkflowField>
                     <WorkflowField label="Root cause" error={diagnosisForm.formState.errors.root_cause?.message}>
-                        <textarea className={inputClassName} rows={3} {...diagnosisForm.register('root_cause')} />
+                        <Textarea rows={3} {...diagnosisForm.register('root_cause')} />
                     </WorkflowField>
-                    <WorkflowField label="Customer-visible notes" error={diagnosisForm.formState.errors.customer_notes?.message}>
-                        <textarea className={inputClassName} rows={3} {...diagnosisForm.register('customer_notes')} />
+                    <WorkflowField
+                        label="Customer-visible notes"
+                        error={diagnosisForm.formState.errors.customer_notes?.message}
+                        hint="These notes are visible in the client portal."
+                    >
+                        <Textarea rows={3} {...diagnosisForm.register('customer_notes')} />
                     </WorkflowField>
-                    <WorkflowField label="Next ticket status" error={diagnosisForm.formState.errors.next_status?.message}>
-                        <select className={inputClassName} {...diagnosisForm.register('next_status')}>
+                    <WorkflowField label="Next ticket status" error={diagnosisForm.formState.errors.next_status?.message} required>
+                        <Select {...diagnosisForm.register('next_status')}>
                             <option value="awaiting_part">Awaiting part</option>
                             <option value="awaiting_customer_approval">Awaiting customer approval</option>
-                        </select>
+                        </Select>
                     </WorkflowField>
                     <ErrorMessage error={diagnosisMutation.error} />
-                    <button
-                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                        disabled={diagnosisMutation.isPending}
-                    >
+                    <Button type="submit" disabled={diagnosisMutation.isPending}>
+                        <Save aria-hidden="true" />
                         {diagnosisMutation.isPending ? 'Saving diagnosis...' : 'Save diagnosis'}
-                    </button>
+                    </Button>
                 </form>
             )}
 
             {canStartRepair && (
-                <div className="rounded-lg bg-white p-4">
-                    <h4 className="font-semibold text-slate-900">Parts ready</h4>
-                    <p className="mt-1 text-sm text-slate-600">Start repair work when the required parts and approval are available.</p>
+                <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+                    <h3 className="font-semibold text-foreground">Parts ready</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">
+                        Start repair work when the required parts and approval are available.
+                    </p>
                     <ErrorMessage error={startMutation.error} />
-                    <button
-                        className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                        type="button"
-                        disabled={startMutation.isPending}
-                        onClick={() => startMutation.mutate()}
-                    >
+                    <Button className="mt-3" type="button" disabled={startMutation.isPending} onClick={() => startMutation.mutate()}>
+                        <Play aria-hidden="true" />
                         {startMutation.isPending ? 'Starting...' : 'Start repair work'}
-                    </button>
+                    </Button>
                 </div>
             )}
 
             <form
-                className="space-y-4 rounded-lg bg-white p-4"
+                className="space-y-4 rounded-lg border border-border bg-card p-4 shadow-sm"
                 onSubmit={updateForm.handleSubmit((values) => updateMutation.mutate(values))}
             >
-                <h4 className="font-semibold text-slate-900">Repair notes and costs</h4>
+                <h3 className="font-semibold text-foreground">Repair notes and costs</h3>
                 <WorkflowField label="Repair action" error={updateForm.formState.errors.repair_action?.message}>
-                    <textarea className={inputClassName} rows={3} {...updateForm.register('repair_action')} />
+                    <Textarea rows={3} {...updateForm.register('repair_action')} />
                 </WorkflowField>
-                <WorkflowField label="Internal technician notes" error={updateForm.formState.errors.internal_notes?.message}>
-                    <textarea className={inputClassName} rows={3} {...updateForm.register('internal_notes')} />
+                <WorkflowField
+                    label="Internal technician notes"
+                    error={updateForm.formState.errors.internal_notes?.message}
+                    hint="Internal technician notes are never shown in the client portal."
+                >
+                    <Textarea rows={3} {...updateForm.register('internal_notes')} />
                 </WorkflowField>
-                <p className="text-xs text-slate-500">Internal technician notes are never shown in the client portal.</p>
-                <WorkflowField label="Customer-visible notes" error={updateForm.formState.errors.customer_notes?.message}>
-                    <textarea className={inputClassName} rows={3} {...updateForm.register('customer_notes')} />
+                <WorkflowField
+                    label="Customer-visible notes"
+                    error={updateForm.formState.errors.customer_notes?.message}
+                    hint="These notes are visible in the client portal."
+                >
+                    <Textarea rows={3} {...updateForm.register('customer_notes')} />
                 </WorkflowField>
                 <div className="grid gap-4 sm:grid-cols-2">
-                    <WorkflowField label="Labor cost (MAD)" error={updateForm.formState.errors.labor_cost?.message}>
-                        <input className={inputClassName} inputMode="decimal" {...updateForm.register('labor_cost')} />
+                    <WorkflowField label="Labor cost (MAD)" error={updateForm.formState.errors.labor_cost?.message} required>
+                        <Input inputMode="decimal" {...updateForm.register('labor_cost')} />
                     </WorkflowField>
-                    <WorkflowField label="Parts cost (MAD)" error={updateForm.formState.errors.parts_cost?.message}>
-                        <input className={inputClassName} inputMode="decimal" {...updateForm.register('parts_cost')} />
+                    <WorkflowField label="Parts cost (MAD)" error={updateForm.formState.errors.parts_cost?.message} required>
+                        <Input inputMode="decimal" {...updateForm.register('parts_cost')} />
                     </WorkflowField>
                 </div>
                 <ErrorMessage error={updateMutation.error} />
-                <button
-                    className="rounded-md border border-blue-300 bg-white px-4 py-2 text-sm font-semibold text-blue-700 disabled:opacity-50"
-                    disabled={updateMutation.isPending}
-                >
+                <Button type="submit" variant="outline" disabled={updateMutation.isPending}>
+                    <Save aria-hidden="true" />
                     {updateMutation.isPending ? 'Saving...' : 'Save repair details'}
-                </button>
+                </Button>
             </form>
 
             {canCompleteRepair && (
                 <form
-                    className="space-y-4 rounded-lg border border-emerald-200 bg-white p-4"
-                    onSubmit={completionForm.handleSubmit((values) => completionMutation.mutate(values))}
+                    className="space-y-4 rounded-lg border border-emerald-300 bg-card p-4 shadow-sm dark:border-emerald-900"
+                    onSubmit={completionForm.handleSubmit(setPendingCompletion)}
                 >
-                    <h4 className="font-semibold text-slate-900">Complete repair</h4>
-                    <WorkflowField label="Outcome" error={completionForm.formState.errors.result?.message}>
-                        <select className={inputClassName} {...completionForm.register('result')}>
+                    <h3 className="font-semibold text-foreground">Complete repair</h3>
+                    <WorkflowField label="Outcome" error={completionForm.formState.errors.result?.message} required>
+                        <Select {...completionForm.register('result')}>
                             <option value="repaired">Repaired</option>
                             <option value="partially_repaired">Partially repaired</option>
                             <option value="unrepairable">Unrepairable</option>
                             <option value="replacement_required">Replacement required</option>
-                        </select>
+                        </Select>
                     </WorkflowField>
-                    <WorkflowField label="Final customer-visible notes" error={completionForm.formState.errors.customer_notes?.message}>
-                        <textarea className={inputClassName} rows={3} {...completionForm.register('customer_notes')} />
+                    <WorkflowField
+                        label="Final customer-visible notes"
+                        error={completionForm.formState.errors.customer_notes?.message}
+                        hint="The client can read these final notes."
+                    >
+                        <Textarea rows={3} {...completionForm.register('customer_notes')} />
                     </WorkflowField>
                     <ErrorMessage error={completionMutation.error} />
-                    <button
-                        className="rounded-md bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                        disabled={completionMutation.isPending}
-                    >
-                        {completionMutation.isPending ? 'Completing...' : 'Complete repair'}
-                    </button>
+                    <Button type="submit" disabled={completionMutation.isPending}>
+                        <CheckCircle2 aria-hidden="true" />
+                        Review completion
+                    </Button>
                 </form>
             )}
         </section>
@@ -374,7 +402,7 @@ export function RepairDetailsPage() {
     const repair = repairQuery.data;
     useTicketRealtime(repair?.ticket_id ?? null);
 
-    if (repairQuery.isLoading) return <p className="text-sm text-slate-600">Loading repair...</p>;
+    if (repairQuery.isLoading) return <PageSkeleton />;
     if (!repair) return <ErrorMessage error={repairQuery.error ?? new Error('Repair not found.')} />;
 
     const refresh = (updatedRepair: Repair) => {

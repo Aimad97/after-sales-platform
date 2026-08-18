@@ -1,45 +1,59 @@
+import { Badge, type BadgeProps } from '@/components/ui/badge';
 import { humanize } from '@/utils/format';
 
-const styles: Record<string, string> = {
-    active: 'bg-emerald-100 text-emerald-800',
-    inactive: 'bg-slate-200 text-slate-700',
-    invited: 'bg-sky-100 text-sky-800',
-    suspended: 'bg-rose-100 text-rose-800',
-    archived: 'bg-slate-200 text-slate-700',
-    available: 'bg-emerald-100 text-emerald-800',
-    busy: 'bg-amber-100 text-amber-800',
-    unavailable: 'bg-slate-200 text-slate-700',
-    leave: 'bg-violet-100 text-violet-800',
-    individual: 'bg-sky-100 text-sky-800',
-    company: 'bg-violet-100 text-violet-800',
-    expired: 'bg-rose-100 text-rose-800',
-    draft: 'bg-amber-100 text-amber-800',
-    issued: 'bg-sky-100 text-sky-800',
-    void: 'bg-slate-200 text-slate-700',
-    replaced: 'bg-violet-100 text-violet-800',
-    low: 'bg-slate-100 text-slate-700',
-    normal: 'bg-sky-100 text-sky-800',
-    high: 'bg-amber-100 text-amber-800',
-    urgent: 'bg-rose-100 text-rose-800',
-    opened: 'bg-sky-100 text-sky-800',
-    received: 'bg-cyan-100 text-cyan-800',
-    awaiting_diagnosis: 'bg-amber-100 text-amber-800',
-    diagnosing: 'bg-violet-100 text-violet-800',
-    awaiting_customer_approval: 'bg-orange-100 text-orange-800',
-    awaiting_part: 'bg-amber-100 text-amber-800',
-    repairing: 'bg-blue-100 text-blue-800',
-    testing: 'bg-indigo-100 text-indigo-800',
-    repaired: 'bg-emerald-100 text-emerald-800',
-    ready_for_pickup: 'bg-teal-100 text-teal-800',
-    delivered: 'bg-emerald-100 text-emerald-800',
-    closed: 'bg-slate-200 text-slate-700',
-    cancelled: 'bg-rose-100 text-rose-800',
+type BadgeVariant = NonNullable<BadgeProps['variant']>;
+
+const variants: Record<string, BadgeVariant> = {
+    active: 'success',
+    inactive: 'neutral',
+    invited: 'info',
+    suspended: 'danger',
+    archived: 'neutral',
+    available: 'success',
+    busy: 'warning',
+    unavailable: 'neutral',
+    leave: 'info',
+    individual: 'info',
+    company: 'info',
+    expired: 'danger',
+    draft: 'warning',
+    issued: 'info',
+    void: 'neutral',
+    replaced: 'info',
+    low: 'neutral',
+    normal: 'info',
+    high: 'warning',
+    urgent: 'danger',
+    opened: 'info',
+    received: 'info',
+    awaiting_diagnosis: 'warning',
+    diagnosing: 'info',
+    awaiting_customer_approval: 'warning',
+    awaiting_part: 'warning',
+    repairing: 'info',
+    testing: 'info',
+    repaired: 'success',
+    partially_repaired: 'warning',
+    unrepairable: 'danger',
+    replacement_required: 'warning',
+    ready_for_pickup: 'success',
+    delivered: 'success',
+    closed: 'neutral',
+    cancelled: 'danger',
+    pending: 'warning',
+    queued: 'warning',
+    processing: 'info',
+    completed: 'success',
+    approved: 'success',
+    rejected: 'danger',
+    failed: 'danger',
 };
 
 export function StatusBadge({ value }: { value: string }) {
     return (
-        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${styles[value] ?? 'bg-slate-100 text-slate-700'}`}>
+        <Badge variant={variants[value] ?? 'neutral'}>
+            <span className="size-1.5 rounded-full bg-current opacity-70" aria-hidden="true" />
             {humanize(value)}
-        </span>
+        </Badge>
     );
 }

@@ -4,12 +4,30 @@ import '../css/app.css';
 import { lazy, StrictMode, Suspense, useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Link, NavLink, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom';
-import { NotificationBell } from '@/components/NotificationBell';
-import { GlobalSearchPalette } from '@/components/GlobalSearchPalette';
+import {
+    BarChart3,
+    Bell,
+    ContactRound,
+    FileQuestion,
+    FolderTree,
+    HardHat,
+    LayoutDashboard,
+    Package,
+    ReceiptText,
+    ScrollText,
+    ShieldCheck,
+    Tags,
+    Ticket,
+    UserRound,
+    Users,
+    Wrench,
+} from 'lucide-react';
+import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { AppShell, type AppShellNavigationItem } from '@/components/AppShell';
 import { ClientRoute, GuestRoute, LoadingScreen, PermissionRoute, ProtectedRoute } from '@/components/RouteGuards';
+import { ThemeProvider } from '@/components/ThemeProvider';
 import { useAuth } from '@/hooks/useAuth';
-import { Can } from '@/hooks/usePermissions';
+import { usePermissions } from '@/hooks/usePermissions';
 import { useRealtime } from '@/hooks/useRealtime';
 
 const LoginPage = lazy(() => import('@/features/auth/AuthPages').then((module) => ({ default: module.LoginPage })));
@@ -85,155 +103,63 @@ const queryClient = new QueryClient({
     },
 });
 
+interface PermissionNavigationItem extends AppShellNavigationItem {
+    permission: string;
+}
+
+const adminNavigationItems: readonly PermissionNavigationItem[] = [
+    { label: 'Dashboard', to: '/admin', icon: LayoutDashboard, end: true, group: 'Workspace', permission: 'dashboard.view' },
+    { label: 'Tickets', to: '/admin/tickets', icon: Ticket, group: 'Workspace', permission: 'tickets.view' },
+    { label: 'Clients', to: '/admin/clients', icon: ContactRound, group: 'Workspace', permission: 'clients.view' },
+    { label: 'Products', to: '/admin/products', icon: Package, group: 'Workspace', permission: 'products.view' },
+    { label: 'Warranties', to: '/admin/warranties', icon: ShieldCheck, group: 'Workspace', permission: 'warranties.view' },
+    { label: 'Invoices', to: '/admin/invoices', icon: ReceiptText, group: 'Workspace', permission: 'invoices.view' },
+    { label: 'Repairs', to: '/admin/repairs', icon: Wrench, group: 'Operations', permission: 'repairs.view' },
+    { label: 'Technicians', to: '/admin/technicians', icon: HardHat, group: 'Operations', permission: 'users.view' },
+    { label: 'Reports', to: '/admin/reports', icon: BarChart3, group: 'Insights', permission: 'reports.view' },
+    { label: 'Users', to: '/admin/users', icon: Users, group: 'Administration', permission: 'users.view' },
+    { label: 'Categories', to: '/admin/categories', icon: FolderTree, group: 'Administration', permission: 'products.view' },
+    { label: 'Brands', to: '/admin/brands', icon: Tags, group: 'Administration', permission: 'products.view' },
+    { label: 'Audit logs', to: '/admin/audit-logs', icon: ScrollText, group: 'Administration', permission: 'audit_logs.view' },
+];
+
+const clientNavigationItems: readonly AppShellNavigationItem[] = [
+    { label: 'Overview', to: '/client', icon: LayoutDashboard, end: true },
+    { label: 'My profile', to: '/client/profile', icon: UserRound },
+    { label: 'Products & warranties', to: '/client/products', icon: Package },
+    { label: 'SAV requests', to: '/client/tickets', icon: Ticket },
+    { label: 'Notifications', to: '/client/notifications', icon: Bell },
+];
+
 function AdminLayout() {
     const { user, logout } = useAuth();
-    const navigationClass = ({ isActive }: { isActive: boolean }) =>
-        `rounded-md px-3 py-2 font-medium ${isActive ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`;
+    const { can } = usePermissions();
+    const visibleNavigationItems = adminNavigationItems.filter((item) => can(item.permission));
 
     return (
-        <main className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-6">
-            <section className="mx-auto max-w-7xl">
-                <header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                        <div>
-                            <p className="text-sm font-semibold text-blue-600">ServiceDesk</p>
-                            <h1 className="mt-1 text-2xl font-bold">Welcome, {user?.first_name}</h1>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <GlobalSearchPalette />
-                            <NotificationBell />
-                            <button
-                                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
-                                onClick={() => logout.mutate()}
-                            >
-                                Sign out
-                            </button>
-                        </div>
-                    </div>
-                    <nav className="mt-5 flex flex-wrap gap-2 text-sm" aria-label="Workspace navigation">
-                        <Can permission="dashboard.view">
-                            <NavLink className={navigationClass} to="/admin" end>
-                                Dashboard
-                            </NavLink>
-                        </Can>
-                        <Can permission="users.view">
-                            <NavLink className={navigationClass} to="/admin/users">
-                                Users
-                            </NavLink>
-                        </Can>
-                        <Can permission="users.view">
-                            <NavLink className={navigationClass} to="/admin/technicians">
-                                Technicians
-                            </NavLink>
-                        </Can>
-                        <Can permission="clients.view">
-                            <NavLink className={navigationClass} to="/admin/clients">
-                                Clients
-                            </NavLink>
-                        </Can>
-                        <Can permission="invoices.view">
-                            <NavLink className={navigationClass} to="/admin/invoices">
-                                Invoices
-                            </NavLink>
-                        </Can>
-                        <Can permission="warranties.view">
-                            <NavLink className={navigationClass} to="/admin/warranties">
-                                Warranties
-                            </NavLink>
-                        </Can>
-                        <Can permission="products.view">
-                            <NavLink className={navigationClass} to="/admin/products">
-                                Products
-                            </NavLink>
-                        </Can>
-                        <Can permission="products.view">
-                            <NavLink className={navigationClass} to="/admin/categories">
-                                Categories
-                            </NavLink>
-                        </Can>
-                        <Can permission="products.view">
-                            <NavLink className={navigationClass} to="/admin/brands">
-                                Brands
-                            </NavLink>
-                        </Can>
-                        <Can permission="tickets.view">
-                            <NavLink className={navigationClass} to="/admin/tickets">
-                                Tickets
-                            </NavLink>
-                        </Can>
-                        <Can permission="repairs.view">
-                            <NavLink className={navigationClass} to="/admin/repairs">
-                                Repairs
-                            </NavLink>
-                        </Can>
-                        <Can permission="reports.view">
-                            <NavLink className={navigationClass} to="/admin/reports">
-                                Reports
-                            </NavLink>
-                        </Can>
-                        <Can permission="audit_logs.view">
-                            <NavLink className={navigationClass} to="/admin/audit-logs">
-                                Audit logs
-                            </NavLink>
-                        </Can>
-                    </nav>
-                </header>
-                <div className="mt-6">
-                    <Outlet />
-                </div>
-            </section>
-        </main>
+        <AppShell
+            variant="admin"
+            userName={[user?.first_name, user?.last_name].filter(Boolean).join(' ') || 'Team member'}
+            userEmail={user?.email}
+            navigationItems={visibleNavigationItems}
+            isSigningOut={logout.isPending}
+            onSignOut={() => logout.mutate()}
+        />
     );
 }
 
 function ClientLayout() {
     const { user, logout } = useAuth();
-    const navigationClass = ({ isActive }: { isActive: boolean }) =>
-        `rounded-md px-3 py-2 font-medium ${isActive ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'}`;
 
     return (
-        <main className="min-h-screen bg-slate-50 p-4 text-slate-900 md:p-6">
-            <section className="mx-auto max-w-6xl">
-                <header className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="flex flex-wrap items-center justify-between gap-4">
-                        <div>
-                            <p className="text-sm font-semibold text-blue-600">ServiceDesk Client Portal</p>
-                            <h1 className="mt-1 text-2xl font-bold">Hello, {user?.first_name}</h1>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <GlobalSearchPalette />
-                            <NotificationBell />
-                            <button
-                                className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
-                                onClick={() => logout.mutate()}
-                            >
-                                Sign out
-                            </button>
-                        </div>
-                    </div>
-                    <nav className="mt-5 flex flex-wrap gap-2 text-sm" aria-label="Client portal navigation">
-                        <NavLink className={navigationClass} to="/client" end>
-                            Overview
-                        </NavLink>
-                        <NavLink className={navigationClass} to="/client/profile">
-                            My profile
-                        </NavLink>
-                        <NavLink className={navigationClass} to="/client/products">
-                            Products & warranties
-                        </NavLink>
-                        <NavLink className={navigationClass} to="/client/tickets">
-                            SAV requests
-                        </NavLink>
-                        <NavLink className={navigationClass} to="/client/notifications">
-                            Notifications
-                        </NavLink>
-                    </nav>
-                </header>
-                <div className="mt-6">
-                    <Outlet />
-                </div>
-            </section>
-        </main>
+        <AppShell
+            variant="client"
+            userName={[user?.first_name, user?.last_name].filter(Boolean).join(' ') || 'Client'}
+            userEmail={user?.email}
+            navigationItems={clientNavigationItems}
+            isSigningOut={logout.isPending}
+            onSignOut={() => logout.mutate()}
+        />
     );
 }
 
@@ -245,11 +171,18 @@ function WorkspaceRedirect() {
 
 function NotFoundPage() {
     return (
-        <main className="grid min-h-screen place-items-center p-6 text-center">
-            <section>
-                <p className="text-sm font-semibold text-blue-600">404</p>
-                <h1 className="mt-2 text-3xl font-bold">Page not found</h1>
-                <Link className="mt-5 inline-block rounded-md bg-blue-600 px-4 py-2 font-medium text-white" to="/">
+        <main className="grid min-h-screen place-items-center bg-background p-6 text-center text-foreground">
+            <section className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm">
+                <span className="mx-auto grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground" aria-hidden="true">
+                    <FileQuestion />
+                </span>
+                <p className="mt-5 text-sm font-bold uppercase tracking-widest text-primary">Error 404</p>
+                <h1 className="mt-2 text-3xl font-bold tracking-tight">Page not found</h1>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">The page may have moved, or you may not have a valid link.</p>
+                <Link
+                    className="mt-6 inline-flex min-h-10 items-center justify-center rounded-md bg-primary px-4 py-2 font-semibold text-primary-foreground shadow-sm transition-[filter] hover:brightness-95"
+                    to="/"
+                >
                     Go home
                 </Link>
             </section>
@@ -607,10 +540,12 @@ const root = document.getElementById('app');
 if (!root) throw new Error('Application root element was not found.');
 createRoot(root).render(
     <StrictMode>
-        <QueryClientProvider client={queryClient}>
-            <Suspense fallback={<LoadingScreen />}>
-                <App />
-            </Suspense>
-        </QueryClientProvider>
+        <ThemeProvider>
+            <QueryClientProvider client={queryClient}>
+                <Suspense fallback={<LoadingScreen />}>
+                    <App />
+                </Suspense>
+            </QueryClientProvider>
+        </ThemeProvider>
     </StrictMode>,
 );

@@ -3,11 +3,20 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
+import { ApiErrorAlert as ErrorMessage, getApiErrorMessage } from '@/components/ApiErrorAlert';
 import { z } from 'zod';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { DataTable, type DataTableColumn } from '@/components/DataTable';
+import { FormField } from '@/components/FormField';
+import { PageHeader } from '@/components/PageHeader';
+import { ErrorState, PageSkeleton, TableSkeleton } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { listUsers } from '@/features/users/api';
 import { archiveTechnician, createTechnician, getTechnician, listTechnicians, updateTechnician } from '@/features/technicians/api';
 import type { TechnicianAvailabilityStatus, TechnicianFilters, TechnicianPayload, TechnicianProfile } from '@/features/technicians/types';
@@ -15,20 +24,6 @@ import { Can } from '@/hooks/usePermissions';
 import { formatDate } from '@/utils/format';
 
 const availabilityStatuses: TechnicianAvailabilityStatus[] = ['available', 'busy', 'unavailable', 'leave'];
-const inputClassName =
-    'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
-
-function PageHeader({ title, description, action }: { title: string; description: string; action?: React.ReactNode }) {
-    return (
-        <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
-                <p className="mt-1 text-sm text-slate-600">{description}</p>
-            </div>
-            {action}
-        </div>
-    );
-}
 
 export function TechniciansPage() {
     const [filters, setFilters] = useState<TechnicianFilters>({ per_page: 10, sort: 'created_at', direction: 'desc' });
@@ -43,119 +38,142 @@ export function TechniciansPage() {
         },
     });
     const updateFilters = (next: Partial<TechnicianFilters>) => setFilters((current) => ({ ...current, ...next, page: 1 }));
+    const columns: DataTableColumn<TechnicianProfile>[] = [
+        {
+            id: 'technician',
+            header: 'Technician',
+            cell: (technician) => (
+                <div className="min-w-52">
+                    <Link
+                        className="font-semibold text-foreground hover:text-primary hover:underline"
+                        to={`/admin/technicians/${technician.id}`}
+                    >
+                        {technician.user?.first_name} {technician.user?.last_name}
+                    </Link>
+                    <p className="mt-0.5 text-muted-foreground">{technician.employee_code}</p>
+                </div>
+            ),
+        },
+        {
+            id: 'specialization',
+            header: 'Specialization',
+            cell: (technician) => <span className="text-muted-foreground">{technician.specialization ?? '—'}</span>,
+        },
+        {
+            id: 'skill',
+            header: 'Skill',
+            cell: (technician) => <span className="whitespace-nowrap text-muted-foreground">Level {technician.skill_level}</span>,
+        },
+        {
+            id: 'availability',
+            header: 'Availability',
+            cell: (technician) => <StatusBadge value={technician.availability_status} />,
+        },
+        {
+            id: 'actions',
+            header: 'Actions',
+            headerClassName: 'text-right',
+            cellClassName: 'text-right',
+            cell: (technician) => (
+                <div className="flex min-w-max flex-wrap justify-end gap-1">
+                    <Link className={buttonVariants({ variant: 'ghost', size: 'sm' })} to={`/admin/technicians/${technician.id}`}>
+                        View
+                    </Link>
+                    <Can permission="users.update">
+                        <Link className={buttonVariants({ variant: 'ghost', size: 'sm' })} to={`/admin/technicians/${technician.id}/edit`}>
+                            Edit
+                        </Link>
+                    </Can>
+                    <Can permission="users.delete">
+                        <Button
+                            className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setArchiveTarget(technician)}
+                        >
+                            Archive
+                        </Button>
+                    </Can>
+                </div>
+            ),
+        },
+    ];
 
     return (
         <section className="space-y-6">
             <PageHeader
                 title="Technicians"
                 description="Track technical capacity, specialization, and current availability."
-                action={
+                actions={
                     <Can permission="users.create">
-                        <Link
-                            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm"
-                            to="/admin/technicians/new"
-                        >
+                        <Link className={buttonVariants()} to="/admin/technicians/new">
                             Add technician profile
                         </Link>
                     </Can>
                 }
             />
-            <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
-                <input
-                    className={inputClassName}
-                    placeholder="Search technician or employee code…"
-                    value={filters.search ?? ''}
-                    onChange={(event) => updateFilters({ search: event.target.value || undefined })}
-                />
-                <select
-                    className={inputClassName}
-                    value={filters.availability_status ?? ''}
-                    onChange={(event) => updateFilters({ availability_status: event.target.value as TechnicianAvailabilityStatus | '' })}
-                >
-                    <option value="">All availability states</option>
-                    {availabilityStatuses.map((status) => (
-                        <option key={status} value={status}>
-                            {status}
-                        </option>
-                    ))}
-                </select>
-                <select
-                    className={inputClassName}
-                    value={filters.skill_level ?? ''}
-                    onChange={(event) => updateFilters({ skill_level: event.target.value === '' ? '' : Number(event.target.value) })}
-                >
-                    <option value="">All skill levels</option>
-                    {[1, 2, 3, 4, 5].map((level) => (
-                        <option key={level} value={level}>
-                            Level {level}
-                        </option>
-                    ))}
-                </select>
-            </div>
+            <Card className="grid gap-3 bg-muted/30 p-4 sm:grid-cols-2 lg:grid-cols-3">
+                <label>
+                    <span className="sr-only">Search technicians</span>
+                    <Input
+                        type="search"
+                        placeholder="Search technician or employee code…"
+                        value={filters.search ?? ''}
+                        onChange={(event) => updateFilters({ search: event.target.value || undefined })}
+                    />
+                </label>
+                <label>
+                    <span className="sr-only">Filter by availability</span>
+                    <Select
+                        value={filters.availability_status ?? ''}
+                        onChange={(event) =>
+                            updateFilters({ availability_status: event.target.value as TechnicianAvailabilityStatus | '' })
+                        }
+                    >
+                        <option value="">All availability states</option>
+                        {availabilityStatuses.map((status) => (
+                            <option key={status} value={status}>
+                                {status}
+                            </option>
+                        ))}
+                    </Select>
+                </label>
+                <label className="sm:col-span-2 lg:col-span-1">
+                    <span className="sr-only">Filter by skill level</span>
+                    <Select
+                        value={filters.skill_level ?? ''}
+                        onChange={(event) => updateFilters({ skill_level: event.target.value === '' ? '' : Number(event.target.value) })}
+                    >
+                        <option value="">All skill levels</option>
+                        {[1, 2, 3, 4, 5].map((level) => (
+                            <option key={level} value={level}>
+                                Level {level}
+                            </option>
+                        ))}
+                    </Select>
+                </label>
+            </Card>
             {techniciansQuery.isLoading ? (
-                <p className="text-sm text-slate-600">Loading technicians…</p>
+                <TableSkeleton rows={6} columns={5} />
+            ) : techniciansQuery.error ? (
+                <ErrorState
+                    title="Unable to load technicians"
+                    description={
+                        getApiErrorMessage(techniciansQuery.error, 'The technician list could not be loaded.') ??
+                        'The technician list could not be loaded.'
+                    }
+                    onRetry={() => void techniciansQuery.refetch()}
+                />
             ) : (
                 <>
-                    <ErrorMessage error={techniciansQuery.error} />
-                    <div className="overflow-x-auto rounded-xl border border-slate-200">
-                        <table className="min-w-full divide-y divide-slate-200 text-sm">
-                            <thead className="bg-slate-50 text-left text-slate-600">
-                                <tr>
-                                    <th className="px-4 py-3 font-semibold">Technician</th>
-                                    <th className="px-4 py-3 font-semibold">Specialization</th>
-                                    <th className="px-4 py-3 font-semibold">Skill</th>
-                                    <th className="px-4 py-3 font-semibold">Availability</th>
-                                    <th className="px-4 py-3 text-right font-semibold">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 bg-white">
-                                {techniciansQuery.data?.data.map((technician) => (
-                                    <tr key={technician.id}>
-                                        <td className="px-4 py-3">
-                                            <Link
-                                                className="font-semibold text-slate-900 hover:text-blue-700"
-                                                to={`/admin/technicians/${technician.id}`}
-                                            >
-                                                {technician.user?.first_name} {technician.user?.last_name}
-                                            </Link>
-                                            <p className="mt-0.5 text-slate-500">{technician.employee_code}</p>
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600">{technician.specialization ?? '—'}</td>
-                                        <td className="px-4 py-3 text-slate-600">Level {technician.skill_level}</td>
-                                        <td className="px-4 py-3">
-                                            <StatusBadge value={technician.availability_status} />
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex justify-end gap-3">
-                                                <Link className="font-medium text-blue-700" to={`/admin/technicians/${technician.id}`}>
-                                                    View
-                                                </Link>
-                                                <Can permission="users.update">
-                                                    <Link
-                                                        className="font-medium text-blue-700"
-                                                        to={`/admin/technicians/${technician.id}/edit`}
-                                                    >
-                                                        Edit
-                                                    </Link>
-                                                </Can>
-                                                <Can permission="users.delete">
-                                                    <button
-                                                        className="font-medium text-rose-700"
-                                                        onClick={() => setArchiveTarget(technician)}
-                                                    >
-                                                        Archive
-                                                    </button>
-                                                </Can>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                        {techniciansQuery.data?.data.length === 0 && (
-                            <p className="p-6 text-center text-sm text-slate-600">No technicians match these filters.</p>
-                        )}
-                    </div>
+                    <DataTable
+                        rows={techniciansQuery.data?.data ?? []}
+                        columns={columns}
+                        getRowKey={(technician) => technician.id}
+                        ariaLabel="Technicians"
+                        emptyMessage="No technicians match these filters."
+                        emptyDescription="Try changing or clearing one of the filters above."
+                    />
                     {techniciansQuery.data && (
                         <Pagination
                             meta={techniciansQuery.data.meta}
@@ -250,7 +268,19 @@ export function TechnicianFormPage() {
         },
     });
 
-    if (isEditing && technicianQuery.isLoading) return <p className="text-sm text-slate-600">Loading technician profile…</p>;
+    if (isEditing && technicianQuery.isLoading) return <PageSkeleton />;
+    if (isEditing && !technicianQuery.data && technicianQuery.error) {
+        return (
+            <ErrorState
+                title="Unable to load technician"
+                description={
+                    getApiErrorMessage(technicianQuery.error, 'The technician profile could not be loaded.') ??
+                    'The technician profile could not be loaded.'
+                }
+                onRetry={() => void technicianQuery.refetch()}
+            />
+        );
+    }
 
     return (
         <section className="max-w-3xl space-y-6">
@@ -263,21 +293,21 @@ export function TechnicianFormPage() {
                 }
             />
             <form
-                className="space-y-6 rounded-xl border border-slate-200 bg-white p-6"
+                className="space-y-6 rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6"
                 onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}
             >
                 {isEditing ? (
-                    <div className="rounded-md bg-slate-50 p-4 text-sm text-slate-700">
+                    <div className="rounded-md border border-border bg-muted/50 p-4 text-sm text-muted-foreground">
                         Assigned user:{' '}
-                        <strong>
+                        <strong className="text-foreground">
                             {technicianQuery.data?.user?.first_name} {technicianQuery.data?.user?.last_name}
                         </strong>{' '}
                         ({technicianQuery.data?.user?.email})
                     </div>
                 ) : (
-                    <Field label="Technician user" error={form.formState.errors.user_id?.message}>
-                        <select
-                            className={inputClassName}
+                    <FormField required label="Technician user" error={form.formState.errors.user_id?.message}>
+                        <Select
+                            required
                             value={form.watch('user_id')}
                             onChange={(event) => form.setValue('user_id', Number(event.target.value), { shouldValidate: true })}
                         >
@@ -287,19 +317,20 @@ export function TechnicianFormPage() {
                                     {user.first_name} {user.last_name} — {user.email}
                                 </option>
                             ))}
-                        </select>
-                    </Field>
+                        </Select>
+                    </FormField>
                 )}
+                {!isEditing && <ErrorMessage error={eligibleUsersQuery.error} />}
                 <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="Employee code" error={form.formState.errors.employee_code?.message}>
-                        <input className={inputClassName} {...form.register('employee_code')} />
-                    </Field>
-                    <Field label="Specialization" error={form.formState.errors.specialization?.message}>
-                        <input className={inputClassName} placeholder="e.g. Consumer electronics" {...form.register('specialization')} />
-                    </Field>
-                    <Field label="Skill level" error={form.formState.errors.skill_level?.message}>
-                        <select
-                            className={inputClassName}
+                    <FormField required label="Employee code" error={form.formState.errors.employee_code?.message}>
+                        <Input required {...form.register('employee_code')} />
+                    </FormField>
+                    <FormField label="Specialization" error={form.formState.errors.specialization?.message}>
+                        <Input placeholder="e.g. Consumer electronics" {...form.register('specialization')} />
+                    </FormField>
+                    <FormField required label="Skill level" error={form.formState.errors.skill_level?.message}>
+                        <Select
+                            required
                             value={form.watch('skill_level')}
                             onChange={(event) => form.setValue('skill_level', Number(event.target.value), { shouldValidate: true })}
                         >
@@ -308,35 +339,32 @@ export function TechnicianFormPage() {
                                     Level {level}
                                 </option>
                             ))}
-                        </select>
-                    </Field>
-                    <Field label="Availability" error={form.formState.errors.availability_status?.message}>
-                        <select className={inputClassName} {...form.register('availability_status')}>
+                        </Select>
+                    </FormField>
+                    <FormField required label="Availability" error={form.formState.errors.availability_status?.message}>
+                        <Select required {...form.register('availability_status')}>
                             {availabilityStatuses.map((status) => (
                                 <option key={status} value={status}>
                                     {status}
                                 </option>
                             ))}
-                        </select>
-                    </Field>
+                        </Select>
+                    </FormField>
                 </div>
-                <Field label="Notes" error={form.formState.errors.notes?.message}>
-                    <textarea className={inputClassName} rows={5} {...form.register('notes')} />
-                </Field>
+                <FormField label="Notes" error={form.formState.errors.notes?.message}>
+                    <Textarea rows={5} {...form.register('notes')} />
+                </FormField>
                 <ErrorMessage error={saveMutation.error} />
-                <div className="flex justify-end gap-3">
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
                     <Link
-                        className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
+                        className={buttonVariants({ variant: 'outline' })}
                         to={isEditing ? `/admin/technicians/${id}` : '/admin/technicians'}
                     >
                         Cancel
                     </Link>
-                    <button
-                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                        disabled={saveMutation.isPending}
-                    >
+                    <Button type="submit" disabled={saveMutation.isPending}>
                         {saveMutation.isPending ? 'Saving…' : 'Save profile'}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </section>
@@ -348,55 +376,53 @@ export function TechnicianDetailsPage() {
     const technicianQuery = useQuery({ queryKey: ['technicians', id], queryFn: () => getTechnician(id ?? ''), enabled: id !== undefined });
     const technician = technicianQuery.data;
 
-    if (technicianQuery.isLoading) return <p className="text-sm text-slate-600">Loading technician profile…</p>;
-    if (!technician) return <ErrorMessage error={technicianQuery.error ?? new Error('Technician profile not found.')} />;
+    if (technicianQuery.isLoading) return <PageSkeleton />;
+    if (!technician) {
+        return (
+            <ErrorState
+                title="Technician unavailable"
+                description={
+                    getApiErrorMessage(technicianQuery.error, 'The requested technician profile could not be found.') ??
+                    'The requested technician profile could not be found.'
+                }
+                onRetry={() => void technicianQuery.refetch()}
+            />
+        );
+    }
 
     return (
         <section className="max-w-3xl space-y-6">
             <PageHeader
                 title={`${technician.user?.first_name ?? 'Technician'} ${technician.user?.last_name ?? ''}`}
                 description={`Employee code: ${technician.employee_code}`}
-                action={
+                actions={
                     <Can permission="users.update">
-                        <Link
-                            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
-                            to={`/admin/technicians/${technician.id}/edit`}
-                        >
+                        <Link className={buttonVariants()} to={`/admin/technicians/${technician.id}/edit`}>
                             Edit profile
                         </Link>
                     </Can>
                 }
             />
-            <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 md:grid-cols-2">
+            <Card className="grid gap-5 p-5 sm:p-6 md:grid-cols-2">
                 <Detail label="Email" value={technician.user?.email ?? '—'} />
                 <Detail label="Availability" value={<StatusBadge value={technician.availability_status} />} />
                 <Detail label="Specialization" value={technician.specialization ?? '—'} />
                 <Detail label="Skill level" value={`Level ${technician.skill_level}`} />
                 <Detail label="Last updated" value={formatDate(technician.updated_at)} />
                 <div className="md:col-span-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Notes</p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm text-slate-800">{technician.notes ?? 'No notes.'}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Notes</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{technician.notes ?? 'No notes.'}</p>
                 </div>
-            </div>
+            </Card>
         </section>
-    );
-}
-
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
-    return (
-        <label className="block text-sm font-medium text-slate-800">
-            {label}
-            {children}
-            {error && <span className="mt-1 block text-sm font-normal text-rose-700">{error}</span>}
-        </label>
     );
 }
 
 function Detail({ label, value }: { label: string; value: React.ReactNode }) {
     return (
-        <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-            <div className="mt-1 text-sm text-slate-800">{value}</div>
+        <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+            <div className="mt-1 break-words text-sm text-foreground">{value}</div>
         </div>
     );
 }

@@ -1,14 +1,34 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { PackageCheck, Plus, ShieldCheck, TicketCheck } from 'lucide-react';
+import {
+    AlertTriangle,
+    ArrowLeft,
+    FileText,
+    LoaderCircle,
+    PackageCheck,
+    PackageSearch,
+    Plus,
+    ShieldCheck,
+    TicketCheck,
+} from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { AttachmentPanel } from '@/components/AttachmentPanel';
 import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
+import { FormField } from '@/components/FormField';
+import { PageHeader, SectionHeader } from '@/components/PageHeader';
+import { EmptyState, PageSkeleton } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import {
     createPortalTicket,
     getPortalProduct,
@@ -28,10 +48,9 @@ import type {
 } from '@/features/client-portal/types';
 import type { TicketStatus } from '@/features/tickets/types';
 import { useTicketRealtime } from '@/hooks/useRealtime';
+import { cn } from '@/utils/cn';
 import { formatDate, humanize } from '@/utils/format';
 
-const inputClassName =
-    'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
 const warrantyStatuses: PortalWarrantyStatus[] = ['active', 'expired', 'void', 'replaced'];
 const ticketStatuses: TicketStatus[] = [
     'opened',
@@ -49,23 +68,11 @@ const ticketStatuses: TicketStatus[] = [
     'cancelled',
 ];
 
-function PageHeader({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
-    return (
-        <header className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-950">{title}</h2>
-                <p className="mt-1 text-sm text-slate-600">{description}</p>
-            </div>
-            {action}
-        </header>
-    );
-}
-
 function Detail({ label, children }: { label: string; children: ReactNode }) {
     return (
         <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-            <div className="mt-1 break-words text-sm text-slate-800">{children}</div>
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</p>
+            <div className="mt-1.5 break-words text-sm leading-6 text-foreground">{children}</div>
         </div>
     );
 }
@@ -73,11 +80,51 @@ function Detail({ label, children }: { label: string; children: ReactNode }) {
 function ProductName({ purchasedProduct }: { purchasedProduct: PortalPurchasedProduct }) {
     return (
         <div>
-            <p className="font-semibold text-slate-900">{purchasedProduct.product?.name ?? 'Product unavailable'}</p>
-            <p className="mt-0.5 text-xs text-slate-500">
+            <p className="font-semibold text-foreground">{purchasedProduct.product?.name ?? 'Product unavailable'}</p>
+            <p className="mt-0.5 text-xs leading-5 text-muted-foreground">
                 {purchasedProduct.product?.model ?? purchasedProduct.product?.sku ?? 'No model'} ·{' '}
                 {purchasedProduct.serial_number ?? 'No serial number'}
             </p>
+        </div>
+    );
+}
+
+function CardGridSkeleton({ count = 6 }: { count?: number }) {
+    return (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3" role="status" aria-label="Loading items">
+            <span className="sr-only">Loading items...</span>
+            {Array.from({ length: count }, (_, index) => (
+                <Card key={index} className="p-5">
+                    <div className="flex items-center justify-between gap-4">
+                        <Skeleton className="size-9 rounded-lg" />
+                        <Skeleton className="h-5 w-20 rounded-full" />
+                    </div>
+                    <Skeleton className="mt-5 h-5 w-3/5" />
+                    <Skeleton className="mt-2 h-4 w-4/5" />
+                    <Skeleton className="mt-5 h-3 w-2/3" />
+                </Card>
+            ))}
+        </div>
+    );
+}
+
+function TicketListSkeleton() {
+    return (
+        <div className="space-y-3" role="status" aria-label="Loading SAV requests">
+            <span className="sr-only">Loading SAV requests...</span>
+            {Array.from({ length: 5 }, (_, index) => (
+                <Card key={index} className="space-y-3 p-5">
+                    <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 space-y-2">
+                            <Skeleton className="h-3 w-28" />
+                            <Skeleton className="h-5 w-3/5" />
+                            <Skeleton className="h-4 w-2/5" />
+                        </div>
+                        <Skeleton className="h-5 w-24 rounded-full" />
+                    </div>
+                    <Skeleton className="h-4 w-4/5" />
+                </Card>
+            ))}
         </div>
     );
 }
@@ -94,7 +141,7 @@ export function ClientOverviewPage() {
     });
     const profile = profileQuery.data;
 
-    if (profileQuery.isLoading) return <p className="text-sm text-slate-600">Loading your portal...</p>;
+    if (profileQuery.isLoading) return <PageSkeleton />;
     if (!profile) return <ErrorMessage error={profileQuery.error ?? new Error('Your account is not linked to a client profile.')} />;
 
     const activeWarranties = productsQuery.data?.data.filter((item) => item.warranty.status === 'active').length ?? 0;
@@ -106,12 +153,9 @@ export function ClientOverviewPage() {
             <PageHeader
                 title={`Welcome, ${profile.first_name}`}
                 description="Track your products, warranties, service requests, and repair progress in one place."
-                action={
-                    <Link
-                        className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
-                        to="/client/tickets/new"
-                    >
-                        <Plus size={17} />
+                actions={
+                    <Link className={cn(buttonVariants(), 'w-full sm:w-auto')} to="/client/tickets/new">
+                        <Plus aria-hidden="true" />
                         New SAV request
                     </Link>
                 }
@@ -122,59 +166,109 @@ export function ClientOverviewPage() {
                     label="Purchased products"
                     value={productsQuery.data?.meta.total ?? 0}
                     href="/client/products"
+                    isLoading={productsQuery.isLoading}
                 />
                 <SummaryCard
                     icon={<ShieldCheck size={20} />}
                     label="Active warranties shown"
                     value={activeWarranties}
                     href="/client/products?status=active"
+                    isLoading={productsQuery.isLoading}
                 />
-                <SummaryCard icon={<TicketCheck size={20} />} label="Active recent requests" value={activeTickets} href="/client/tickets" />
+                <SummaryCard
+                    icon={<TicketCheck size={20} />}
+                    label="Active recent requests"
+                    value={activeTickets}
+                    href="/client/tickets"
+                    isLoading={ticketsQuery.isLoading}
+                />
             </div>
-            <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="flex items-center justify-between gap-3">
-                    <div>
-                        <h3 className="font-bold text-slate-900">Recent SAV requests</h3>
-                        <p className="mt-1 text-sm text-slate-600">Your latest ticket and repair progress.</p>
-                    </div>
-                    <Link className="text-sm font-semibold text-blue-700" to="/client/tickets">
-                        View all
-                    </Link>
-                </div>
-                <div className="mt-4 divide-y divide-slate-100">
-                    {ticketsQuery.data?.data.map((ticket) => (
-                        <Link
-                            className="flex flex-wrap items-center justify-between gap-3 py-4 hover:text-blue-700"
-                            key={ticket.uuid}
-                            to={`/client/tickets/${ticket.uuid}`}
-                        >
-                            <div>
-                                <p className="font-semibold">{ticket.title}</p>
-                                <p className="text-xs text-slate-500">
-                                    {ticket.ticket_number} · {ticket.product?.name ?? 'Product'}
-                                </p>
-                            </div>
-                            <StatusBadge value={ticket.status} />
-                        </Link>
-                    ))}
-                    {!ticketsQuery.isLoading && (ticketsQuery.data?.data.length ?? 0) === 0 && (
-                        <p className="py-4 text-sm text-slate-500">You have not submitted an SAV request yet.</p>
+            <ErrorMessage error={productsQuery.error ?? ticketsQuery.error} />
+            <Card>
+                <CardHeader className="border-b border-border">
+                    <SectionHeader
+                        title="Recent SAV requests"
+                        description="Your latest ticket and repair progress."
+                        actions={
+                            <Link className={buttonVariants({ variant: 'ghost', size: 'sm' })} to="/client/tickets">
+                                View all
+                            </Link>
+                        }
+                    />
+                </CardHeader>
+                <CardContent className="pt-0">
+                    {ticketsQuery.isLoading && (
+                        <div className="space-y-4 py-5" role="status" aria-label="Loading recent SAV requests">
+                            <span className="sr-only">Loading recent SAV requests...</span>
+                            {Array.from({ length: 3 }, (_, index) => (
+                                <div className="flex items-center justify-between gap-4" key={index}>
+                                    <div className="flex-1 space-y-2">
+                                        <Skeleton className="h-4 w-2/3" />
+                                        <Skeleton className="h-3 w-1/2" />
+                                    </div>
+                                    <Skeleton className="h-5 w-20 rounded-full" />
+                                </div>
+                            ))}
+                        </div>
                     )}
-                </div>
-            </section>
+                    <div className="divide-y divide-border">
+                        {ticketsQuery.data?.data.map((ticket) => (
+                            <Link
+                                className="flex flex-col gap-3 rounded-md py-4 transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:flex-row sm:items-center sm:justify-between"
+                                key={ticket.uuid}
+                                to={`/client/tickets/${ticket.uuid}`}
+                            >
+                                <div className="min-w-0">
+                                    <p className="truncate font-semibold">{ticket.title}</p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        {ticket.ticket_number} · {ticket.product?.name ?? 'Product'}
+                                    </p>
+                                </div>
+                                <StatusBadge value={ticket.status} />
+                            </Link>
+                        ))}
+                        {!ticketsQuery.isLoading && (ticketsQuery.data?.data.length ?? 0) === 0 && (
+                            <EmptyState
+                                className="border-0"
+                                compact
+                                icon={TicketCheck}
+                                title="You have not submitted an SAV request yet."
+                                description="Create a request when one of your registered products needs service."
+                            />
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
         </section>
     );
 }
 
-function SummaryCard({ icon, label, value, href }: { icon: ReactNode; label: string; value: number; href: string }) {
+function SummaryCard({
+    icon,
+    label,
+    value,
+    href,
+    isLoading = false,
+}: {
+    icon: ReactNode;
+    label: string;
+    value: number;
+    href: string;
+    isLoading?: boolean;
+}) {
     return (
         <Link
-            className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-300 hover:shadow-md"
+            className="group rounded-xl border border-border bg-card p-5 text-card-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             to={href}
         >
-            <span className="inline-flex rounded-lg bg-blue-50 p-2 text-blue-700">{icon}</span>
-            <p className="mt-4 text-3xl font-bold text-slate-950">{value}</p>
-            <p className="mt-1 text-sm text-slate-600">{label}</p>
+            <span
+                className="inline-flex rounded-lg bg-accent p-2 text-accent-foreground transition-colors group-hover:bg-primary group-hover:text-primary-foreground"
+                aria-hidden="true"
+            >
+                {icon}
+            </span>
+            {isLoading ? <Skeleton className="mt-4 h-9 w-16" /> : <p className="mt-4 text-3xl font-bold text-foreground">{value}</p>}
+            <p className="mt-1 text-sm text-muted-foreground">{label}</p>
         </Link>
     );
 }
@@ -182,28 +276,30 @@ function SummaryCard({ icon, label, value, href }: { icon: ReactNode; label: str
 export function ClientProfilePage() {
     const profileQuery = useQuery({ queryKey: ['client-portal', 'profile'], queryFn: getPortalProfile });
     const profile = profileQuery.data;
-    if (profileQuery.isLoading) return <p className="text-sm text-slate-600">Loading your profile...</p>;
+    if (profileQuery.isLoading) return <PageSkeleton />;
     if (!profile) return <ErrorMessage error={profileQuery.error ?? new Error('Profile unavailable.')} />;
 
     return (
         <section className="max-w-4xl space-y-6">
             <PageHeader title="My profile" description="The identity and contact information associated with your service account." />
-            <section className="grid gap-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-2">
-                <Detail label="Account type">
-                    <StatusBadge value={profile.type} />
-                </Detail>
-                <Detail label="Display name">{profile.display_name}</Detail>
-                {profile.company_name && <Detail label="Company">{profile.company_name}</Detail>}
-                <Detail label="Contact name">
-                    {profile.first_name} {profile.last_name}
-                </Detail>
-                <Detail label="Email">{profile.email ?? '—'}</Detail>
-                <Detail label="Phone">{profile.phone}</Detail>
-                <Detail label="City">{profile.city ?? '—'}</Detail>
-                <Detail label="Address">{profile.address ?? '—'}</Detail>
-                {profile.tax_identifier && <Detail label="Tax identifier">{profile.tax_identifier}</Detail>}
-                <Detail label="Customer since">{formatDate(profile.customer_since)}</Detail>
-            </section>
+            <Card>
+                <CardContent className="grid gap-x-8 gap-y-6 pt-5 sm:pt-6 md:grid-cols-2">
+                    <Detail label="Account type">
+                        <StatusBadge value={profile.type} />
+                    </Detail>
+                    <Detail label="Display name">{profile.display_name}</Detail>
+                    {profile.company_name && <Detail label="Company">{profile.company_name}</Detail>}
+                    <Detail label="Contact name">
+                        {profile.first_name} {profile.last_name}
+                    </Detail>
+                    <Detail label="Email">{profile.email ?? '—'}</Detail>
+                    <Detail label="Phone">{profile.phone}</Detail>
+                    <Detail label="City">{profile.city ?? '—'}</Detail>
+                    <Detail label="Address">{profile.address ?? '—'}</Detail>
+                    {profile.tax_identifier && <Detail label="Tax identifier">{profile.tax_identifier}</Detail>}
+                    <Detail label="Customer since">{formatDate(profile.customer_since)}</Detail>
+                </CardContent>
+            </Card>
         </section>
     );
 }
@@ -221,53 +317,66 @@ export function ClientProductsPage() {
     return (
         <section className="space-y-6">
             <PageHeader title="My products & warranties" description="Only purchases registered to your client profile are shown." />
-            <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-2">
-                <input
-                    className={inputClassName}
-                    placeholder="Search product, SKU, model, or serial..."
-                    value={filters.search ?? ''}
-                    onChange={(event) => updateFilters({ search: event.target.value || undefined })}
-                />
-                <select
-                    className={inputClassName}
-                    value={filters.status ?? ''}
-                    onChange={(event) => updateFilters({ status: event.target.value as PortalWarrantyStatus | '' })}
-                >
-                    <option value="">All warranty statuses</option>
-                    {warrantyStatuses.map((status) => (
-                        <option key={status} value={status}>
-                            {humanize(status)}
-                        </option>
-                    ))}
-                </select>
-            </div>
+            <Card>
+                <CardContent className="grid gap-4 pt-5 sm:pt-6 md:grid-cols-2">
+                    <FormField label="Search products">
+                        <Input
+                            id="client-product-search"
+                            type="search"
+                            placeholder="Search product, SKU, model, or serial..."
+                            value={filters.search ?? ''}
+                            onChange={(event) => updateFilters({ search: event.target.value || undefined })}
+                        />
+                    </FormField>
+                    <FormField label="Warranty status">
+                        <Select
+                            id="client-product-warranty-status"
+                            value={filters.status ?? ''}
+                            onChange={(event) => updateFilters({ status: event.target.value as PortalWarrantyStatus | '' })}
+                        >
+                            <option value="">All warranty statuses</option>
+                            {warrantyStatuses.map((status) => (
+                                <option key={status} value={status}>
+                                    {humanize(status)}
+                                </option>
+                            ))}
+                        </Select>
+                    </FormField>
+                </CardContent>
+            </Card>
             <ErrorMessage error={productsQuery.error} />
             {productsQuery.isLoading ? (
-                <p className="text-sm text-slate-600">Loading purchased products...</p>
+                <CardGridSkeleton />
             ) : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     {productsQuery.data?.data.map((item) => (
                         <Link
-                            className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-300"
+                            className="group rounded-xl border border-border bg-card p-5 text-card-foreground shadow-sm transition hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                             key={item.uuid}
                             to={`/client/products/${item.uuid}`}
                         >
                             <div className="flex items-start justify-between gap-3">
-                                <PackageCheck className="text-blue-700" size={22} />
+                                <span className="rounded-lg bg-accent p-2 text-accent-foreground" aria-hidden="true">
+                                    <PackageCheck size={20} />
+                                </span>
                                 <StatusBadge value={item.warranty.status} />
                             </div>
                             <div className="mt-4">
                                 <ProductName purchasedProduct={item} />
                             </div>
-                            <p className="mt-4 text-xs text-slate-500">
+                            <p className="mt-4 text-xs leading-5 text-muted-foreground">
                                 Purchased {dateOnly(item.purchase_date)} · Warranty until {dateOnly(item.warranty.expires_at)}
                             </p>
                         </Link>
                     ))}
                     {productsQuery.data?.data.length === 0 && (
-                        <p className="col-span-full rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600">
-                            No purchased products match these filters.
-                        </p>
+                        <Card className="col-span-full border-dashed">
+                            <EmptyState
+                                icon={PackageSearch}
+                                title="No purchased products match these filters."
+                                description="Try a different search term or warranty status."
+                            />
+                        </Card>
                     )}
                 </div>
             )}
@@ -286,7 +395,7 @@ export function ClientProductDetailsPage() {
         enabled: uuid !== undefined,
     });
     const item = productQuery.data;
-    if (productQuery.isLoading) return <p className="text-sm text-slate-600">Loading product...</p>;
+    if (productQuery.isLoading) return <PageSkeleton />;
     if (!item) return <ErrorMessage error={productQuery.error ?? new Error('Purchased product not found.')} />;
 
     return (
@@ -294,16 +403,13 @@ export function ClientProductDetailsPage() {
             <PageHeader
                 title={item.product?.name ?? 'Purchased product'}
                 description={`${item.product?.sku ?? 'No SKU'} · ${item.product?.model ?? 'No model'}`}
-                action={
-                    <Link
-                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
-                        to={`/client/tickets/new?product=${item.uuid}`}
-                    >
+                actions={
+                    <Link className={cn(buttonVariants(), 'w-full sm:w-auto')} to={`/client/tickets/new?product=${item.uuid}`}>
                         Request service
                     </Link>
                 }
             />
-            <section className="grid gap-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-2 lg:grid-cols-3">
+            <Card className="grid gap-x-8 gap-y-6 p-5 sm:p-6 md:grid-cols-2 lg:grid-cols-3">
                 <Detail label="Warranty status">
                     <StatusBadge value={item.warranty.status} />
                 </Detail>
@@ -322,7 +428,7 @@ export function ClientProductDetailsPage() {
                         </Detail>
                     </div>
                 )}
-            </section>
+            </Card>
         </section>
     );
 }
@@ -337,48 +443,56 @@ export function ClientTicketsPage() {
             <PageHeader
                 title="My SAV requests"
                 description="Follow every request opened for your client profile."
-                action={
-                    <Link
-                        className="inline-flex items-center gap-2 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
-                        to="/client/tickets/new"
-                    >
-                        <Plus size={17} />
+                actions={
+                    <Link className={cn(buttonVariants(), 'w-full sm:w-auto')} to="/client/tickets/new">
+                        <Plus aria-hidden="true" />
                         New request
                     </Link>
                 }
             />
-            <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 md:grid-cols-2">
-                <input
-                    className={inputClassName}
-                    placeholder="Search ticket, issue, or product..."
-                    value={filters.search ?? ''}
-                    onChange={(event) => updateFilters({ search: event.target.value || undefined })}
-                />
-                <select
-                    className={inputClassName}
-                    value={filters.status ?? ''}
-                    onChange={(event) => updateFilters({ status: event.target.value as TicketStatus | '' })}
-                >
-                    <option value="">All statuses</option>
-                    {ticketStatuses.map((status) => (
-                        <option key={status} value={status}>
-                            {humanize(status)}
-                        </option>
-                    ))}
-                </select>
-            </div>
+            <Card>
+                <CardContent className="grid gap-4 pt-5 sm:pt-6 md:grid-cols-2">
+                    <FormField label="Search requests">
+                        <Input
+                            id="client-ticket-search"
+                            type="search"
+                            placeholder="Search ticket, issue, or product..."
+                            value={filters.search ?? ''}
+                            onChange={(event) => updateFilters({ search: event.target.value || undefined })}
+                        />
+                    </FormField>
+                    <FormField label="Request status">
+                        <Select
+                            id="client-ticket-status"
+                            value={filters.status ?? ''}
+                            onChange={(event) => updateFilters({ status: event.target.value as TicketStatus | '' })}
+                        >
+                            <option value="">All statuses</option>
+                            {ticketStatuses.map((status) => (
+                                <option key={status} value={status}>
+                                    {humanize(status)}
+                                </option>
+                            ))}
+                        </Select>
+                    </FormField>
+                </CardContent>
+            </Card>
             <ErrorMessage error={ticketsQuery.error} />
             {ticketsQuery.isLoading ? (
-                <p className="text-sm text-slate-600">Loading SAV requests...</p>
+                <TicketListSkeleton />
             ) : (
                 <div className="space-y-3">
                     {ticketsQuery.data?.data.map((ticket) => (
                         <TicketCard key={ticket.uuid} ticket={ticket} />
                     ))}
                     {ticketsQuery.data?.data.length === 0 && (
-                        <p className="rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-600">
-                            No SAV requests match these filters.
-                        </p>
+                        <Card className="border-dashed">
+                            <EmptyState
+                                icon={TicketCheck}
+                                title="No SAV requests match these filters."
+                                description="Try another search or status, or create a new request when you need service."
+                            />
+                        </Card>
                     )}
                 </div>
             )}
@@ -392,20 +506,20 @@ export function ClientTicketsPage() {
 function TicketCard({ ticket }: { ticket: PortalTicket }) {
     return (
         <Link
-            className="block rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-blue-300"
+            className="block rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm transition hover:border-primary/40 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:p-5"
             to={`/client/tickets/${ticket.uuid}`}
         >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">{ticket.ticket_number}</p>
-                    <h3 className="mt-1 font-bold text-slate-900">{ticket.title}</h3>
-                    <p className="mt-1 text-sm text-slate-600">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">{ticket.ticket_number}</p>
+                    <h2 className="mt-1 font-bold text-foreground">{ticket.title}</h2>
+                    <p className="mt-1 text-sm leading-6 text-muted-foreground">
                         {ticket.product?.name ?? 'Product'} · Received {formatDate(ticket.received_at)}
                     </p>
                 </div>
                 <StatusBadge value={ticket.status} />
             </div>
-            <p className="mt-3 line-clamp-2 text-sm text-slate-600">{ticket.problem_description}</p>
+            <p className="mt-3 line-clamp-2 text-sm leading-6 text-muted-foreground">{ticket.problem_description}</p>
         </Link>
     );
 }
@@ -472,69 +586,117 @@ export function ClientTicketFormPage() {
                 description="Choose a registered purchase and describe the problem. The service team will triage priority and warranty coverage."
             />
             <form
-                className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+                className="space-y-6 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm sm:p-6"
+                noValidate
+                aria-busy={mutation.isPending}
                 onSubmit={form.handleSubmit((values) => mutation.mutate(values))}
             >
-                <Field label="Purchased product" error={form.formState.errors.purchased_product_uuid?.message}>
-                    <select className={inputClassName} {...form.register('purchased_product_uuid')}>
+                <FormField
+                    label="Purchased product"
+                    error={form.formState.errors.purchased_product_uuid?.message}
+                    hint={
+                        productsQuery.isLoading
+                            ? 'Loading products registered to your account...'
+                            : options.length === 0
+                              ? 'No eligible registered purchases are available. Contact support if a purchase is missing.'
+                              : 'Only products registered to your client profile can be selected.'
+                    }
+                    required
+                >
+                    <Select
+                        id="portal-ticket-product"
+                        disabled={productsQuery.isLoading}
+                        required
+                        {...form.register('purchased_product_uuid')}
+                    >
                         <option value="">Select a product</option>
                         {options.map((item) => (
                             <option key={item.uuid} value={item.uuid}>
                                 {item.product?.name ?? 'Product'} · {item.serial_number ?? item.product?.sku ?? item.uuid}
                             </option>
                         ))}
-                    </select>
-                </Field>
-                <Field label="Issue summary" error={form.formState.errors.title?.message}>
-                    <input className={inputClassName} placeholder="Example: Laptop no longer powers on" {...form.register('title')} />
-                </Field>
-                <Field label="Problem description" error={form.formState.errors.problem_description?.message}>
-                    <textarea
-                        className={inputClassName}
+                    </Select>
+                </FormField>
+                <FormField label="Issue summary" error={form.formState.errors.title?.message} required>
+                    <Input
+                        id="portal-ticket-title"
+                        placeholder="Example: Laptop no longer powers on"
+                        autoComplete="off"
+                        required
+                        {...form.register('title')}
+                    />
+                </FormField>
+                <FormField label="Problem description" error={form.formState.errors.problem_description?.message} required>
+                    <Textarea
+                        id="portal-ticket-description"
                         rows={7}
                         placeholder="Explain what happened, when it started, and any troubleshooting already attempted."
+                        required
                         {...form.register('problem_description')}
                     />
-                </Field>
-                <Field label="Photos or documents (optional)">
-                    <input
-                        className={inputClassName}
+                </FormField>
+                <FormField
+                    label="Photos or documents (optional)"
+                    hint="Files are uploaded privately after the request is created. Add photos, PDFs, or office documents that help explain the issue."
+                >
+                    <Input
+                        id="portal-ticket-files"
+                        className="h-auto cursor-pointer py-2 file:mr-3 file:rounded-md file:bg-muted file:px-3 file:py-1 file:text-foreground"
                         type="file"
                         multiple
                         accept="image/*,application/pdf,text/plain,.doc,.docx,.xls,.xlsx,.csv"
                         onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
                     />
-                    <span className="mt-1 block text-xs font-normal text-slate-500">
-                        Files are uploaded privately after the request is created.
-                    </span>
-                </Field>
+                </FormField>
                 {files.length > 0 && (
-                    <ul className="space-y-2 rounded-lg bg-slate-50 p-3 text-sm">
+                    <ul
+                        className="space-y-3 rounded-lg border border-border bg-muted/45 p-3 text-sm"
+                        aria-label="Selected files"
+                        aria-live="polite"
+                    >
                         {files.map((file) => (
-                            <li className="flex justify-between gap-3" key={`${file.name}-${file.lastModified}`}>
-                                <span className="truncate">{file.name}</span>
-                                <span className="text-slate-500">
-                                    {uploadProgress[file.name] !== undefined ? `${uploadProgress[file.name]}%` : formatBytes(file.size)}
-                                </span>
+                            <li className="space-y-2" key={`${file.name}-${file.lastModified}`}>
+                                <div className="flex items-center justify-between gap-3">
+                                    <span className="flex min-w-0 items-center gap-2 font-medium text-foreground">
+                                        <FileText className="shrink-0 text-muted-foreground" size={16} aria-hidden="true" />
+                                        <span className="truncate">{file.name}</span>
+                                    </span>
+                                    <span className="shrink-0 text-xs text-muted-foreground">
+                                        {uploadProgress[file.name] !== undefined ? `${uploadProgress[file.name]}%` : formatBytes(file.size)}
+                                    </span>
+                                </div>
+                                {uploadProgress[file.name] !== undefined && (
+                                    <div
+                                        className="h-1.5 overflow-hidden rounded-full bg-border"
+                                        role="progressbar"
+                                        aria-label={`Uploading ${file.name}`}
+                                        aria-valuemin={0}
+                                        aria-valuemax={100}
+                                        aria-valuenow={uploadProgress[file.name]}
+                                    >
+                                        <div
+                                            className="h-full rounded-full bg-primary transition-[width]"
+                                            style={{ width: `${uploadProgress[file.name]}%` }}
+                                        />
+                                    </div>
+                                )}
                             </li>
                         ))}
                     </ul>
                 )}
-                <ErrorMessage error={productsQuery.error ?? mutation.error} />
-                <div className="flex justify-end gap-3">
-                    <Link
-                        className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
-                        to="/client/tickets"
-                    >
+                <ErrorMessage error={productsQuery.error ?? selectedProductQuery.error ?? mutation.error} />
+                <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
+                    <Link className={cn(buttonVariants({ variant: 'outline' }), 'w-full sm:w-auto')} to="/client/tickets">
                         Cancel
                     </Link>
-                    <button
-                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                    <Button
+                        className="w-full sm:w-auto"
                         type="submit"
                         disabled={mutation.isPending || productsQuery.isLoading || options.length === 0}
                     >
+                        {mutation.isPending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
                         {mutation.isPending ? 'Submitting...' : 'Submit request'}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </section>
@@ -552,7 +714,7 @@ export function ClientTicketDetailsPage() {
     const ticket = ticketQuery.data;
     useTicketRealtime(ticket?.id ?? null);
 
-    if (ticketQuery.isLoading) return <p className="text-sm text-slate-600">Loading SAV request...</p>;
+    if (ticketQuery.isLoading) return <PageSkeleton />;
     if (!ticket) return <ErrorMessage error={ticketQuery.error ?? new Error('SAV request not found.')} />;
 
     return (
@@ -560,21 +722,23 @@ export function ClientTicketDetailsPage() {
             <PageHeader
                 title={ticket.title}
                 description={`${ticket.ticket_number} · Received ${formatDate(ticket.received_at)}`}
-                action={
-                    <Link
-                        className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700"
-                        to="/client/tickets"
-                    >
+                actions={
+                    <Link className={cn(buttonVariants({ variant: 'outline' }), 'w-full sm:w-auto')} to="/client/tickets">
+                        <ArrowLeft aria-hidden="true" />
                         Back to requests
                     </Link>
                 }
             />
             {searchParams.has('uploads_failed') && (
-                <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
-                    The request was created, but {searchParams.get('uploads_failed')} file(s) could not be uploaded. You can retry below.
-                </p>
+                <Alert className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40" role="alert">
+                    <AlertTriangle className="text-amber-700 dark:text-amber-400" aria-hidden="true" />
+                    <AlertDescription className="text-amber-800 dark:text-amber-200">
+                        The request was created, but {searchParams.get('uploads_failed')} file(s) could not be uploaded. You can retry
+                        below.
+                    </AlertDescription>
+                </Alert>
             )}
-            <section className="grid gap-5 rounded-xl border border-slate-200 bg-white p-6 shadow-sm md:grid-cols-2 lg:grid-cols-4">
+            <Card className="grid gap-x-8 gap-y-6 p-5 sm:p-6 md:grid-cols-2 lg:grid-cols-4">
                 <Detail label="Status">
                     <StatusBadge value={ticket.status} />
                 </Detail>
@@ -594,7 +758,7 @@ export function ClientTicketDetailsPage() {
                         <p className="whitespace-pre-wrap">{ticket.problem_description}</p>
                     </Detail>
                 </div>
-            </section>
+            </Card>
             <TicketProgress ticket={ticket} />
             {ticket.repair_outcome && <RepairOutcome ticket={ticket} />}
             <AttachmentPanel
@@ -611,19 +775,44 @@ export function ClientTicketDetailsPage() {
 
 function TicketProgress({ ticket }: { ticket: PortalTicket }) {
     return (
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900">Ticket progress</h3>
-            <p className="mt-1 text-sm text-slate-600">Customer-safe status updates are shown here in chronological order.</p>
-            <div className="mt-5 space-y-5 border-l-2 border-slate-200 pl-6">
-                {ticket.status_timeline.map((entry) => (
-                    <article className="relative" key={entry.id}>
-                        <span className="absolute -left-[1.92rem] top-1 h-3 w-3 rounded-full bg-blue-600 ring-4 ring-white" />
-                        <p className="font-semibold text-slate-900">{humanize(entry.to_status)}</p>
-                        <p className="mt-1 text-sm text-slate-500">{formatDate(entry.transitioned_at)}</p>
-                    </article>
-                ))}
-            </div>
-        </section>
+        <Card>
+            <CardHeader className="border-b border-border">
+                <SectionHeader title="Ticket progress" description="Customer-safe status updates are shown here in chronological order." />
+            </CardHeader>
+            <CardContent className="pt-5 sm:pt-6">
+                {ticket.status_timeline.length === 0 ? (
+                    <EmptyState
+                        compact
+                        icon={TicketCheck}
+                        title="No progress updates yet."
+                        description="The service team will post customer-visible updates here as your request moves forward."
+                    />
+                ) : (
+                    <ol className="space-y-0" aria-label="Ticket status history">
+                        {ticket.status_timeline.map((entry, index) => (
+                            <li className="relative grid grid-cols-[1.25rem_1fr] gap-3 pb-6 last:pb-0" key={entry.id}>
+                                {index < ticket.status_timeline.length - 1 && (
+                                    <span
+                                        className="absolute left-[0.34rem] top-4 h-[calc(100%-0.5rem)] w-px bg-border"
+                                        aria-hidden="true"
+                                    />
+                                )}
+                                <span className="relative mt-1 size-3 rounded-full bg-primary ring-4 ring-card" aria-hidden="true" />
+                                <div>
+                                    <p className="font-semibold text-foreground">{humanize(entry.to_status)}</p>
+                                    <time
+                                        className="mt-1 block text-sm text-muted-foreground"
+                                        dateTime={entry.transitioned_at ?? undefined}
+                                    >
+                                        {formatDate(entry.transitioned_at)}
+                                    </time>
+                                </div>
+                            </li>
+                        ))}
+                    </ol>
+                )}
+            </CardContent>
+        </Card>
     );
 }
 
@@ -632,11 +821,11 @@ function RepairOutcome({ ticket }: { ticket: PortalTicket }) {
     if (!outcome) return null;
 
     return (
-        <section className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-6 shadow-sm">
+        <Card className="border-emerald-200 bg-emerald-50/50 p-5 dark:border-emerald-900 dark:bg-emerald-950/25 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                    <h3 className="text-lg font-bold text-slate-900">Repair outcome</h3>
-                    <p className="mt-1 text-sm text-slate-600">Technical information approved for customer visibility.</p>
+                    <h2 className="text-lg font-bold text-foreground">Repair outcome</h2>
+                    <p className="mt-1 text-sm text-muted-foreground">Technical information approved for customer visibility.</p>
                 </div>
                 {outcome.result && <StatusBadge value={outcome.result} />}
             </div>
@@ -655,17 +844,7 @@ function RepairOutcome({ ticket }: { ticket: PortalTicket }) {
                 <Detail label="Repair started">{formatDate(outcome.started_at)}</Detail>
                 <Detail label="Repair completed">{formatDate(outcome.completed_at)}</Detail>
             </div>
-        </section>
-    );
-}
-
-function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
-    return (
-        <label className="block text-sm font-medium text-slate-800">
-            {label}
-            {children}
-            {error && <span className="mt-1 block font-normal text-rose-700">{error}</span>}
-        </label>
+        </Card>
     );
 }
 

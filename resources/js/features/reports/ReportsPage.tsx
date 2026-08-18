@@ -5,7 +5,10 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
+import { PageHeader } from '@/components/PageHeader';
+import { TableSkeleton } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
+import { Button } from '@/components/ui/button';
 import { downloadReportExport, getReport, getReportExport, requestReportExport } from '@/features/reports/api';
 import {
     reportTypes,
@@ -22,7 +25,7 @@ import { listClients } from '@/features/clients/api';
 import { humanize } from '@/utils/format';
 
 const inputClassName =
-    'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
+    'mt-1 min-h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/20';
 
 const reportDefinitions: Record<ReportType, { title: string; description: string }> = {
     tickets: { title: 'Tickets', description: 'Ticket volume, workflow status, priority, and warranty coverage.' },
@@ -237,17 +240,15 @@ export function ReportsPage() {
 
     return (
         <section className="space-y-6">
-            <header className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-900">Reports</h2>
-                    <p className="mt-1 text-sm text-slate-600">
-                        Analyze SAV activity, then create an authorized CSV export for longer review.
-                    </p>
-                </div>
-                <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-800">
-                    Large CSV exports are prepared in the background.
-                </div>
-            </header>
+            <PageHeader
+                title="Reports"
+                description="Analyze SAV activity, then create an authorized CSV export for longer review."
+                actions={
+                    <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-800 dark:border-blue-900 dark:bg-blue-950/50 dark:text-blue-200">
+                        Large CSV exports are prepared in the background.
+                    </div>
+                }
+            />
 
             <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Report type">
                 {reportTypes.map((type) => {
@@ -258,7 +259,8 @@ export function ReportsPage() {
                         <button
                             key={type}
                             type="button"
-                            className={`rounded-xl border p-4 text-left transition ${active ? 'border-blue-600 bg-blue-50 shadow-sm' : 'border-slate-200 bg-white hover:border-blue-300 hover:bg-slate-50'}`}
+                            className={`min-h-24 rounded-xl border p-4 text-left transition ${active ? 'border-primary bg-accent shadow-sm' : 'border-border bg-card hover:border-primary/50 hover:bg-muted'}`}
+                            aria-pressed={active}
                             onClick={() => selectReportType(type)}
                         >
                             <p className={`font-semibold ${active ? 'text-blue-800' : 'text-slate-900'}`}>{definition.title}</p>
@@ -268,26 +270,19 @@ export function ReportsPage() {
                 })}
             </section>
 
-            <form className="rounded-xl border border-slate-200 bg-slate-50 p-4" onSubmit={submitFilters}>
+            <form className="rounded-xl border border-border bg-card p-4 shadow-sm" onSubmit={submitFilters}>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                         <h3 className="font-semibold text-slate-900">Filter {reportDefinitions[reportType].title.toLowerCase()} report</h3>
                         <p className="mt-1 text-sm text-slate-600">Only relevant selected filters are applied by the server.</p>
                     </div>
                     <div className="flex gap-2">
-                        <button
-                            type="button"
-                            className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-                            onClick={resetFilters}
-                        >
+                        <Button type="button" variant="outline" onClick={resetFilters}>
                             Reset
-                        </button>
-                        <button
-                            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                            disabled={reportQuery.isFetching}
-                        >
+                        </Button>
+                        <Button type="submit" disabled={reportQuery.isFetching}>
                             Run report
-                        </button>
+                        </Button>
                     </div>
                 </div>
                 <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -297,8 +292,14 @@ export function ReportsPage() {
                     </label>
                     <label className="text-sm font-medium text-slate-700">
                         <span>To date</span>
-                        <input className={inputClassName} type="date" {...form.register('date_to')} />
-                        <span className="mt-1 block min-h-4 text-xs font-normal text-rose-700">
+                        <input
+                            className={inputClassName}
+                            type="date"
+                            aria-invalid={Boolean(form.formState.errors.date_to)}
+                            aria-describedby="report-date-to-error"
+                            {...form.register('date_to')}
+                        />
+                        <span id="report-date-to-error" className="mt-1 block min-h-4 text-xs font-normal text-destructive" role="alert">
                             {form.formState.errors.date_to?.message}
                         </span>
                     </label>
@@ -398,7 +399,7 @@ export function ReportsPage() {
                 </div>
             </form>
 
-            <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
                 <div className="flex flex-wrap items-center justify-between gap-4">
                     <div>
                         <h3 className="font-semibold text-slate-900">{reportDefinitions[reportType].title} results</h3>
@@ -413,7 +414,7 @@ export function ReportsPage() {
                     <div className="flex flex-wrap items-center justify-end gap-2">
                         <button
                             type="button"
-                            className="rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            className="min-h-10 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm transition-[filter] hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
                             disabled={exportMutation.isPending}
                             onClick={() => exportMutation.mutate()}
                         >
@@ -422,7 +423,7 @@ export function ReportsPage() {
                         {exportIsReady && (
                             <button
                                 type="button"
-                                className="rounded-md border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                                className="min-h-10 rounded-md border border-input bg-card px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-accent disabled:opacity-50"
                                 disabled={downloadMutation.isPending}
                                 onClick={() => downloadMutation.mutate()}
                             >
@@ -448,11 +449,7 @@ export function ReportsPage() {
                 )}
                 <div className="mt-5">
                     {reportQuery.isLoading ? (
-                        <div className="space-y-3" aria-busy="true">
-                            <div className="h-10 animate-pulse rounded bg-slate-100" />
-                            <div className="h-10 animate-pulse rounded bg-slate-100" />
-                            <div className="h-10 animate-pulse rounded bg-slate-100" />
-                        </div>
+                        <TableSkeleton columns={5} />
                     ) : reportQuery.error ? (
                         <ErrorMessage error={reportQuery.error} />
                     ) : (
@@ -461,6 +458,7 @@ export function ReportsPage() {
                                 rows={rows}
                                 columns={columns}
                                 getRowKey={(row) => String(row.id ?? row.uuid ?? row.ticket_uuid ?? JSON.stringify(row))}
+                                ariaLabel={`${reportDefinitions[reportType].title} report results`}
                                 emptyMessage="No records match the selected report filters."
                             />
                             {reportQuery.data && <Pagination meta={reportQuery.data.meta} onPageChange={updatePage} />}

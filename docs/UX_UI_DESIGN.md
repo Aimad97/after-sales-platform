@@ -4,7 +4,7 @@
 
 An efficient, calm repair-service workspace for support agents, technicians, managers, and administrators. The visual language is minimal: ample whitespace, one primary action per screen, low-contrast surfaces, and status colour used only where it carries meaning. The application is **desktop-first for operations** and fully responsive for field technicians and clients.
 
-**Design stack:** Tailwind CSS v4, shadcn/ui primitives, Material Icons (`@mui/icons-material` or Material Symbols), CSS custom properties for theme tokens. Use `lucide` only if an existing shadcn component requires it; otherwise keep Material Icons consistent.
+**Design stack:** Tailwind CSS v4, shadcn-style primitives, Lucide icons, and CSS custom properties for semantic theme tokens.
 
 ## UI hierarchy
 
@@ -226,7 +226,7 @@ Status must pair colour with an icon and label. Use `Badge` variants: neutral, i
 ```
 
 - Enable class-based dark mode and persist the user choice; respect `prefers-color-scheme` before a preference is set.
-- Build tables on TanStack Table through a `DataTable` wrapper; server-side filter, sort, and cursor pagination from the first release.
+- Build tables through the shared `DataTable` wrapper; keep filtering, sorting, and pagination server-side.
 - Use `Dialog` for focused confirmations/forms, `Sheet` for filters/context on mobile, and `Toast` only for non-blocking acknowledgement.
 - All icons need an adjacent label, tooltip, or accessible name. Never place a destructive action next to a frequent action without separation.
 

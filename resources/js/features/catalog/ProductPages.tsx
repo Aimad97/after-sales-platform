@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { ArrowLeft, CircleAlert, PackagePlus, Pencil, Trash2 } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -8,15 +9,22 @@ import { z } from 'zod';
 import { AttachmentPanel } from '@/components/AttachmentPanel';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
+import { FormField } from '@/components/FormField';
+import { PageHeader } from '@/components/PageHeader';
+import { PageSkeleton, TableSkeleton } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { buttonVariants, Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { createProduct, deleteProduct, getProduct, listBrands, listCategories, listProducts, updateProduct } from '@/features/catalog/api';
 import type { Product, ProductFilters, ProductPayload } from '@/features/catalog/types';
 import { Can, usePermissions } from '@/hooks/usePermissions';
+import { cn } from '@/utils/cn';
 import { formatDate } from '@/utils/format';
-
-const inputClassName =
-    'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
 
 export const productSchema = z.object({
     sku: z.string().trim().min(1, 'SKU is required.').max(100),
@@ -61,26 +69,29 @@ export function ProductsPage() {
             header: 'Product',
             cell: (product) => (
                 <div>
-                    <Link className="font-semibold text-slate-900 hover:text-blue-700" to={`/admin/products/${product.uuid}`}>
+                    <Link
+                        className="font-semibold text-foreground transition-colors hover:text-primary"
+                        to={`/admin/products/${product.uuid}`}
+                    >
                         {product.name}
                     </Link>
-                    <p className="mt-0.5 text-slate-500">
+                    <p className="mt-0.5 text-muted-foreground">
                         {product.sku} · {product.model}
                     </p>
                 </div>
             ),
         },
-        { id: 'category', header: 'Category', cell: (product) => <span className="text-slate-600">{product.category.name}</span> },
-        { id: 'brand', header: 'Brand', cell: (product) => <span className="text-slate-600">{product.brand.name}</span> },
+        { id: 'category', header: 'Category', cell: (product) => <span className="text-muted-foreground">{product.category.name}</span> },
+        { id: 'brand', header: 'Brand', cell: (product) => <span className="text-muted-foreground">{product.brand.name}</span> },
         {
             id: 'warranty',
             header: 'Warranty',
-            cell: (product) => <span className="text-slate-600">{product.default_warranty_months} months</span>,
+            cell: (product) => <span className="text-muted-foreground">{product.default_warranty_months} months</span>,
         },
         {
             id: 'serial',
             header: 'Serial no.',
-            cell: (product) => <span className="text-slate-600">{product.serial_number_required ? 'Required' : 'Optional'}</span>,
+            cell: (product) => <span className="text-muted-foreground">{product.serial_number_required ? 'Required' : 'Optional'}</span>,
         },
         { id: 'status', header: 'Status', cell: (product) => <StatusBadge value={product.active ? 'active' : 'inactive'} /> },
         {
@@ -89,19 +100,26 @@ export function ProductsPage() {
             headerClassName: 'text-right',
             cellClassName: 'text-right',
             cell: (product) => (
-                <div className="flex justify-end gap-3">
-                    <Link className="font-medium text-blue-700" to={`/admin/products/${product.uuid}`}>
+                <div className="flex min-w-max justify-end gap-1">
+                    <Link className={buttonVariants({ variant: 'ghost', size: 'sm' })} to={`/admin/products/${product.uuid}`}>
                         View
                     </Link>
                     <Can permission="products.update">
-                        <Link className="font-medium text-blue-700" to={`/admin/products/${product.uuid}/edit`}>
+                        <Link className={buttonVariants({ variant: 'ghost', size: 'sm' })} to={`/admin/products/${product.uuid}/edit`}>
+                            <Pencil aria-hidden="true" />
                             Edit
                         </Link>
                     </Can>
                     <Can permission="products.delete">
-                        <button className="font-medium text-rose-700" onClick={() => setDeleteTarget(product)}>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => setDeleteTarget(product)}
+                        >
+                            <Trash2 aria-hidden="true" />
                             Delete
-                        </button>
+                        </Button>
                     </Can>
                 </div>
             ),
@@ -111,76 +129,87 @@ export function ProductsPage() {
     return (
         <section className="space-y-6">
             <PageHeader
+                eyebrow="Catalog"
                 title="Products"
                 description="Manage the catalog of serviceable products, warranty defaults, and serial-number requirements."
-                action={
-                    <div className="flex flex-wrap gap-2">
+                actions={
+                    <>
                         <Can permission="products.view">
-                            <Link className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium" to="/admin/categories">
+                            <Link className={buttonVariants({ variant: 'outline' })} to="/admin/categories">
                                 Categories
                             </Link>
                         </Can>
                         <Can permission="products.view">
-                            <Link className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium" to="/admin/brands">
+                            <Link className={buttonVariants({ variant: 'outline' })} to="/admin/brands">
                                 Brands
                             </Link>
                         </Can>
                         <Can permission="products.create">
-                            <Link
-                                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm"
-                                to="/admin/products/new"
-                            >
+                            <Link className={buttonVariants({ variant: 'default' })} to="/admin/products/new">
+                                <PackagePlus aria-hidden="true" />
                                 Add product
                             </Link>
                         </Can>
-                    </div>
+                    </>
                 }
             />
 
-            <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
-                <input
-                    className={inputClassName}
-                    placeholder="Search SKU, product, model..."
-                    value={filters.search ?? ''}
-                    onChange={(event) => updateFilters({ search: event.target.value || undefined })}
-                />
-                <select
-                    className={inputClassName}
-                    value={filters.category_id ?? ''}
-                    onChange={(event) => updateFilters({ category_id: event.target.value === '' ? '' : Number(event.target.value) })}
-                >
-                    <option value="">All categories</option>
-                    {categoriesQuery.data?.data.map((category) => (
-                        <option key={category.id} value={category.id}>
-                            {category.name}
-                        </option>
-                    ))}
-                </select>
-                <select
-                    className={inputClassName}
-                    value={filters.brand_id ?? ''}
-                    onChange={(event) => updateFilters({ brand_id: event.target.value === '' ? '' : Number(event.target.value) })}
-                >
-                    <option value="">All brands</option>
-                    {brandsQuery.data?.data.map((brand) => (
-                        <option key={brand.id} value={brand.id}>
-                            {brand.name}
-                        </option>
-                    ))}
-                </select>
-                <select
-                    className={inputClassName}
-                    value={filters.active === '' || filters.active === undefined ? '' : String(filters.active)}
-                    onChange={(event) => updateFilters({ active: event.target.value === '' ? '' : event.target.value === 'true' })}
-                >
-                    <option value="">All statuses</option>
-                    <option value="true">Active</option>
-                    <option value="false">Inactive</option>
-                </select>
-            </div>
+            <Card>
+                <CardContent className="grid gap-4 pt-5 sm:grid-cols-2 sm:pt-6 xl:grid-cols-4">
+                    <FormField label="Search products">
+                        <Input
+                            type="search"
+                            placeholder="SKU, product, or model"
+                            value={filters.search ?? ''}
+                            onChange={(event) => updateFilters({ search: event.target.value || undefined })}
+                        />
+                    </FormField>
+                    <FormField label="Category">
+                        <Select
+                            value={filters.category_id ?? ''}
+                            disabled={categoriesQuery.isLoading}
+                            onChange={(event) =>
+                                updateFilters({ category_id: event.target.value === '' ? '' : Number(event.target.value) })
+                            }
+                        >
+                            <option value="">{categoriesQuery.isLoading ? 'Loading categories…' : 'All categories'}</option>
+                            {categoriesQuery.data?.data.map((category) => (
+                                <option key={category.id} value={category.id}>
+                                    {category.name}
+                                </option>
+                            ))}
+                        </Select>
+                    </FormField>
+                    <FormField label="Brand">
+                        <Select
+                            value={filters.brand_id ?? ''}
+                            disabled={brandsQuery.isLoading}
+                            onChange={(event) => updateFilters({ brand_id: event.target.value === '' ? '' : Number(event.target.value) })}
+                        >
+                            <option value="">{brandsQuery.isLoading ? 'Loading brands…' : 'All brands'}</option>
+                            {brandsQuery.data?.data.map((brand) => (
+                                <option key={brand.id} value={brand.id}>
+                                    {brand.name}
+                                </option>
+                            ))}
+                        </Select>
+                    </FormField>
+                    <FormField label="Status">
+                        <Select
+                            value={filters.active === '' || filters.active === undefined ? '' : String(filters.active)}
+                            onChange={(event) => updateFilters({ active: event.target.value === '' ? '' : event.target.value === 'true' })}
+                        >
+                            <option value="">All statuses</option>
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                        </Select>
+                    </FormField>
+                </CardContent>
+            </Card>
+            <ErrorMessage error={categoriesQuery.error ?? brandsQuery.error} />
 
             {productsQuery.isLoading ? (
-                <p className="text-sm text-slate-600">Loading products...</p>
+                <TableSkeleton columns={7} />
             ) : (
                 <>
                     <ErrorMessage error={productsQuery.error} />
@@ -189,6 +218,8 @@ export function ProductsPage() {
                         columns={columns}
                         getRowKey={(product) => product.uuid}
                         emptyMessage="No products match these filters."
+                        emptyDescription="Try changing or clearing one of the filters above."
+                        ariaLabel="Product catalog"
                     />
                     {productsQuery.data && (
                         <Pagination
@@ -202,7 +233,9 @@ export function ProductsPage() {
             <ConfirmDialog
                 open={deleteTarget !== null}
                 title="Delete product"
-                description={`Delete ${deleteTarget?.name ?? 'this product'}? Products referenced by purchases or warranties cannot be deleted.`}
+                description={`Delete ${
+                    deleteTarget?.name ?? 'this product'
+                }? Products referenced by purchases or warranties cannot be deleted.`}
                 confirmLabel="Delete product"
                 isPending={deleteMutation.isPending}
                 onCancel={() => setDeleteTarget(null)}
@@ -275,117 +308,160 @@ export function ProductFormPage() {
         },
     });
 
-    if (isEditing && productQuery.isLoading) return <p className="text-sm text-slate-600">Loading product...</p>;
+    if (isEditing && productQuery.isLoading) return <PageSkeleton />;
     if (isEditing && !productQuery.data && productQuery.error) return <ErrorMessage error={productQuery.error} />;
 
     const categories = categoriesQuery.data?.data ?? [];
     const brands = brandsQuery.data?.data ?? [];
+    const optionListsLoading = categoriesQuery.isLoading || brandsQuery.isLoading;
+    const optionListsError = categoriesQuery.error ?? brandsQuery.error;
+    const hasRequiredOptions = categories.length > 0 && brands.length > 0;
 
     return (
         <section className="max-w-4xl space-y-6">
             <PageHeader
+                eyebrow="Catalog"
                 title={isEditing ? 'Edit product' : 'Add product'}
                 description="Set catalog identity, related category and brand, warranty defaults, and serial-number handling."
-            />
-            {categories.length === 0 || brands.length === 0 ? (
-                <p className="rounded-md bg-amber-50 p-4 text-sm text-amber-800">
-                    Create at least one category and one brand before adding a product.
-                </p>
-            ) : null}
-            <form
-                className="space-y-6 rounded-xl border border-slate-200 bg-white p-6"
-                onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}
-            >
-                <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="SKU" error={form.formState.errors.sku?.message}>
-                        <input className={inputClassName} placeholder="WASH-100" {...form.register('sku')} />
-                    </Field>
-                    <Field label="Model" error={form.formState.errors.model?.message}>
-                        <input className={inputClassName} {...form.register('model')} />
-                    </Field>
-                    <Field label="Product name" error={form.formState.errors.name?.message}>
-                        <input className={inputClassName} {...form.register('name')} />
-                    </Field>
-                    <Field label="Slug" error={form.formState.errors.slug?.message}>
-                        <input className={inputClassName} placeholder="auto-generated-if-empty" {...form.register('slug')} />
-                    </Field>
-                    <Field label="Category" error={form.formState.errors.category_id?.message}>
-                        <select
-                            className={inputClassName}
-                            value={form.watch('category_id')}
-                            onChange={(event) => form.setValue('category_id', Number(event.target.value), { shouldValidate: true })}
-                        >
-                            <option value={0}>Select a category</option>
-                            {categories.map((category) => (
-                                <option key={category.id} value={category.id}>
-                                    {category.name}
-                                    {category.active ? '' : ' (inactive)'}
-                                </option>
-                            ))}
-                        </select>
-                    </Field>
-                    <Field label="Brand" error={form.formState.errors.brand_id?.message}>
-                        <select
-                            className={inputClassName}
-                            value={form.watch('brand_id')}
-                            onChange={(event) => form.setValue('brand_id', Number(event.target.value), { shouldValidate: true })}
-                        >
-                            <option value={0}>Select a brand</option>
-                            {brands.map((brand) => (
-                                <option key={brand.id} value={brand.id}>
-                                    {brand.name}
-                                    {brand.active ? '' : ' (inactive)'}
-                                </option>
-                            ))}
-                        </select>
-                    </Field>
-                    <Field label="Default warranty (months)" error={form.formState.errors.default_warranty_months?.message}>
-                        <input
-                            className={inputClassName}
-                            type="number"
-                            min="0"
-                            max="120"
-                            {...form.register('default_warranty_months', { valueAsNumber: true })}
-                        />
-                    </Field>
-                    <div className="mt-7 flex flex-wrap items-center gap-5 text-sm font-medium text-slate-800">
-                        <label className="flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                checked={form.watch('serial_number_required')}
-                                onChange={(event) => form.setValue('serial_number_required', event.target.checked)}
-                            />
-                            Serial number required
-                        </label>
-                        <label className="flex items-center gap-2">
-                            <input
-                                type="checkbox"
-                                checked={form.watch('active')}
-                                onChange={(event) => form.setValue('active', event.target.checked)}
-                            />
-                            Active
-                        </label>
-                    </div>
-                </div>
-                <Field label="Description" error={form.formState.errors.description?.message}>
-                    <textarea className={inputClassName} rows={5} {...form.register('description')} />
-                </Field>
-                <ErrorMessage error={saveMutation.error} />
-                <div className="flex justify-end gap-3">
-                    <Link
-                        className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
-                        to={isEditing ? `/admin/products/${uuid}` : '/admin/products'}
-                    >
-                        Cancel
+                actions={
+                    <Link className={buttonVariants({ variant: 'outline' })} to={isEditing ? `/admin/products/${uuid}` : '/admin/products'}>
+                        <ArrowLeft aria-hidden="true" />
+                        Back
                     </Link>
-                    <button
-                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                        disabled={saveMutation.isPending || categories.length === 0 || brands.length === 0}
-                    >
-                        {saveMutation.isPending ? 'Saving...' : 'Save product'}
-                    </button>
-                </div>
-            </form>
+                }
+            />
+            <ErrorMessage error={optionListsError} />
+            {!optionListsLoading && !optionListsError && !hasRequiredOptions ? (
+                <Alert
+                    className="border-amber-300 bg-amber-50 text-amber-950 dark:border-amber-800 dark:bg-amber-950/35 dark:text-amber-100"
+                    role="status"
+                >
+                    <CircleAlert className="text-amber-700 dark:text-amber-400" aria-hidden="true" />
+                    <div>
+                        <AlertTitle>Catalog setup required</AlertTitle>
+                        <AlertDescription className="text-amber-800 dark:text-amber-200">
+                            Create at least one category and one brand before adding a product.
+                        </AlertDescription>
+                    </div>
+                </Alert>
+            ) : null}
+            <Card>
+                <CardContent className="pt-5 sm:pt-6">
+                    <form className="space-y-6" onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}>
+                        <div className="grid gap-5 sm:grid-cols-2">
+                            <FormField required label="SKU" error={form.formState.errors.sku?.message}>
+                                <Input placeholder="WASH-100" autoComplete="off" {...form.register('sku')} />
+                            </FormField>
+                            <FormField required label="Model" error={form.formState.errors.model?.message}>
+                                <Input autoComplete="off" {...form.register('model')} />
+                            </FormField>
+                            <FormField required label="Product name" error={form.formState.errors.name?.message}>
+                                <Input autoComplete="off" {...form.register('name')} />
+                            </FormField>
+                            <FormField
+                                label="Slug"
+                                hint="Leave blank to generate the URL slug automatically."
+                                error={form.formState.errors.slug?.message}
+                            >
+                                <Input placeholder="auto-generated-if-empty" autoComplete="off" {...form.register('slug')} />
+                            </FormField>
+                            <FormField required label="Category" error={form.formState.errors.category_id?.message}>
+                                <Select
+                                    value={form.watch('category_id')}
+                                    disabled={optionListsLoading}
+                                    onChange={(event) => form.setValue('category_id', Number(event.target.value), { shouldValidate: true })}
+                                >
+                                    <option value={0}>{optionListsLoading ? 'Loading categories…' : 'Select a category'}</option>
+                                    {categories.map((category) => (
+                                        <option key={category.id} value={category.id}>
+                                            {category.name}
+                                            {category.active ? '' : ' (inactive)'}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </FormField>
+                            <FormField required label="Brand" error={form.formState.errors.brand_id?.message}>
+                                <Select
+                                    value={form.watch('brand_id')}
+                                    disabled={optionListsLoading}
+                                    onChange={(event) => form.setValue('brand_id', Number(event.target.value), { shouldValidate: true })}
+                                >
+                                    <option value={0}>{optionListsLoading ? 'Loading brands…' : 'Select a brand'}</option>
+                                    {brands.map((brand) => (
+                                        <option key={brand.id} value={brand.id}>
+                                            {brand.name}
+                                            {brand.active ? '' : ' (inactive)'}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </FormField>
+                            <FormField
+                                required
+                                label="Default warranty (months)"
+                                error={form.formState.errors.default_warranty_months?.message}
+                            >
+                                <Input
+                                    type="number"
+                                    min="0"
+                                    max="120"
+                                    inputMode="numeric"
+                                    {...form.register('default_warranty_months', { valueAsNumber: true })}
+                                />
+                            </FormField>
+                            <fieldset className="space-y-3 sm:self-end">
+                                <legend className="sr-only">Product settings</legend>
+                                <label
+                                    className={cn(
+                                        'flex min-h-10 cursor-pointer items-center gap-3 rounded-md border border-border px-3',
+                                        'text-sm font-medium text-foreground transition-colors hover:bg-muted/50',
+                                    )}
+                                >
+                                    <input
+                                        className="size-4 rounded border-input accent-primary"
+                                        type="checkbox"
+                                        checked={form.watch('serial_number_required')}
+                                        onChange={(event) => form.setValue('serial_number_required', event.target.checked)}
+                                    />
+                                    Serial number required
+                                </label>
+                                <label
+                                    className={cn(
+                                        'flex min-h-10 cursor-pointer items-center gap-3 rounded-md border border-border px-3',
+                                        'text-sm font-medium text-foreground transition-colors hover:bg-muted/50',
+                                    )}
+                                >
+                                    <input
+                                        className="size-4 rounded border-input accent-primary"
+                                        type="checkbox"
+                                        checked={form.watch('active')}
+                                        onChange={(event) => form.setValue('active', event.target.checked)}
+                                    />
+                                    Active in catalog
+                                </label>
+                            </fieldset>
+                        </div>
+                        <FormField label="Description" error={form.formState.errors.description?.message}>
+                            <Textarea rows={5} {...form.register('description')} />
+                        </FormField>
+                        <ErrorMessage error={saveMutation.error} />
+                        <div className="flex flex-col-reverse gap-3 border-t border-border pt-5 sm:flex-row sm:justify-end">
+                            <Link
+                                className={cn(buttonVariants({ variant: 'outline' }), 'w-full sm:w-auto')}
+                                to={isEditing ? `/admin/products/${uuid}` : '/admin/products'}
+                            >
+                                Cancel
+                            </Link>
+                            <Button
+                                type="submit"
+                                className="w-full sm:w-auto"
+                                disabled={saveMutation.isPending || optionListsLoading || !hasRequiredOptions}
+                            >
+                                {saveMutation.isPending ? 'Saving…' : 'Save product'}
+                            </Button>
+                        </div>
+                    </form>
+                </CardContent>
+            </Card>
         </section>
     );
 }
@@ -400,23 +476,28 @@ export function ProductDetailsPage() {
     });
     const product = productQuery.data;
 
-    if (productQuery.isLoading) return <p className="text-sm text-slate-600">Loading product...</p>;
+    if (productQuery.isLoading) return <PageSkeleton />;
     if (!product) return <ErrorMessage error={productQuery.error ?? new Error('Product not found.')} />;
 
     return (
         <section className="max-w-4xl space-y-6">
             <PageHeader
+                eyebrow="Product details"
                 title={product.name}
                 description={`${product.sku} · ${product.model}`}
-                action={
-                    <Can permission="products.update">
-                        <Link
-                            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
-                            to={`/admin/products/${product.uuid}/edit`}
-                        >
-                            Edit product
+                actions={
+                    <>
+                        <Link className={buttonVariants({ variant: 'outline' })} to="/admin/products">
+                            <ArrowLeft aria-hidden="true" />
+                            Products
                         </Link>
-                    </Can>
+                        <Can permission="products.update">
+                            <Link className={buttonVariants({ variant: 'default' })} to={`/admin/products/${product.uuid}/edit`}>
+                                <Pencil aria-hidden="true" />
+                                Edit product
+                            </Link>
+                        </Can>
+                    </>
                 }
             />
             <AttachmentPanel
@@ -425,51 +506,34 @@ export function ProductDetailsPage() {
                 canUpload={can('products.update')}
                 canDelete={can('products.update')}
             />
-            <section className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 md:grid-cols-2 lg:grid-cols-3">
-                <Detail label="Status" value={<StatusBadge value={product.active ? 'active' : 'inactive'} />} />
-                <Detail label="Slug" value={`/${product.slug}`} />
-                <Detail label="SKU" value={product.sku} />
-                <Detail label="Model" value={product.model} />
-                <Detail label="Category" value={product.category.name} />
-                <Detail label="Brand" value={product.brand.name} />
-                <Detail label="Default warranty" value={`${product.default_warranty_months} months`} />
-                <Detail label="Serial number" value={product.serial_number_required ? 'Required' : 'Not required'} />
-                <Detail label="Created" value={formatDate(product.created_at)} />
-                <div className="md:col-span-2 lg:col-span-3">
-                    <Detail label="Description" value={<p className="whitespace-pre-wrap">{product.description ?? 'No description.'}</p>} />
-                </div>
-            </section>
+            <Card>
+                <CardContent className="grid gap-x-6 gap-y-5 pt-5 sm:grid-cols-2 sm:pt-6 lg:grid-cols-3">
+                    <Detail label="Status" value={<StatusBadge value={product.active ? 'active' : 'inactive'} />} />
+                    <Detail label="Slug" value={`/${product.slug}`} />
+                    <Detail label="SKU" value={product.sku} />
+                    <Detail label="Model" value={product.model} />
+                    <Detail label="Category" value={product.category.name} />
+                    <Detail label="Brand" value={product.brand.name} />
+                    <Detail label="Default warranty" value={`${product.default_warranty_months} months`} />
+                    <Detail label="Serial number" value={product.serial_number_required ? 'Required' : 'Not required'} />
+                    <Detail label="Created" value={formatDate(product.created_at)} />
+                    <div className="border-t border-border pt-5 sm:col-span-2 lg:col-span-3">
+                        <Detail
+                            label="Description"
+                            value={<p className="whitespace-pre-wrap">{product.description ?? 'No description.'}</p>}
+                        />
+                    </div>
+                </CardContent>
+            </Card>
         </section>
-    );
-}
-
-function PageHeader({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
-    return (
-        <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
-                <p className="mt-1 text-sm text-slate-600">{description}</p>
-            </div>
-            {action}
-        </div>
-    );
-}
-
-function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
-    return (
-        <label className="block text-sm font-medium text-slate-800">
-            {label}
-            {children}
-            {error && <span className="mt-1 block text-sm font-normal text-rose-700">{error}</span>}
-        </label>
     );
 }
 
 function Detail({ label, value }: { label: string; value: ReactNode }) {
     return (
-        <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-            <div className="mt-1 text-sm text-slate-800">{value}</div>
+        <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+            <div className="mt-1.5 break-words text-sm text-card-foreground">{value}</div>
         </div>
     );
 }

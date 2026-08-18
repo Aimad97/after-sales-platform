@@ -1,9 +1,18 @@
-import { useRef, useState, type ChangeEvent, type DragEvent } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getApiErrorMessage } from '@/components/ApiErrorAlert';
+import { AlertCircle, Download, File as FileIcon, LoaderCircle, Paperclip, Trash2, UploadCloud } from 'lucide-react';
+import { useId, useRef, useState, type ChangeEvent, type DragEvent } from 'react';
+import { ApiErrorAlert as ErrorMessage, getApiErrorMessage } from '@/components/ApiErrorAlert';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { SectionHeader } from '@/components/PageHeader';
+import { EmptyState } from '@/components/PageStates';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { deleteAttachment, downloadAttachment, listAttachments, uploadAttachment } from '@/features/attachments/api';
 import type { Attachment, AttachmentResourceType, UploadProgress } from '@/features/attachments/types';
+import { cn } from '@/utils/cn';
 import { formatDate } from '@/utils/format';
 
 interface UploadState {
@@ -36,6 +45,35 @@ function uploadId(file: File, index: number): string {
     return `${file.name}-${file.size}-${file.lastModified}-${index}`;
 }
 
+function InlineError({ message }: { message: string | null }) {
+    if (!message) return null;
+
+    return (
+        <Alert className="border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/40" role="alert">
+            <AlertCircle className="text-rose-600 dark:text-rose-400" aria-hidden="true" />
+            <AlertDescription className="text-rose-800 dark:text-rose-200">{message}</AlertDescription>
+        </Alert>
+    );
+}
+
+function AttachmentListSkeleton() {
+    return (
+        <div className="grid gap-3 lg:grid-cols-2" role="status" aria-label="Loading attachments">
+            <span className="sr-only">Loading attachments...</span>
+            {Array.from({ length: 2 }, (_, index) => (
+                <div className="flex gap-4 rounded-lg border border-border p-4" key={index}>
+                    <Skeleton className="size-12 shrink-0 rounded-lg" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                        <Skeleton className="h-4 w-3/5" />
+                        <Skeleton className="h-3 w-2/5" />
+                        <Skeleton className="h-9 w-24" />
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
 export function AttachmentPanel({
     resourceType,
     resourceKey,
@@ -48,6 +86,10 @@ export function AttachmentPanel({
 }: AttachmentPanelProps) {
     const queryClient = useQueryClient();
     const inputRef = useRef<HTMLInputElement>(null);
+    const generatedId = useId();
+    const inputId = `attachment-input-${generatedId}`;
+    const inputHelpId = `${inputId}-help`;
+    const titleId = `${inputId}-title`;
     const [isDragging, setIsDragging] = useState(false);
     const [uploads, setUploads] = useState<Record<string, UploadState>>({});
     const [uploadError, setUploadError] = useState<string | null>(null);
@@ -151,150 +193,190 @@ export function AttachmentPanel({
     };
 
     const uploadEntries = Object.entries(uploads);
+    const attachmentCount = attachmentsQuery.data?.length ?? 0;
 
     return (
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                    <h3 className="text-lg font-bold text-slate-900">{title}</h3>
-                    <p className="mt-1 text-sm text-slate-600">
-                        Upload photos, documents, or proof files. Downloads are checked against your access before the file is returned.
-                    </p>
-                </div>
-                <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-                    {attachmentsQuery.data?.length ?? 0} file{(attachmentsQuery.data?.length ?? 0) === 1 ? '' : 's'}
-                </span>
-            </div>
-
-            {canUpload && !disabled && (
-                <div
-                    className={`mt-5 rounded-xl border-2 border-dashed p-6 text-center transition ${isDragging ? 'border-blue-500 bg-blue-50' : 'border-slate-300 bg-slate-50'}`}
-                    onDragOver={onDragOver}
-                    onDragLeave={() => setIsDragging(false)}
-                    onDrop={onDrop}
-                >
-                    <input
-                        ref={inputRef}
-                        className="sr-only"
-                        id={`${resourceType}-${resourceKey}-attachment-input`}
-                        type="file"
-                        multiple
-                        accept={acceptedTypes}
-                        onChange={onFileChange}
-                    />
-                    <p className="text-sm font-semibold text-slate-800">Drag and drop files here</p>
-                    <p className="mt-1 text-sm text-slate-600">or choose files from your device. Executable files are not accepted.</p>
-                    <button
-                        className="mt-4 rounded-md border border-blue-600 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-50"
-                        type="button"
-                        onClick={() => inputRef.current?.click()}
+        <Card role="region" aria-labelledby={titleId}>
+            <CardHeader className="border-b border-border">
+                <SectionHeader
+                    title={<span id={titleId}>{title}</span>}
+                    description="Upload photos, documents, or proof files. Downloads are checked against your access before the file is returned."
+                    actions={
+                        <Badge variant="outline">
+                            {attachmentCount} file{attachmentCount === 1 ? '' : 's'}
+                        </Badge>
+                    }
+                />
+            </CardHeader>
+            <CardContent className="space-y-5 p-4 sm:p-6">
+                {canUpload && !disabled && (
+                    <div
+                        className={cn(
+                            'rounded-xl border-2 border-dashed p-5 text-center transition-colors sm:p-7',
+                            isDragging ? 'border-primary bg-accent' : 'border-input bg-muted/35 hover:border-primary/50',
+                        )}
+                        role="group"
+                        aria-label="File upload area"
+                        onDragOver={onDragOver}
+                        onDragLeave={() => setIsDragging(false)}
+                        onDrop={onDrop}
                     >
-                        Choose files
-                    </button>
-                </div>
-            )}
+                        <label className="sr-only" htmlFor={inputId}>
+                            Upload attachments
+                        </label>
+                        <input
+                            ref={inputRef}
+                            className="sr-only"
+                            id={inputId}
+                            type="file"
+                            multiple
+                            accept={acceptedTypes}
+                            aria-describedby={inputHelpId}
+                            onChange={onFileChange}
+                        />
+                        <span
+                            className="mx-auto grid size-11 place-items-center rounded-xl bg-accent text-accent-foreground"
+                            aria-hidden="true"
+                        >
+                            <UploadCloud size={22} />
+                        </span>
+                        <p className="mt-4 text-sm font-semibold text-foreground">Drag and drop files here</p>
+                        <p id={inputHelpId} className="mx-auto mt-1 max-w-lg text-sm leading-6 text-muted-foreground">
+                            or choose files from your device. Executable files are not accepted.
+                            {maxFileSizeBytes !== undefined ? ` Maximum file size: ${formatFileSize(maxFileSizeBytes)}.` : ''}
+                        </p>
+                        <Button
+                            className="mt-4 w-full sm:w-auto"
+                            type="button"
+                            variant="outline"
+                            aria-controls={inputId}
+                            onClick={() => inputRef.current?.click()}
+                        >
+                            <Paperclip aria-hidden="true" />
+                            Choose files
+                        </Button>
+                    </div>
+                )}
 
-            {disabled && (
-                <p className="mt-4 rounded-md bg-slate-50 p-3 text-sm text-slate-600">
-                    Attachments cannot be changed while this record is locked.
-                </p>
-            )}
-            {!canUpload && (
-                <p className="mt-4 rounded-md bg-slate-50 p-3 text-sm text-slate-600">
-                    You can view and download attachments, but do not have permission to add files.
-                </p>
-            )}
-            {uploadError && <p className="mt-4 rounded-md bg-rose-50 p-3 text-sm text-rose-700">{uploadError}</p>}
-            {downloadError && <p className="mt-4 rounded-md bg-rose-50 p-3 text-sm text-rose-700">{downloadError}</p>}
-            {deleteMutation.error && (
-                <p className="mt-4 rounded-md bg-rose-50 p-3 text-sm text-rose-700">
-                    {getApiErrorMessage(deleteMutation.error, 'Unable to delete this file.')}
-                </p>
-            )}
+                {disabled && (
+                    <Alert>
+                        <AlertDescription>Attachments cannot be changed while this record is locked.</AlertDescription>
+                    </Alert>
+                )}
+                {!canUpload && (
+                    <Alert>
+                        <AlertDescription>You can view and download attachments, but do not have permission to add files.</AlertDescription>
+                    </Alert>
+                )}
 
-            {uploadEntries.length > 0 && (
-                <div className="mt-4 space-y-3" aria-live="polite">
-                    {uploadEntries.map(([id, upload]) => (
-                        <div key={id} className="rounded-lg border border-slate-200 p-3">
-                            <div className="flex items-center justify-between gap-3 text-sm">
-                                <span className="truncate font-medium text-slate-800">{upload.fileName}</span>
-                                <span className={upload.error ? 'text-rose-700' : 'text-slate-500'}>
-                                    {upload.error ?? `${upload.percentage}%`}
-                                </span>
-                            </div>
-                            {!upload.error && (
-                                <div
-                                    className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"
-                                    role="progressbar"
-                                    aria-label={`Uploading ${upload.fileName}`}
-                                    aria-valuemin={0}
-                                    aria-valuemax={100}
-                                    aria-valuenow={upload.percentage}
-                                >
-                                    <div className="h-full bg-blue-600 transition-all" style={{ width: `${upload.percentage}%` }} />
+                <InlineError message={uploadError} />
+                <InlineError message={downloadError} />
+                <ErrorMessage error={deleteMutation.error} fallback="Unable to delete this file." />
+
+                {uploadEntries.length > 0 && (
+                    <section className="space-y-3" aria-label="Upload progress" aria-live="polite">
+                        {uploadEntries.map(([id, upload]) => (
+                            <div key={id} className="rounded-lg border border-border bg-muted/25 p-3">
+                                <div className="flex items-center justify-between gap-3 text-sm">
+                                    <span className="truncate font-medium text-foreground">{upload.fileName}</span>
+                                    <span className={cn('shrink-0 text-xs', upload.error ? 'text-destructive' : 'text-muted-foreground')}>
+                                        {upload.error ?? `${upload.percentage}%`}
+                                    </span>
                                 </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            )}
-
-            <div className="mt-5">
-                {attachmentsQuery.isLoading && <p className="text-sm text-slate-600">Loading attachments...</p>}
-                {attachmentsQuery.error && (
-                    <p className="rounded-md bg-rose-50 p-3 text-sm text-rose-700">
-                        {getApiErrorMessage(attachmentsQuery.error, 'Unable to load attachments.')}
-                    </p>
-                )}
-                {!attachmentsQuery.isLoading && !attachmentsQuery.error && (attachmentsQuery.data?.length ?? 0) === 0 && (
-                    <p className="rounded-md bg-slate-50 p-4 text-sm text-slate-600">No files have been attached yet.</p>
-                )}
-                <ul className="grid gap-3 sm:grid-cols-2" aria-label={`${title} list`}>
-                    {attachmentsQuery.data?.map((attachment) => (
-                        <li className="overflow-hidden rounded-lg border border-slate-200" key={attachment.uuid}>
-                            {attachment.is_previewable_image && attachment.preview_url && (
-                                <img
-                                    className="h-40 w-full bg-slate-100 object-cover"
-                                    src={attachment.preview_url}
-                                    alt={`Preview of ${attachment.original_filename}`}
-                                    loading="lazy"
-                                />
-                            )}
-                            <div className="p-4">
-                                <p className="truncate text-sm font-semibold text-slate-900" title={attachment.original_filename}>
-                                    {attachment.original_filename}
-                                </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                    {formatFileSize(attachment.size)} / {attachment.mime_type}
-                                </p>
-                                <p className="mt-1 text-xs text-slate-500">
-                                    Added {formatDate(attachment.created_at)}
-                                    {attachment.uploaded_by ? ` by ${attachment.uploaded_by.display_name}` : ''}
-                                </p>
-                                <div className="mt-4 flex flex-wrap gap-3">
-                                    <button
-                                        className="text-sm font-semibold text-blue-700 disabled:opacity-50"
-                                        type="button"
-                                        disabled={downloadingId === attachment.id}
-                                        onClick={() => void handleDownload(attachment)}
+                                {!upload.error && (
+                                    <div
+                                        className="mt-2 h-2 overflow-hidden rounded-full bg-muted"
+                                        role="progressbar"
+                                        aria-label={`Uploading ${upload.fileName}`}
+                                        aria-valuemin={0}
+                                        aria-valuemax={100}
+                                        aria-valuenow={upload.percentage}
+                                        aria-valuetext={upload.percentage === 100 ? 'Upload complete' : `${upload.percentage}% uploaded`}
                                     >
-                                        {downloadingId === attachment.id ? 'Preparing...' : 'Download'}
-                                    </button>
-                                    {canDelete && !disabled && (
-                                        <button
-                                            className="text-sm font-semibold text-rose-700"
-                                            type="button"
-                                            onClick={() => setDeleteTarget(attachment)}
-                                        >
-                                            Delete
-                                        </button>
-                                    )}
-                                </div>
+                                        <div
+                                            className="h-full rounded-full bg-primary transition-[width]"
+                                            style={{ width: `${upload.percentage}%` }}
+                                        />
+                                    </div>
+                                )}
                             </div>
-                        </li>
-                    ))}
-                </ul>
-            </div>
+                        ))}
+                    </section>
+                )}
+
+                <div>
+                    {attachmentsQuery.isLoading && <AttachmentListSkeleton />}
+                    <ErrorMessage error={attachmentsQuery.error} fallback="Unable to load attachments." />
+                    {!attachmentsQuery.isLoading && !attachmentsQuery.error && attachmentCount === 0 && (
+                        <EmptyState
+                            compact
+                            icon={Paperclip}
+                            title="No files have been attached yet."
+                            description="Uploaded photos and documents will appear here."
+                        />
+                    )}
+                    <ul className="grid gap-3 lg:grid-cols-2" aria-label={`${title} list`}>
+                        {attachmentsQuery.data?.map((attachment) => (
+                            <li className="overflow-hidden rounded-lg border border-border bg-card" key={attachment.uuid}>
+                                {attachment.is_previewable_image && attachment.preview_url ? (
+                                    <img
+                                        className="h-40 w-full bg-muted object-cover"
+                                        src={attachment.preview_url}
+                                        alt={`Preview of ${attachment.original_filename}`}
+                                        loading="lazy"
+                                    />
+                                ) : (
+                                    <div className="grid h-24 place-items-center bg-muted/55 text-muted-foreground" aria-hidden="true">
+                                        <FileIcon size={27} />
+                                    </div>
+                                )}
+                                <div className="p-4">
+                                    <p className="truncate text-sm font-semibold text-foreground" title={attachment.original_filename}>
+                                        {attachment.original_filename}
+                                    </p>
+                                    <p className="mt-1 text-xs text-muted-foreground">
+                                        {formatFileSize(attachment.size)} / {attachment.mime_type}
+                                    </p>
+                                    <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                                        Added {formatDate(attachment.created_at)}
+                                        {attachment.uploaded_by ? ` by ${attachment.uploaded_by.display_name}` : ''}
+                                    </p>
+                                    <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                                        <Button
+                                            className="w-full sm:w-auto"
+                                            type="button"
+                                            variant="outline"
+                                            size="sm"
+                                            disabled={downloadingId === attachment.id}
+                                            aria-busy={downloadingId === attachment.id}
+                                            onClick={() => void handleDownload(attachment)}
+                                        >
+                                            {downloadingId === attachment.id ? (
+                                                <LoaderCircle className="animate-spin" aria-hidden="true" />
+                                            ) : (
+                                                <Download aria-hidden="true" />
+                                            )}
+                                            {downloadingId === attachment.id ? 'Preparing...' : 'Download'}
+                                        </Button>
+                                        {canDelete && !disabled && (
+                                            <Button
+                                                className="w-full sm:w-auto"
+                                                type="button"
+                                                variant="destructive"
+                                                size="sm"
+                                                onClick={() => setDeleteTarget(attachment)}
+                                            >
+                                                <Trash2 aria-hidden="true" />
+                                                Delete
+                                            </Button>
+                                        )}
+                                    </div>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            </CardContent>
 
             <ConfirmDialog
                 open={deleteTarget !== null}
@@ -305,6 +387,6 @@ export function AttachmentPanel({
                 onCancel={() => setDeleteTarget(null)}
                 onConfirm={() => deleteTarget && deleteMutation.mutate(deleteTarget)}
             />
-        </section>
+        </Card>
     );
 }

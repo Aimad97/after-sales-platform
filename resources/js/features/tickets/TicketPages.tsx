@@ -4,11 +4,19 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { z } from 'zod';
-import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
+import { ApiErrorAlert as ErrorMessage, getApiErrorMessage } from '@/components/ApiErrorAlert';
 import { AttachmentPanel } from '@/components/AttachmentPanel';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
+import { FormField } from '@/components/FormField';
+import { PageHeader } from '@/components/PageHeader';
+import { EmptyState, ErrorState, PageSkeleton, TableSkeleton } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { listProducts } from '@/features/catalog/api';
 import { listClients } from '@/features/clients/api';
 import { listTechnicians } from '@/features/technicians/api';
@@ -37,8 +45,6 @@ import { Can, usePermissions } from '@/hooks/usePermissions';
 import { useTicketRealtime } from '@/hooks/useRealtime';
 import { formatDate, humanize } from '@/utils/format';
 
-const inputClassName =
-    'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
 export const ticketSchema = z.object({
     client_id: z.coerce.number().int().positive('Choose a client.'),
     product_id: z.coerce.number().int().positive('Choose a product.'),
@@ -74,33 +80,11 @@ const transitions: Record<TicketStatus, TicketStatus[]> = {
     cancelled: [],
 };
 
-function PageHeader({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
-    return (
-        <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
-                <p className="mt-1 text-sm text-slate-600">{description}</p>
-            </div>
-            {action}
-        </div>
-    );
-}
-
-function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
-    return (
-        <label className="block text-sm font-medium text-slate-800">
-            {label}
-            {children}
-            {error && <span className="mt-1 block text-sm font-normal text-rose-700">{error}</span>}
-        </label>
-    );
-}
-
 function Detail({ label, value }: { label: string; value: ReactNode }) {
     return (
         <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-            <div className="mt-1 break-words text-sm text-slate-800">{value}</div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+            <div className="mt-1 break-words text-sm text-foreground">{value}</div>
         </div>
     );
 }
@@ -124,25 +108,25 @@ export function TicketsPage() {
             header: 'Ticket',
             cell: (ticket) => (
                 <div>
-                    <Link className="font-semibold text-slate-900 hover:text-blue-700" to={`/admin/tickets/${ticket.uuid}`}>
+                    <Link className="font-semibold text-foreground hover:text-primary" to={`/admin/tickets/${ticket.uuid}`}>
                         {ticket.ticket_number}
                     </Link>
-                    <p className="mt-0.5 text-xs text-slate-500">{ticket.title}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{ticket.title}</p>
                 </div>
             ),
         },
         {
             id: 'client',
             header: 'Client',
-            cell: (ticket) => <span className="text-slate-700">{ticket.client?.display_name ?? 'Unknown client'}</span>,
+            cell: (ticket) => <span className="text-foreground/80">{ticket.client?.display_name ?? 'Unknown client'}</span>,
         },
         {
             id: 'product',
             header: 'Product',
             cell: (ticket) => (
-                <div className="text-slate-700">
+                <div className="text-foreground/80">
                     <p>{ticket.product?.name ?? 'Unknown product'}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">{ticket.warranty?.serial_number ?? ticket.product?.sku ?? '—'}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{ticket.warranty?.serial_number ?? ticket.product?.sku ?? '—'}</p>
                 </div>
             ),
         },
@@ -151,9 +135,13 @@ export function TicketsPage() {
         {
             id: 'technician',
             header: 'Technician',
-            cell: (ticket) => <span className="text-slate-700">{ticket.assigned_technician?.user?.display_name ?? 'Unassigned'}</span>,
+            cell: (ticket) => <span className="text-foreground/80">{ticket.assigned_technician?.user?.display_name ?? 'Unassigned'}</span>,
         },
-        { id: 'received', header: 'Received', cell: (ticket) => <span className="text-slate-600">{formatDate(ticket.received_at)}</span> },
+        {
+            id: 'received',
+            header: 'Received',
+            cell: (ticket) => <span className="text-muted-foreground">{formatDate(ticket.received_at)}</span>,
+        },
     ];
 
     return (
@@ -161,120 +149,136 @@ export function TicketsPage() {
             <PageHeader
                 title="SAV tickets"
                 description="Manage product support requests through a controlled repair workflow."
-                action={
+                actions={
                     <Can permission="tickets.create">
-                        <Link
-                            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
-                            to="/admin/tickets/new"
-                        >
+                        <Link className={buttonVariants()} to="/admin/tickets/new">
                             Create ticket
                         </Link>
                     </Can>
                 }
             />
-            <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-5">
-                <input
-                    className={inputClassName}
-                    placeholder="Search ticket, client, serial..."
-                    value={filters.search ?? ''}
-                    onChange={(event) => updateFilters({ search: event.target.value || undefined })}
-                />
-                <select
-                    className={inputClassName}
-                    value={filters.client_id ?? ''}
-                    onChange={(event) => updateFilters({ client_id: event.target.value === '' ? '' : Number(event.target.value) })}
-                >
-                    <option value="">All clients</option>
-                    {clientsQuery.data?.data.map((client) => (
-                        <option key={client.id} value={client.id}>
-                            {client.display_name}
-                        </option>
-                    ))}
-                </select>
-                <select
-                    className={inputClassName}
-                    value={filters.assigned_technician_id ?? ''}
-                    onChange={(event) =>
-                        updateFilters({ assigned_technician_id: event.target.value === '' ? '' : Number(event.target.value) })
-                    }
-                >
-                    <option value="">All technicians</option>
-                    {techniciansQuery.data?.data.map((technician) => (
-                        <option key={technician.id} value={technician.id}>
-                            {technician.user ? `${technician.user.first_name} ${technician.user.last_name}` : technician.employee_code}
-                        </option>
-                    ))}
-                </select>
-                <select
-                    className={inputClassName}
-                    value={filters.status ?? ''}
-                    onChange={(event) => updateFilters({ status: event.target.value === '' ? '' : (event.target.value as TicketStatus) })}
-                >
-                    <option value="">All statuses</option>
-                    {Object.keys(transitions).map((status) => (
-                        <option key={status} value={status}>
-                            {humanize(status)}
-                        </option>
-                    ))}
-                </select>
-                <select
-                    className={inputClassName}
-                    value={filters.priority ?? ''}
-                    onChange={(event) =>
-                        updateFilters({ priority: event.target.value === '' ? '' : (event.target.value as TicketPriority) })
-                    }
-                >
-                    <option value="">All priorities</option>
-                    <option value="low">Low</option>
-                    <option value="normal">Normal</option>
-                    <option value="high">High</option>
-                    <option value="urgent">Urgent</option>
-                </select>
-                <select
-                    className={inputClassName}
-                    value={filters.source ?? ''}
-                    onChange={(event) => updateFilters({ source: event.target.value === '' ? '' : (event.target.value as TicketSource) })}
-                >
-                    <option value="">All sources</option>
-                    <option value="store">Store</option>
-                    <option value="phone">Phone</option>
-                    <option value="email">Email</option>
-                    <option value="web">Web</option>
-                </select>
-                <select
-                    className={inputClassName}
-                    value={
-                        filters.warranty_eligible === '' || filters.warranty_eligible === undefined ? '' : String(filters.warranty_eligible)
-                    }
-                    onChange={(event) =>
-                        updateFilters({ warranty_eligible: event.target.value === '' ? '' : event.target.value === 'true' })
-                    }
-                >
-                    <option value="">Any warranty eligibility</option>
-                    <option value="true">Under warranty</option>
-                    <option value="false">Out of warranty</option>
-                </select>
-                <input
-                    className={inputClassName}
-                    type="date"
-                    aria-label="Received from"
-                    value={filters.received_from ?? ''}
-                    onChange={(event) => updateFilters({ received_from: event.target.value || undefined })}
-                />
-                <input
-                    className={inputClassName}
-                    type="date"
-                    aria-label="Received to"
-                    value={filters.received_to ?? ''}
-                    onChange={(event) => updateFilters({ received_to: event.target.value || undefined })}
-                />
+            <div className="grid gap-4 rounded-xl border border-border bg-muted/35 p-4 sm:grid-cols-2 xl:grid-cols-5">
+                <FormField label="Search">
+                    <Input
+                        placeholder="Ticket, client, or serial"
+                        value={filters.search ?? ''}
+                        onChange={(event) => updateFilters({ search: event.target.value || undefined })}
+                    />
+                </FormField>
+                <FormField label="Client">
+                    <Select
+                        value={filters.client_id ?? ''}
+                        onChange={(event) => updateFilters({ client_id: event.target.value === '' ? '' : Number(event.target.value) })}
+                    >
+                        <option value="">All clients</option>
+                        {clientsQuery.data?.data.map((client) => (
+                            <option key={client.id} value={client.id}>
+                                {client.display_name}
+                            </option>
+                        ))}
+                    </Select>
+                </FormField>
+                <FormField label="Technician">
+                    <Select
+                        value={filters.assigned_technician_id ?? ''}
+                        onChange={(event) =>
+                            updateFilters({ assigned_technician_id: event.target.value === '' ? '' : Number(event.target.value) })
+                        }
+                    >
+                        <option value="">All technicians</option>
+                        {techniciansQuery.data?.data.map((technician) => (
+                            <option key={technician.id} value={technician.id}>
+                                {technician.user ? `${technician.user.first_name} ${technician.user.last_name}` : technician.employee_code}
+                            </option>
+                        ))}
+                    </Select>
+                </FormField>
+                <FormField label="Status">
+                    <Select
+                        value={filters.status ?? ''}
+                        onChange={(event) =>
+                            updateFilters({ status: event.target.value === '' ? '' : (event.target.value as TicketStatus) })
+                        }
+                    >
+                        <option value="">All statuses</option>
+                        {Object.keys(transitions).map((status) => (
+                            <option key={status} value={status}>
+                                {humanize(status)}
+                            </option>
+                        ))}
+                    </Select>
+                </FormField>
+                <FormField label="Priority">
+                    <Select
+                        value={filters.priority ?? ''}
+                        onChange={(event) =>
+                            updateFilters({ priority: event.target.value === '' ? '' : (event.target.value as TicketPriority) })
+                        }
+                    >
+                        <option value="">All priorities</option>
+                        <option value="low">Low</option>
+                        <option value="normal">Normal</option>
+                        <option value="high">High</option>
+                        <option value="urgent">Urgent</option>
+                    </Select>
+                </FormField>
+                <FormField label="Source">
+                    <Select
+                        value={filters.source ?? ''}
+                        onChange={(event) =>
+                            updateFilters({ source: event.target.value === '' ? '' : (event.target.value as TicketSource) })
+                        }
+                    >
+                        <option value="">All sources</option>
+                        <option value="store">Store</option>
+                        <option value="phone">Phone</option>
+                        <option value="email">Email</option>
+                        <option value="web">Web</option>
+                    </Select>
+                </FormField>
+                <FormField label="Warranty coverage">
+                    <Select
+                        value={
+                            filters.warranty_eligible === '' || filters.warranty_eligible === undefined
+                                ? ''
+                                : String(filters.warranty_eligible)
+                        }
+                        onChange={(event) =>
+                            updateFilters({ warranty_eligible: event.target.value === '' ? '' : event.target.value === 'true' })
+                        }
+                    >
+                        <option value="">Any eligibility</option>
+                        <option value="true">Under warranty</option>
+                        <option value="false">Out of warranty</option>
+                    </Select>
+                </FormField>
+                <FormField label="Received from">
+                    <Input
+                        type="date"
+                        value={filters.received_from ?? ''}
+                        onChange={(event) => updateFilters({ received_from: event.target.value || undefined })}
+                    />
+                </FormField>
+                <FormField label="Received to">
+                    <Input
+                        type="date"
+                        value={filters.received_to ?? ''}
+                        onChange={(event) => updateFilters({ received_to: event.target.value || undefined })}
+                    />
+                </FormField>
             </div>
+            <ErrorMessage error={clientsQuery.error ?? techniciansQuery.error} />
             {ticketsQuery.isLoading ? (
-                <p className="text-sm text-slate-600">Loading tickets...</p>
+                <TableSkeleton columns={7} />
+            ) : ticketsQuery.error ? (
+                <ErrorState
+                    description={getApiErrorMessage(ticketsQuery.error, 'Unable to load tickets.') ?? 'Unable to load tickets.'}
+                    onRetry={() => void ticketsQuery.refetch()}
+                />
             ) : (
                 <>
-                    <ErrorMessage error={ticketsQuery.error} />
                     <DataTable
+                        ariaLabel="SAV tickets"
                         rows={ticketsQuery.data?.data ?? []}
                         columns={columns}
                         getRowKey={(ticket) => ticket.uuid}
@@ -344,31 +348,37 @@ export function TicketFormPage() {
             <PageHeader
                 title="Create SAV ticket"
                 description="Capture the product issue, coverage context, and intake source."
-                action={
-                    <Link className="text-sm font-medium text-blue-700" to="/admin/tickets">
+                actions={
+                    <Link className={buttonVariants({ variant: 'outline' })} to="/admin/tickets">
                         Back to tickets
                     </Link>
                 }
             />
-            <div className="flex items-center gap-2 text-sm">
+            <ol className="flex flex-wrap items-center gap-2 text-sm" aria-label="Ticket creation progress">
                 {[1, 2, 3].map((number) => (
-                    <span
+                    <li
                         key={number}
-                        className={`rounded-full px-3 py-1 font-semibold ${number === step ? 'bg-blue-600 text-white' : number < step ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'}`}
+                        aria-current={number === step ? 'step' : undefined}
+                        className={`rounded-full px-3 py-1 font-semibold ${
+                            number === step
+                                ? 'bg-primary text-primary-foreground'
+                                : number < step
+                                  ? 'bg-primary/15 text-primary'
+                                  : 'bg-muted text-muted-foreground'
+                        }`}
                     >
                         Step {number}
-                    </span>
+                    </li>
                 ))}
-            </div>
+            </ol>
             <form
-                className="space-y-6 rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
+                className="space-y-6 rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6"
                 onSubmit={form.handleSubmit((values) => createMutation.mutate(values))}
             >
                 {step === 1 && (
                     <div className="grid gap-4 md:grid-cols-2">
-                        <Field label="Client" error={form.formState.errors.client_id?.message}>
-                            <select
-                                className={inputClassName}
+                        <FormField label="Client" required error={form.formState.errors.client_id?.message}>
+                            <Select
                                 {...form.register('client_id')}
                                 onChange={(event) => {
                                     form.setValue('client_id', Number(event.target.value));
@@ -381,11 +391,10 @@ export function TicketFormPage() {
                                         {client.display_name}
                                     </option>
                                 ))}
-                            </select>
-                        </Field>
-                        <Field label="Product" error={form.formState.errors.product_id?.message}>
-                            <select
-                                className={inputClassName}
+                            </Select>
+                        </FormField>
+                        <FormField label="Product" required error={form.formState.errors.product_id?.message}>
+                            <Select
                                 {...form.register('product_id')}
                                 onChange={(event) => {
                                     form.setValue('product_id', Number(event.target.value));
@@ -399,13 +408,16 @@ export function TicketFormPage() {
                                         {product.active ? '' : ' (inactive)'}
                                     </option>
                                 ))}
-                            </select>
-                            {productsQuery.error && <ErrorMessage error={productsQuery.error} />}
-                        </Field>
+                            </Select>
+                        </FormField>
+                        {productsQuery.error && <ErrorMessage className="md:col-span-2" error={productsQuery.error} />}
                         <div className="md:col-span-2">
-                            <Field label="Warranty (optional)" error={form.formState.errors.warranty_id?.message}>
-                                <select
-                                    className={inputClassName}
+                            <FormField
+                                label="Warranty (optional)"
+                                hint="Only warranties belonging to the selected client and product are listed."
+                                error={form.formState.errors.warranty_id?.message}
+                            >
+                                <Select
                                     value={form.watch('warranty_id') ?? ''}
                                     onChange={(event) =>
                                         form.setValue('warranty_id', event.target.value === '' ? null : Number(event.target.value), {
@@ -420,45 +432,42 @@ export function TicketFormPage() {
                                             {warranty.serial_number ?? warranty.uuid} · {humanize(warranty.status)}
                                         </option>
                                     ))}
-                                </select>
-                            </Field>
-                            <p className="mt-1 text-xs text-slate-500">
-                                Only warranties belonging to the selected client and product are listed.
-                            </p>
+                                </Select>
+                            </FormField>
                         </div>
                     </div>
                 )}
                 {step === 2 && (
                     <div className="space-y-4">
-                        <Field label="Ticket title" error={form.formState.errors.title?.message}>
-                            <input className={inputClassName} {...form.register('title')} />
-                        </Field>
-                        <Field label="Problem description" error={form.formState.errors.problem_description?.message}>
-                            <textarea className={inputClassName} rows={7} {...form.register('problem_description')} />
-                        </Field>
+                        <FormField label="Ticket title" required error={form.formState.errors.title?.message}>
+                            <Input {...form.register('title')} />
+                        </FormField>
+                        <FormField label="Problem description" required error={form.formState.errors.problem_description?.message}>
+                            <Textarea rows={7} {...form.register('problem_description')} />
+                        </FormField>
                         <div className="grid gap-4 md:grid-cols-2">
-                            <Field label="Priority" error={form.formState.errors.priority?.message}>
-                                <select className={inputClassName} {...form.register('priority')}>
+                            <FormField label="Priority" required error={form.formState.errors.priority?.message}>
+                                <Select {...form.register('priority')}>
                                     <option value="low">Low</option>
                                     <option value="normal">Normal</option>
                                     <option value="high">High</option>
                                     <option value="urgent">Urgent</option>
-                                </select>
-                            </Field>
-                            <Field label="Source" error={form.formState.errors.source?.message}>
-                                <select className={inputClassName} {...form.register('source')}>
+                                </Select>
+                            </FormField>
+                            <FormField label="Source" required error={form.formState.errors.source?.message}>
+                                <Select {...form.register('source')}>
                                     <option value="store">Store</option>
                                     <option value="phone">Phone</option>
                                     <option value="email">Email</option>
                                     <option value="web">Web</option>
-                                </select>
-                            </Field>
+                                </Select>
+                            </FormField>
                         </div>
                     </div>
                 )}
                 {step === 3 && (
-                    <div className="space-y-3 rounded-lg bg-slate-50 p-5 text-sm">
-                        <p className="font-semibold text-slate-900">Review ticket</p>
+                    <div className="space-y-3 rounded-lg bg-muted/50 p-5 text-sm text-foreground">
+                        <p className="font-semibold">Review ticket</p>
                         <p>
                             <span className="font-medium">Title:</span> {form.watch('title')}
                         </p>
@@ -468,37 +477,23 @@ export function TicketFormPage() {
                         <p>
                             <span className="font-medium">Source:</span> {humanize(form.watch('source'))}
                         </p>
-                        <p className="whitespace-pre-wrap text-slate-700">{form.watch('problem_description')}</p>
-                        <p className="text-slate-500">
+                        <p className="whitespace-pre-wrap text-foreground/80">{form.watch('problem_description')}</p>
+                        <p className="text-muted-foreground">
                             The ticket will start in the Opened state. Warranty eligibility is calculated by the server.
                         </p>
                     </div>
                 )}
                 <ErrorMessage error={createMutation.error} />
-                <div className="flex justify-between gap-3">
-                    <button
-                        type="button"
-                        className="rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold disabled:opacity-50"
-                        disabled={step === 1}
-                        onClick={() => setStep((current) => current - 1)}
-                    >
+                <div className="flex flex-wrap justify-between gap-3">
+                    <Button variant="outline" disabled={step === 1} onClick={() => setStep((current) => current - 1)}>
                         Back
-                    </button>
+                    </Button>
                     {step < 3 ? (
-                        <button
-                            type="button"
-                            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
-                            onClick={() => void next()}
-                        >
-                            Continue
-                        </button>
+                        <Button onClick={() => void next()}>Continue</Button>
                     ) : (
-                        <button
-                            className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                            disabled={createMutation.isPending}
-                        >
+                        <Button type="submit" disabled={createMutation.isPending}>
                             {createMutation.isPending ? 'Creating...' : 'Create ticket'}
-                        </button>
+                        </Button>
                     )}
                 </div>
             </form>
@@ -522,6 +517,7 @@ export function TicketDetailsPage() {
     const [nextStatus, setNextStatus] = useState<TicketStatus | ''>('');
     const [transitionNotes, setTransitionNotes] = useState('');
     const [cancelReason, setCancelReason] = useState('');
+    const [isCancelConfirmationOpen, setIsCancelConfirmationOpen] = useState(false);
     const { can } = usePermissions();
     const refresh = (ticket: Ticket) => {
         queryClient.setQueryData(['tickets', uuid], ticket);
@@ -561,6 +557,7 @@ export function TicketDetailsPage() {
         mutationFn: () => cancelTicket(uuid ?? '', cancelReason),
         onSuccess: (ticket) => {
             setCancelReason('');
+            setIsCancelConfirmationOpen(false);
             refresh(ticket);
         },
     });
@@ -570,8 +567,18 @@ export function TicketDetailsPage() {
     });
     useTicketRealtime(ticket?.id ?? null);
 
-    if (ticketQuery.isLoading) return <p className="text-sm text-slate-600">Loading ticket...</p>;
-    if (!ticket) return <ErrorMessage error={ticketQuery.error ?? new Error('Ticket not found.')} />;
+    if (ticketQuery.isLoading) return <PageSkeleton />;
+    if (!ticket)
+        return (
+            <ErrorState
+                title="Ticket unavailable"
+                description={
+                    getApiErrorMessage(ticketQuery.error, 'The requested ticket could not be found.') ??
+                    'The requested ticket could not be found.'
+                }
+                onRetry={() => void ticketQuery.refetch()}
+            />
+        );
     const isTerminal = ticket.status === 'closed' || ticket.status === 'cancelled';
 
     return (
@@ -579,8 +586,8 @@ export function TicketDetailsPage() {
             <PageHeader
                 title={ticket.ticket_number}
                 description={ticket.title}
-                action={
-                    <div className="flex items-center gap-2">
+                actions={
+                    <div className="flex flex-wrap items-center gap-2">
                         <StatusBadge value={ticket.priority} />
                         <StatusBadge value={ticket.status} />
                     </div>
@@ -593,7 +600,7 @@ export function TicketDetailsPage() {
                 canDelete={can('tickets.update')}
                 disabled={isTerminal}
             />
-            <section className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 md:grid-cols-2 lg:grid-cols-4">
+            <section className="grid gap-5 rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6 md:grid-cols-2 lg:grid-cols-4">
                 <Detail label="Client" value={ticket.client?.display_name ?? '—'} />
                 <Detail label="Product" value={ticket.product ? `${ticket.product.name} (${ticket.product.sku})` : '—'} />
                 <Detail label="Warranty" value={ticket.warranty?.serial_number ?? 'No linked warranty'} />
@@ -601,9 +608,9 @@ export function TicketDetailsPage() {
                     label="Coverage"
                     value={
                         ticket.warranty_eligible ? (
-                            <span className="font-medium text-emerald-700">Eligible</span>
+                            <span className="font-medium text-emerald-700 dark:text-emerald-400">Eligible</span>
                         ) : (
-                            <span className="font-medium text-slate-600">Not eligible</span>
+                            <span className="font-medium text-muted-foreground">Not eligible</span>
                         )
                     }
                 />
@@ -615,36 +622,32 @@ export function TicketDetailsPage() {
             <div className="grid gap-6 lg:grid-cols-3">
                 <div className="space-y-6 lg:col-span-2">
                     <Can permission="tickets.update">
-                        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                            <h3 className="text-lg font-bold text-slate-900">Ticket information</h3>
+                        <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+                            <h2 className="text-lg font-semibold text-foreground">Ticket information</h2>
                             <form className="mt-4 space-y-4" onSubmit={editForm.handleSubmit((values) => updateMutation.mutate(values))}>
-                                <Field label="Title" error={editForm.formState.errors.title?.message}>
-                                    <input className={inputClassName} disabled={isTerminal} {...editForm.register('title')} />
-                                </Field>
-                                <Field label="Problem description" error={editForm.formState.errors.problem_description?.message}>
-                                    <textarea
-                                        className={inputClassName}
-                                        rows={6}
-                                        disabled={isTerminal}
-                                        {...editForm.register('problem_description')}
-                                    />
-                                </Field>
-                                <Field label="Source" error={editForm.formState.errors.source?.message}>
-                                    <select className={inputClassName} disabled={isTerminal} {...editForm.register('source')}>
+                                <FormField label="Title" required error={editForm.formState.errors.title?.message}>
+                                    <Input disabled={isTerminal} {...editForm.register('title')} />
+                                </FormField>
+                                <FormField
+                                    label="Problem description"
+                                    required
+                                    error={editForm.formState.errors.problem_description?.message}
+                                >
+                                    <Textarea rows={6} disabled={isTerminal} {...editForm.register('problem_description')} />
+                                </FormField>
+                                <FormField label="Source" required error={editForm.formState.errors.source?.message}>
+                                    <Select disabled={isTerminal} {...editForm.register('source')}>
                                         <option value="store">Store</option>
                                         <option value="phone">Phone</option>
                                         <option value="email">Email</option>
                                         <option value="web">Web</option>
-                                    </select>
-                                </Field>
+                                    </Select>
+                                </FormField>
                                 <ErrorMessage error={updateMutation.error} />
                                 {!isTerminal && (
-                                    <button
-                                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                                        disabled={updateMutation.isPending}
-                                    >
+                                    <Button type="submit" disabled={updateMutation.isPending}>
                                         {updateMutation.isPending ? 'Saving...' : 'Save details'}
-                                    </button>
+                                    </Button>
                                 )}
                             </form>
                         </section>
@@ -653,150 +656,172 @@ export function TicketDetailsPage() {
                 </div>
                 <aside className="space-y-6">
                     <Can permission="tickets.assign">
-                        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                            <h3 className="font-bold text-slate-900">Technician assignment</h3>
-                            <p className="mt-1 text-sm text-slate-600">
+                        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                            <h2 className="font-semibold text-foreground">Technician assignment</h2>
+                            <p className="mt-1 text-sm text-muted-foreground">
                                 {ticket.assigned_technician?.user?.display_name ?? 'No technician assigned.'}
                             </p>
-                            <select
-                                className={inputClassName}
-                                disabled={isTerminal || assignmentMutation.isPending}
-                                value={ticket.assigned_technician_id ?? ''}
-                                onChange={(event) => event.target.value && assignmentMutation.mutate(Number(event.target.value))}
-                            >
-                                <option value="">Choose technician</option>
-                                {techniciansQuery.data?.data.map((technician) => (
-                                    <option key={technician.id} value={technician.id}>
-                                        {technician.user
-                                            ? `${technician.user.first_name} ${technician.user.last_name}`
-                                            : technician.employee_code}{' '}
-                                        · {humanize(technician.availability_status)}
-                                    </option>
-                                ))}
-                            </select>
+                            <FormField className="mt-4" label="Assigned technician">
+                                <Select
+                                    disabled={isTerminal || assignmentMutation.isPending}
+                                    value={ticket.assigned_technician_id ?? ''}
+                                    onChange={(event) => event.target.value && assignmentMutation.mutate(Number(event.target.value))}
+                                >
+                                    <option value="">Choose technician</option>
+                                    {techniciansQuery.data?.data.map((technician) => (
+                                        <option key={technician.id} value={technician.id}>
+                                            {technician.user
+                                                ? `${technician.user.first_name} ${technician.user.last_name}`
+                                                : technician.employee_code}{' '}
+                                            · {humanize(technician.availability_status)}
+                                        </option>
+                                    ))}
+                                </Select>
+                            </FormField>
                             <ErrorMessage error={assignmentMutation.error} />
                         </section>
                     </Can>
                     <Can permission="tickets.update">
-                        <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-                            <h3 className="font-bold text-slate-900">Priority</h3>
-                            <select
-                                className={inputClassName}
-                                disabled={isTerminal || priorityMutation.isPending}
-                                value={ticket.priority}
-                                onChange={(event) => priorityMutation.mutate(event.target.value as TicketPriority)}
-                            >
-                                <option value="low">Low</option>
-                                <option value="normal">Normal</option>
-                                <option value="high">High</option>
-                                <option value="urgent">Urgent</option>
-                            </select>
+                        <section className="rounded-xl border border-border bg-card p-5 shadow-sm">
+                            <h2 className="font-semibold text-foreground">Priority</h2>
+                            <FormField className="mt-4" label="Ticket priority">
+                                <Select
+                                    disabled={isTerminal || priorityMutation.isPending}
+                                    value={ticket.priority}
+                                    onChange={(event) => priorityMutation.mutate(event.target.value as TicketPriority)}
+                                >
+                                    <option value="low">Low</option>
+                                    <option value="normal">Normal</option>
+                                    <option value="high">High</option>
+                                    <option value="urgent">Urgent</option>
+                                </Select>
+                            </FormField>
                             <ErrorMessage error={priorityMutation.error} />
                         </section>
                     </Can>
                     {ticket.status === 'awaiting_diagnosis' && (
                         <Can permission="repairs.update">
-                            <section className="rounded-xl border border-blue-200 bg-blue-50 p-5">
-                                <h3 className="font-bold text-slate-900">Technician diagnosis</h3>
-                                <p className="mt-1 text-sm text-slate-700">
+                            <section className="rounded-xl border border-primary/25 bg-primary/5 p-5">
+                                <h2 className="font-semibold text-foreground">Technician diagnosis</h2>
+                                <p className="mt-1 text-sm text-muted-foreground">
                                     Create the repair record and begin diagnosis for this assigned ticket.
                                 </p>
                                 <ErrorMessage error={startDiagnosisMutation.error} />
-                                <button
-                                    className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                                    type="button"
+                                <Button
+                                    className="mt-4"
                                     disabled={startDiagnosisMutation.isPending}
                                     onClick={() => startDiagnosisMutation.mutate()}
                                 >
                                     {startDiagnosisMutation.isPending ? 'Starting...' : 'Start diagnosis'}
-                                </button>
+                                </Button>
                             </section>
                         </Can>
                     )}
                     {nextStates.length > 0 && (
                         <Can permission="tickets.update">
-                            <section className="rounded-xl border border-blue-100 bg-blue-50 p-5">
-                                <h3 className="font-bold text-slate-900">Advance workflow</h3>
-                                <p className="mt-1 text-sm text-slate-700">Only the next valid states are available.</p>
-                                <select
-                                    className={inputClassName}
-                                    value={selectedNextStatus}
-                                    onChange={(event) => setNextStatus(event.target.value as TicketStatus)}
-                                >
-                                    {nextStates.map((status) => (
-                                        <option key={status} value={status}>
-                                            {humanize(status)}
-                                        </option>
-                                    ))}
-                                </select>
-                                <textarea
-                                    className={inputClassName}
-                                    rows={3}
-                                    placeholder="Transition notes (optional)"
-                                    value={transitionNotes}
-                                    onChange={(event) => setTransitionNotes(event.target.value)}
-                                />
+                            <section className="rounded-xl border border-primary/20 bg-primary/5 p-5">
+                                <h2 className="font-semibold text-foreground">Advance workflow</h2>
+                                <p className="mt-1 text-sm text-muted-foreground">Only the next valid states are available.</p>
+                                <div className="mt-4 space-y-4">
+                                    <FormField label="Next status" required>
+                                        <Select
+                                            value={selectedNextStatus}
+                                            onChange={(event) => setNextStatus(event.target.value as TicketStatus)}
+                                        >
+                                            {nextStates.map((status) => (
+                                                <option key={status} value={status}>
+                                                    {humanize(status)}
+                                                </option>
+                                            ))}
+                                        </Select>
+                                    </FormField>
+                                    <FormField label="Transition notes (optional)">
+                                        <Textarea
+                                            rows={3}
+                                            value={transitionNotes}
+                                            onChange={(event) => setTransitionNotes(event.target.value)}
+                                        />
+                                    </FormField>
+                                </div>
                                 <ErrorMessage error={transitionMutation.error} />
-                                <button
-                                    className="mt-3 rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                                <Button
+                                    className="mt-4 w-full sm:w-auto"
                                     disabled={transitionMutation.isPending}
                                     onClick={() => transitionMutation.mutate()}
                                 >
                                     {transitionMutation.isPending ? 'Updating...' : `Move to ${humanize(selectedNextStatus)}`}
-                                </button>
+                                </Button>
                             </section>
                         </Can>
                     )}
                     {!isTerminal && (
                         <Can permission="tickets.close">
-                            <section className="rounded-xl border border-rose-200 bg-rose-50 p-5">
-                                <h3 className="font-bold text-rose-900">Cancel ticket</h3>
-                                <textarea
-                                    className={inputClassName}
-                                    rows={3}
-                                    placeholder="Cancellation reason"
-                                    value={cancelReason}
-                                    onChange={(event) => setCancelReason(event.target.value)}
-                                />
+                            <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-5">
+                                <h2 className="font-semibold text-destructive">Cancel ticket</h2>
+                                <p className="mt-1 text-sm text-muted-foreground">Cancellation is permanent and requires a reason.</p>
+                                <FormField
+                                    className="mt-4"
+                                    label="Cancellation reason"
+                                    required
+                                    error={
+                                        cancelReason.length > 0 && cancelReason.trim().length < 3
+                                            ? 'Enter at least 3 characters.'
+                                            : undefined
+                                    }
+                                >
+                                    <Textarea rows={3} value={cancelReason} onChange={(event) => setCancelReason(event.target.value)} />
+                                </FormField>
                                 <ErrorMessage error={cancelMutation.error} />
-                                <button
-                                    className="mt-3 rounded-md bg-rose-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
+                                <Button
+                                    className="mt-4 w-full sm:w-auto"
+                                    variant="destructive"
                                     disabled={cancelMutation.isPending || cancelReason.trim().length < 3}
-                                    onClick={() => {
-                                        if (window.confirm('Cancel this ticket? This action cannot be undone.')) cancelMutation.mutate();
-                                    }}
+                                    onClick={() => setIsCancelConfirmationOpen(true)}
                                 >
                                     {cancelMutation.isPending ? 'Cancelling...' : 'Cancel ticket'}
-                                </button>
+                                </Button>
                             </section>
                         </Can>
                     )}
                 </aside>
             </div>
+            <ConfirmDialog
+                open={isCancelConfirmationOpen}
+                title="Cancel ticket"
+                description={`Cancel ${ticket.ticket_number}? This action cannot be undone.`}
+                confirmLabel="Cancel ticket"
+                isPending={cancelMutation.isPending}
+                onCancel={() => setIsCancelConfirmationOpen(false)}
+                onConfirm={() => cancelMutation.mutate()}
+            />
         </section>
     );
 }
 
 function StatusTimeline({ history }: { history: Ticket['status_history'] }) {
     return (
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900">Status timeline</h3>
-            <div className="mt-5 space-y-5 border-l-2 border-slate-200 pl-5">
-                {history.map((entry) => (
-                    <article className="relative" key={entry.id}>
-                        <span className="absolute -left-[1.85rem] top-1 h-3 w-3 rounded-full bg-blue-600 ring-4 ring-white" />
-                        <div className="flex flex-wrap items-center gap-2">
-                            <StatusBadge value={entry.to_status} />
-                            <span className="text-sm text-slate-500">{formatDate(entry.transitioned_at)}</span>
-                        </div>
-                        <p className="mt-1 text-sm text-slate-700">
-                            {entry.from_status ? `${humanize(entry.from_status)} → ${humanize(entry.to_status)}` : 'Ticket created'}
-                        </p>
-                        {entry.notes && <p className="mt-1 whitespace-pre-wrap text-sm text-slate-600">{entry.notes}</p>}
-                        <p className="mt-1 text-xs text-slate-500">by {entry.transitioned_by?.display_name ?? 'System'}</p>
-                    </article>
-                ))}
-            </div>
+        <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <h2 className="text-lg font-semibold text-foreground">Status timeline</h2>
+            {history.length === 0 ? (
+                <EmptyState compact title="No status history" description="Status changes will appear here as this ticket progresses." />
+            ) : (
+                <div className="mt-5 space-y-5 border-l-2 border-border pl-5">
+                    {history.map((entry) => (
+                        <article className="relative" key={entry.id}>
+                            <span className="absolute -left-[1.85rem] top-1 h-3 w-3 rounded-full bg-primary ring-4 ring-card" />
+                            <div className="flex flex-wrap items-center gap-2">
+                                <StatusBadge value={entry.to_status} />
+                                <span className="text-sm text-muted-foreground">{formatDate(entry.transitioned_at)}</span>
+                            </div>
+                            <p className="mt-1 text-sm text-foreground/80">
+                                {entry.from_status ? `${humanize(entry.from_status)} → ${humanize(entry.to_status)}` : 'Ticket created'}
+                            </p>
+                            {entry.notes && <p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{entry.notes}</p>}
+                            <p className="mt-1 text-xs text-muted-foreground">by {entry.transitioned_by?.display_name ?? 'System'}</p>
+                        </article>
+                    ))}
+                </div>
+            )}
         </section>
     );
 }
@@ -808,21 +833,21 @@ function TicketHistoryTimeline({ history, statusHistory }: { history: Ticket['ti
     if (chronologicalHistory.length === 0) return <StatusTimeline history={statusHistory} />;
 
     return (
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900">Ticket history</h3>
-            <p className="mt-1 text-sm text-slate-600">Business activity recorded throughout this ticket's lifecycle.</p>
-            <div className="mt-5 space-y-5 border-l-2 border-slate-200 pl-5">
+        <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <h2 className="text-lg font-semibold text-foreground">Ticket history</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Business activity recorded throughout this ticket's lifecycle.</p>
+            <div className="mt-5 space-y-5 border-l-2 border-border pl-5">
                 {chronologicalHistory.map((entry) => (
                     <article className="relative" key={entry.id}>
-                        <span className="absolute -left-[1.85rem] top-1 h-3 w-3 rounded-full bg-blue-600 ring-4 ring-white" />
+                        <span className="absolute -left-[1.85rem] top-1 h-3 w-3 rounded-full bg-primary ring-4 ring-card" />
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+                            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
                                 {humanize(entry.event)}
                             </span>
-                            <span className="text-sm text-slate-500">{formatDate(entry.occurred_at)}</span>
+                            <span className="text-sm text-muted-foreground">{formatDate(entry.occurred_at)}</span>
                         </div>
-                        <p className="mt-2 text-sm text-slate-800">{entry.description}</p>
-                        <p className="mt-1 text-xs text-slate-500">by {entry.actor?.display_name ?? 'System'}</p>
+                        <p className="mt-2 text-sm text-foreground">{entry.description}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">by {entry.actor?.display_name ?? 'System'}</p>
                     </article>
                 ))}
             </div>

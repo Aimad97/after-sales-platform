@@ -3,7 +3,7 @@
   "style": "new-york",
   "rsc": false,
   "tsx": true,
-  "tailwind": { "config": "", "css": "resources/css/app.css", "baseColor": "slate", "cssVariables": false, "prefix": "" },
+  "tailwind": { "config": "", "css": "resources/css/app.css", "baseColor": "slate", "cssVariables": true, "prefix": "" },
   "aliases": { "components": "@/components", "utils": "@/utils", "ui": "@/components/ui", "lib": "@/utils", "hooks": "@/hooks" },
   "iconLibrary": "lucide"
 }

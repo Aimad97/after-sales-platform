@@ -1,65 +1,106 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Check, CheckCheck } from 'lucide-react';
-import { useState } from 'react';
+import { BellOff, Check, CheckCheck, LoaderCircle } from 'lucide-react';
+import { useId, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
+import { ApiErrorAlert as ErrorMessage, getApiErrorMessage } from '@/components/ApiErrorAlert';
+import { PageHeader } from '@/components/PageHeader';
+import { EmptyState, ErrorState } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
 import { listNotifications, markAllNotificationsAsRead, markNotificationAsRead } from '@/features/notifications/api';
 import { notificationActionUrl, type AppNotification, type NotificationFilters } from '@/features/notifications/types';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/utils/cn';
 import { formatDate } from '@/utils/format';
 
 function NotificationRow({
     notification,
     onRead,
     isClient,
+    isMarkingRead,
 }: {
     notification: AppNotification;
     onRead: (notification: AppNotification) => void;
     isClient: boolean;
+    isMarkingRead: boolean;
 }) {
+    const titleId = useId();
+    const isUnread = notification.read_at === null;
     const detail = (
         <div className="min-w-0">
-            <div className="flex items-start justify-between gap-3">
-                <h3 className="font-semibold text-slate-900">{notification.title}</h3>
-                {notification.read_at === null ? (
-                    <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-700">Unread</span>
-                ) : (
-                    <span className="text-xs text-slate-500">Read</span>
-                )}
+            <div className="flex flex-wrap items-start justify-between gap-2">
+                <h2 id={titleId} className="font-semibold leading-6 text-foreground">
+                    {notification.title}
+                </h2>
+                <Badge variant={isUnread ? 'info' : 'outline'}>{isUnread ? 'Unread' : 'Read'}</Badge>
             </div>
-            <p className="mt-1 text-sm text-slate-600">{notification.message}</p>
-            <p className="mt-2 text-xs text-slate-500">{formatDate(notification.created_at)}</p>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{notification.message}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{formatDate(notification.created_at)}</p>
         </div>
     );
-    const rowClass =
-        notification.read_at === null
-            ? 'rounded-xl border border-blue-200 bg-blue-50/30 p-5 shadow-sm'
-            : 'rounded-xl border border-slate-200 bg-white p-5 shadow-sm';
     const actionUrl = notificationActionUrl(notification, isClient);
 
     return (
-        <article className={rowClass}>
-            <div className="flex flex-wrap items-start justify-between gap-4">
+        <article
+            className={cn(
+                'rounded-xl border bg-card p-4 shadow-sm transition-colors sm:p-5',
+                isUnread ? 'border-primary/30 bg-accent/35' : 'border-border',
+            )}
+            aria-labelledby={titleId}
+        >
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 {actionUrl ? (
-                    <Link className="min-w-0 flex-1" to={actionUrl} onClick={() => onRead(notification)}>
+                    <Link
+                        className="min-w-0 flex-1 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        to={actionUrl}
+                        onClick={() => onRead(notification)}
+                    >
                         {detail}
                     </Link>
                 ) : (
                     <div className="min-w-0 flex-1">{detail}</div>
                 )}
-                {notification.read_at === null && (
-                    <button
-                        className="inline-flex items-center gap-1 rounded-md border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-white"
+                {isUnread && (
+                    <Button
+                        className="w-full sm:w-auto"
                         type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={isMarkingRead}
+                        aria-describedby={titleId}
+                        aria-busy={isMarkingRead}
                         onClick={() => onRead(notification)}
                     >
-                        <Check size={16} />
+                        {isMarkingRead ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}
                         Mark read
-                    </button>
+                    </Button>
                 )}
             </div>
         </article>
+    );
+}
+
+function NotificationsSkeleton() {
+    return (
+        <div className="space-y-3" role="status" aria-label="Loading notifications">
+            <span className="sr-only">Loading notifications...</span>
+            {Array.from({ length: 4 }, (_, index) => (
+                <Card key={index}>
+                    <CardContent className="space-y-3 py-5">
+                        <div className="flex items-center justify-between gap-4">
+                            <Skeleton className="h-5 w-2/5" />
+                            <Skeleton className="h-5 w-16 rounded-full" />
+                        </div>
+                        <Skeleton className="h-4 w-full" />
+                        <Skeleton className="h-4 w-3/4" />
+                        <Skeleton className="h-3 w-28" />
+                    </CardContent>
+                </Card>
+            ))}
+        </div>
     );
 }
 
@@ -89,62 +130,98 @@ export function NotificationsPage() {
             markReadMutation.mutate(notification.id);
         }
     };
-    const unreadClass =
-        filters.unread === true
-            ? 'rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white'
-            : 'rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100';
-    const allClass =
-        filters.unread === undefined
-            ? 'rounded-md bg-blue-600 px-3 py-2 text-sm font-semibold text-white'
-            : 'rounded-md px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100';
+    const mutationError = markAllMutation.error ?? markReadMutation.error;
 
     return (
-        <section className="max-w-5xl space-y-6">
-            <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                    <h2 className="text-2xl font-bold text-slate-900">Notifications</h2>
-                    <p className="mt-1 text-sm text-slate-600">Review ticket, repair, and warranty updates relevant to your account.</p>
-                </div>
-                <button
-                    className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-white disabled:opacity-50"
-                    type="button"
-                    disabled={markAllMutation.isPending}
-                    onClick={() => markAllMutation.mutate()}
-                >
-                    <CheckCheck size={17} />
-                    Mark all as read
-                </button>
-            </div>
-            <div className="flex gap-2 rounded-xl border border-slate-200 bg-white p-3">
-                <button className={unreadClass} type="button" onClick={() => setFilters({ per_page: 20, unread: true })}>
-                    Unread
-                </button>
-                <button className={allClass} type="button" onClick={() => setFilters({ per_page: 20 })}>
-                    All
-                </button>
-            </div>
-            {notificationsQuery.isLoading ? (
-                <p className="text-sm text-slate-600">Loading notifications...</p>
-            ) : (
-                <>
-                    <ErrorMessage error={notificationsQuery.error} />
-                    <div className="space-y-3">
-                        {notificationsQuery.data?.data.map((notification) => (
-                            <NotificationRow key={notification.id} notification={notification} onRead={markRead} isClient={isClient} />
-                        ))}
-                        {!notificationsQuery.error && (notificationsQuery.data?.data.length ?? 0) === 0 && (
-                            <p className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-                                No notifications match this view.
-                            </p>
+        <section className="mx-auto max-w-5xl space-y-6">
+            <PageHeader
+                title="Notifications"
+                description="Review ticket, repair, and warranty updates relevant to your account."
+                actions={
+                    <Button
+                        className="w-full sm:w-auto"
+                        type="button"
+                        variant="outline"
+                        disabled={markAllMutation.isPending}
+                        aria-busy={markAllMutation.isPending}
+                        onClick={() => markAllMutation.mutate()}
+                    >
+                        {markAllMutation.isPending ? (
+                            <LoaderCircle className="animate-spin" aria-hidden="true" />
+                        ) : (
+                            <CheckCheck aria-hidden="true" />
                         )}
+                        Mark all as read
+                    </Button>
+                }
+            />
+
+            <Card>
+                <CardContent className="p-2 sm:p-3">
+                    <div className="grid grid-cols-2 gap-2 sm:flex" role="group" aria-label="Notification filters">
+                        <Button
+                            type="button"
+                            variant={filters.unread === true ? 'default' : 'ghost'}
+                            size="sm"
+                            aria-pressed={filters.unread === true}
+                            onClick={() => setFilters({ per_page: 20, unread: true })}
+                        >
+                            Unread
+                        </Button>
+                        <Button
+                            type="button"
+                            variant={filters.unread === undefined ? 'default' : 'ghost'}
+                            size="sm"
+                            aria-pressed={filters.unread === undefined}
+                            onClick={() => setFilters({ per_page: 20 })}
+                        >
+                            All
+                        </Button>
                     </div>
-                    {notificationsQuery.data && (
-                        <Pagination
-                            meta={notificationsQuery.data.meta}
-                            onPageChange={(page) => setFilters((current) => ({ ...current, page }))}
+                </CardContent>
+            </Card>
+
+            <ErrorMessage error={mutationError} fallback="The notification could not be updated." />
+
+            {notificationsQuery.isLoading ? (
+                <NotificationsSkeleton />
+            ) : notificationsQuery.error ? (
+                <ErrorState
+                    title="Unable to load notifications"
+                    description={
+                        getApiErrorMessage(notificationsQuery.error, 'Notifications are temporarily unavailable. Please try again.') ??
+                        'Notifications are temporarily unavailable. Please try again.'
+                    }
+                    onRetry={() => void notificationsQuery.refetch()}
+                />
+            ) : (notificationsQuery.data?.data.length ?? 0) === 0 ? (
+                <Card>
+                    <EmptyState
+                        icon={BellOff}
+                        title="No notifications match this view."
+                        description={
+                            filters.unread
+                                ? 'You are all caught up. New unread updates will appear here.'
+                                : 'Ticket, repair, and warranty updates will appear here when they arrive.'
+                        }
+                    />
+                </Card>
+            ) : (
+                <div className="space-y-3">
+                    {notificationsQuery.data?.data.map((notification) => (
+                        <NotificationRow
+                            key={notification.id}
+                            notification={notification}
+                            onRead={markRead}
+                            isClient={isClient}
+                            isMarkingRead={markReadMutation.isPending && markReadMutation.variables === notification.id}
                         />
-                    )}
-                </>
+                    ))}
+                </div>
+            )}
+
+            {notificationsQuery.data && (
+                <Pagination meta={notificationsQuery.data.meta} onPageChange={(page) => setFilters((current) => ({ ...current, page }))} />
             )}
         </section>
     );

@@ -1,11 +1,21 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, LoaderCircle, ShieldCheck } from 'lucide-react';
+import { forwardRef, type InputHTMLAttributes, type ReactNode, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { apiClient } from '@/api/client';
 import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
+import { FormField } from '@/components/FormField';
+import { PageHeader } from '@/components/PageHeader';
+import { ThemeToggle } from '@/components/ThemeToggle';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { useAuth } from '@/hooks/useAuth';
+import { cn } from '@/utils/cn';
 
 const password = z
     .string()
@@ -27,16 +37,71 @@ const resetSchema = z
         message: 'Passwords do not match.',
     });
 
-function Card({ children }: { children: React.ReactNode }) {
+function AuthCard({ children }: { children: ReactNode }) {
     return (
-        <main className="grid min-h-screen place-items-center bg-slate-50 p-6">
-            <section className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow-sm">{children}</section>
+        <main className="relative grid min-h-screen place-items-center overflow-hidden bg-background px-4 py-10 sm:px-6">
+            <div
+                className="pointer-events-none absolute inset-x-0 top-0 h-72 bg-gradient-to-b from-primary/10 to-transparent"
+                aria-hidden="true"
+            />
+            <div className="absolute right-4 top-4 sm:right-6 sm:top-6">
+                <ThemeToggle />
+            </div>
+            <div className="relative w-full max-w-md">
+                <Card className="overflow-hidden shadow-xl shadow-slate-950/5 dark:shadow-black/20">
+                    <CardHeader className="border-b border-border bg-muted/35 pb-5">
+                        <div className="flex items-center gap-3">
+                            <span
+                                className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm"
+                                aria-hidden="true"
+                            >
+                                <ShieldCheck size={21} />
+                            </span>
+                            <div>
+                                <p className="text-sm font-bold tracking-[0.12em] text-primary">ULTRAPC</p>
+                                <p className="text-xs text-muted-foreground">After-sales service desk</p>
+                            </div>
+                        </div>
+                    </CardHeader>
+                    <CardContent className="pt-6">{children}</CardContent>
+                </Card>
+                <p className="mt-5 text-center text-xs leading-5 text-muted-foreground">
+                    Secure access to your service and warranty workspace.
+                </p>
+            </div>
         </main>
     );
 }
-function FieldError({ message }: { message?: string }) {
-    return message ? <p className="mt-1 text-sm text-red-600">{message}</p> : null;
+
+interface PasswordInputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, 'type'> {
+    toggleLabel: string;
 }
+
+const PasswordInput = forwardRef<HTMLInputElement, PasswordInputProps>(({ className, toggleLabel, id, ...props }, ref) => {
+    const [isVisible, setIsVisible] = useState(false);
+    const action = isVisible ? 'Hide' : 'Show';
+
+    return (
+        <div className="relative">
+            <Input ref={ref} id={id} className={cn('pr-11', className)} type={isVisible ? 'text' : 'password'} {...props} />
+            <Button
+                className="absolute right-1 top-1/2 size-8 min-h-8 -translate-y-1/2 text-muted-foreground"
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label={`${action} ${toggleLabel}`}
+                aria-controls={id}
+                aria-pressed={isVisible}
+                title={`${action} ${toggleLabel}`}
+                onClick={() => setIsVisible((visible) => !visible)}
+            >
+                {isVisible ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+            </Button>
+        </div>
+    );
+});
+PasswordInput.displayName = 'PasswordInput';
+
 export function LoginPage() {
     const navigate = useNavigate();
     const { login } = useAuth();
@@ -44,76 +109,105 @@ export function LoginPage() {
         resolver: zodResolver(loginSchema),
         defaultValues: { email: '', password: '', remember: false },
     });
+
     return (
-        <Card>
-            <p className="text-sm font-semibold text-blue-600">ULTRAPC</p>
-            <h1 className="mt-2 text-2xl font-bold">Sign in</h1>
-            <p className="mt-2 text-sm text-slate-600">Manage your after-sales service operations.</p>
-            <form className="mt-6 space-y-4" onSubmit={form.handleSubmit((data) => login.mutate(data, { onSuccess: () => navigate('/') }))}>
-                <label className="block text-sm font-medium">
-                    Email
-                    <input className="mt-1 w-full rounded-md border p-2" type="email" autoComplete="email" {...form.register('email')} />
-                </label>
-                <FieldError message={form.formState.errors.email?.message} />
-                <label className="block text-sm font-medium">
-                    Password
-                    <input
-                        className="mt-1 w-full rounded-md border p-2"
-                        type="password"
+        <AuthCard>
+            <PageHeader title="Sign in" description="Manage your after-sales service operations." />
+            <form
+                className="mt-6 space-y-5"
+                noValidate
+                aria-busy={login.isPending}
+                onSubmit={form.handleSubmit((data) => login.mutate(data, { onSuccess: () => navigate('/') }))}
+            >
+                <FormField label="Email" error={form.formState.errors.email?.message} required>
+                    <Input
+                        id="login-email"
+                        type="email"
+                        autoComplete="email"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        required
+                        {...form.register('email')}
+                    />
+                </FormField>
+                <FormField label="Password" error={form.formState.errors.password?.message} required>
+                    <PasswordInput
+                        id="login-password"
+                        toggleLabel="password"
+                        aria-label="Password"
                         autoComplete="current-password"
+                        required
                         {...form.register('password')}
                     />
-                </label>
-                <FieldError message={form.formState.errors.password?.message} />
-                <label className="flex gap-2 text-sm">
-                    <input type="checkbox" {...form.register('remember')} /> Remember me
+                </FormField>
+                <label className="flex w-fit items-center gap-2.5 text-sm font-medium text-foreground">
+                    <input
+                        className="size-4 rounded border-input accent-primary focus-visible:ring-2 focus-visible:ring-ring"
+                        type="checkbox"
+                        {...form.register('remember')}
+                    />
+                    Remember me
                 </label>
                 <ErrorMessage error={login.error} />
-                <button
-                    className="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white disabled:opacity-50"
-                    disabled={login.isPending}
-                >
-                    {login.isPending ? 'Signing in…' : 'Sign in'}
-                </button>
+                <Button className="w-full" type="submit" size="lg" disabled={login.isPending}>
+                    {login.isPending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+                    {login.isPending ? 'Signing in...' : 'Sign in'}
+                </Button>
             </form>
-            <Link className="mt-5 block text-sm text-blue-600" to="/forgot-password">
+            <Link className={cn(buttonVariants({ variant: 'link' }), 'mt-3 px-0')} to="/forgot-password">
                 Forgot password?
             </Link>
-        </Card>
+        </AuthCard>
     );
 }
 
 export function ForgotPasswordPage() {
-    const form = useForm<z.infer<typeof forgotSchema>>({ resolver: zodResolver(forgotSchema) });
+    const form = useForm<z.infer<typeof forgotSchema>>({
+        resolver: zodResolver(forgotSchema),
+        defaultValues: { email: '' },
+    });
     const request = useMutation({ mutationFn: (data: z.infer<typeof forgotSchema>) => apiClient.post('/auth/forgot-password', data) });
+
     return (
-        <Card>
-            <h1 className="text-2xl font-bold">Reset your password</h1>
-            <p className="mt-2 text-sm text-slate-600">We’ll send a reset link if the account exists.</p>
+        <AuthCard>
+            <PageHeader title="Reset your password" description="We'll send a reset link if the account exists." />
             {request.isSuccess ? (
-                <p className="mt-5 rounded-md bg-green-50 p-3 text-sm text-green-700">Check your email for a reset link.</p>
+                <Alert className="mt-6 border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40" role="status">
+                    <CheckCircle2 className="text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                    <AlertDescription className="text-emerald-800 dark:text-emerald-200">
+                        Check your email for a reset link.
+                    </AlertDescription>
+                </Alert>
             ) : (
-                <form className="mt-6 space-y-4" onSubmit={form.handleSubmit((data) => request.mutate(data))}>
-                    <label className="block text-sm font-medium">
-                        Email
-                        <input
-                            className="mt-1 w-full rounded-md border p-2"
+                <form
+                    className="mt-6 space-y-5"
+                    noValidate
+                    aria-busy={request.isPending}
+                    onSubmit={form.handleSubmit((data) => request.mutate(data))}
+                >
+                    <FormField label="Email" error={form.formState.errors.email?.message} required>
+                        <Input
+                            id="forgot-email"
                             type="email"
                             autoComplete="email"
+                            autoCapitalize="none"
+                            spellCheck={false}
+                            required
                             {...form.register('email')}
                         />
-                    </label>
-                    <FieldError message={form.formState.errors.email?.message} />
+                    </FormField>
                     <ErrorMessage error={request.error} />
-                    <button className="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white" disabled={request.isPending}>
-                        Send reset link
-                    </button>
+                    <Button className="w-full" type="submit" size="lg" disabled={request.isPending}>
+                        {request.isPending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+                        {request.isPending ? 'Sending reset link...' : 'Send reset link'}
+                    </Button>
                 </form>
             )}
-            <Link className="mt-5 block text-sm text-blue-600" to="/login">
+            <Link className={cn(buttonVariants({ variant: 'link' }), 'mt-3 gap-1 px-0')} to="/login">
+                <ArrowLeft aria-hidden="true" />
                 Back to sign in
             </Link>
-        </Card>
+        </AuthCard>
     );
 }
 
@@ -122,47 +216,70 @@ export function ResetPasswordPage() {
     const [params] = useSearchParams();
     const form = useForm<z.infer<typeof resetSchema>>({
         resolver: zodResolver(resetSchema),
-        defaultValues: { email: params.get('email') ?? '', token: params.get('token') ?? '', password: '', password_confirmation: '' },
+        defaultValues: {
+            email: params.get('email') ?? '',
+            token: params.get('token') ?? '',
+            password: '',
+            password_confirmation: '',
+        },
     });
     const reset = useMutation({
         mutationFn: (data: z.infer<typeof resetSchema>) => apiClient.post('/auth/reset-password', data),
         onSuccess: () => navigate('/login'),
     });
+
     return (
-        <Card>
-            <h1 className="text-2xl font-bold">Choose a new password</h1>
-            <form className="mt-6 space-y-4" onSubmit={form.handleSubmit((data) => reset.mutate(data))}>
+        <AuthCard>
+            <PageHeader title="Choose a new password" description="Create a strong password that you do not use for another account." />
+            <form
+                className="mt-6 space-y-5"
+                noValidate
+                aria-busy={reset.isPending}
+                onSubmit={form.handleSubmit((data) => reset.mutate(data))}
+            >
                 <input type="hidden" {...form.register('token')} />
-                <label className="block text-sm font-medium">
-                    Email
-                    <input className="mt-1 w-full rounded-md border p-2" type="email" {...form.register('email')} />
-                </label>
-                <FieldError message={form.formState.errors.email?.message} />
-                <label className="block text-sm font-medium">
-                    New password
-                    <input
-                        className="mt-1 w-full rounded-md border p-2"
-                        type="password"
+                <FormField label="Email" error={form.formState.errors.email?.message} required>
+                    <Input
+                        id="reset-email"
+                        type="email"
+                        autoComplete="email"
+                        autoCapitalize="none"
+                        spellCheck={false}
+                        required
+                        {...form.register('email')}
+                    />
+                </FormField>
+                <FormField
+                    label="New password"
+                    error={form.formState.errors.password?.message}
+                    hint="Use at least 12 characters with uppercase, lowercase, number, and symbol."
+                    required
+                >
+                    <PasswordInput
+                        id="reset-password"
+                        toggleLabel="new password"
+                        aria-label="New password"
                         autoComplete="new-password"
+                        required
                         {...form.register('password')}
                     />
-                </label>
-                <FieldError message={form.formState.errors.password?.message} />
-                <label className="block text-sm font-medium">
-                    Confirm password
-                    <input
-                        className="mt-1 w-full rounded-md border p-2"
-                        type="password"
+                </FormField>
+                <FormField label="Confirm password" error={form.formState.errors.password_confirmation?.message} required>
+                    <PasswordInput
+                        id="reset-password-confirmation"
+                        toggleLabel="confirmed password"
+                        aria-label="Confirm password"
                         autoComplete="new-password"
+                        required
                         {...form.register('password_confirmation')}
                     />
-                </label>
-                <FieldError message={form.formState.errors.password_confirmation?.message} />
+                </FormField>
                 <ErrorMessage error={reset.error} />
-                <button className="w-full rounded-md bg-blue-600 px-4 py-2 font-medium text-white" disabled={reset.isPending}>
-                    Reset password
-                </button>
+                <Button className="w-full" type="submit" size="lg" disabled={reset.isPending}>
+                    {reset.isPending && <LoaderCircle className="animate-spin" aria-hidden="true" />}
+                    {reset.isPending ? 'Resetting password...' : 'Reset password'}
+                </Button>
             </form>
-        </Card>
+        </AuthCard>
     );
 }

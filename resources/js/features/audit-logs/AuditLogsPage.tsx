@@ -2,14 +2,17 @@ import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
+import { PageHeader } from '@/components/PageHeader';
+import { TableSkeleton } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
+import { Button } from '@/components/ui/button';
 import { listAuditLogs } from '@/features/audit-logs/api';
 import type { AuditLog, AuditLogFilters } from '@/features/audit-logs/types';
 import { listUsers } from '@/features/users/api';
 import { formatDate, humanize } from '@/utils/format';
 
 const filterInputClassName =
-    'w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
+    'min-h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/20';
 
 function actionLabel(action: string): string {
     return humanize(action.replaceAll('.', '_'));
@@ -108,11 +111,8 @@ export function AuditLogsPage() {
 
     return (
         <section className="space-y-6">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-900">Audit logs</h2>
-                <p className="mt-1 text-sm text-slate-600">Review administrative and security-sensitive changes across the platform.</p>
-            </div>
-            <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-5">
+            <PageHeader title="Audit logs" description="Review administrative and security-sensitive changes across the platform." />
+            <div className="grid gap-3 rounded-xl border border-border bg-card p-4 shadow-sm md:grid-cols-2 xl:grid-cols-5">
                 <label className="text-sm font-medium text-slate-700">
                     <span className="mb-1 block">User</span>
                     <select
@@ -165,16 +165,13 @@ export function AuditLogsPage() {
                     />
                 </label>
                 <div className="flex items-end">
-                    <button
-                        className="rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-                        onClick={() => setFilters({ per_page: 20 })}
-                    >
+                    <Button variant="outline" onClick={() => setFilters({ per_page: 20 })}>
                         Reset filters
-                    </button>
+                    </Button>
                 </div>
             </div>
             {auditLogsQuery.isLoading ? (
-                <p className="text-sm text-slate-600">Loading audit logs...</p>
+                <TableSkeleton columns={6} />
             ) : (
                 <>
                     <ErrorMessage error={auditLogsQuery.error} />
@@ -182,6 +179,7 @@ export function AuditLogsPage() {
                         rows={auditLogsQuery.data?.data ?? []}
                         columns={columns}
                         getRowKey={(auditLog) => auditLog.id}
+                        ariaLabel="Administrative audit log"
                         emptyMessage="No audit-log entries match these filters."
                     />
                     {auditLogsQuery.data && (

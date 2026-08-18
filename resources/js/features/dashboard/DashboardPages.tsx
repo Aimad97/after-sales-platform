@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { DashboardChart } from '@/components/DashboardChart';
 import { KpiCard } from '@/components/KpiCard';
+import { PageHeader } from '@/components/PageHeader';
+import { ErrorState, PageSkeleton } from '@/components/PageStates';
 import { getDashboard } from '@/features/dashboard/api';
 import type { AdminDashboard, ClientDashboard, MetricPoint, TechnicianDashboard } from '@/features/dashboard/types';
 import { StatusBadge } from '@/components/StatusBadge';
@@ -21,31 +23,13 @@ function isEmpty(points: MetricPoint[]): boolean {
 }
 
 function DashboardLoading() {
-    return (
-        <section className="space-y-6" aria-busy="true">
-            <div className="h-20 animate-pulse rounded-xl bg-slate-200" />
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-                {Array.from({ length: 4 }, (_, index) => (
-                    <div key={index} className="h-32 animate-pulse rounded-xl bg-slate-200" />
-                ))}
-            </div>
-            <div className="grid gap-5 xl:grid-cols-2">
-                <div className="h-96 animate-pulse rounded-xl bg-slate-200" />
-                <div className="h-96 animate-pulse rounded-xl bg-slate-200" />
-            </div>
-        </section>
-    );
+    return <PageSkeleton />;
 }
 
 function DashboardError({ error }: { error: unknown }) {
     const message = error instanceof Error ? error.message : 'The dashboard could not be loaded.';
 
-    return (
-        <section className="rounded-xl border border-rose-200 bg-rose-50 p-6 text-rose-800">
-            <h2 className="text-xl font-bold">Dashboard unavailable</h2>
-            <p className="mt-2 text-sm">{message}</p>
-        </section>
-    );
+    return <ErrorState title="Dashboard unavailable" description={message} />;
 }
 
 function AdminDashboardPage({ dashboard }: { dashboard: AdminDashboard }) {
@@ -54,13 +38,11 @@ function AdminDashboardPage({ dashboard }: { dashboard: AdminDashboard }) {
 
     return (
         <section className="space-y-6">
-            <header>
-                <p className="text-sm font-semibold text-blue-600">Operations overview</p>
-                <h2 className="mt-1 text-2xl font-bold text-slate-950">Admin dashboard</h2>
-                <p className="mt-1 text-sm text-slate-600">
-                    Live operational metrics across tickets, repairs, warranties, and technicians.
-                </p>
-            </header>
+            <PageHeader
+                eyebrow="Operations overview"
+                title="Admin dashboard"
+                description="Live operational metrics across tickets, repairs, warranties, and technicians."
+            />
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
                 <KpiCard label="Open tickets" value={kpis.open_tickets} />
                 <KpiCard label="Created today" value={kpis.tickets_created_today} />
@@ -180,11 +162,7 @@ function TechnicianDashboardPage({ dashboard }: { dashboard: TechnicianDashboard
     const { kpis, charts } = dashboard;
     return (
         <section className="space-y-6">
-            <header>
-                <p className="text-sm font-semibold text-blue-600">My workspace</p>
-                <h2 className="mt-1 text-2xl font-bold text-slate-950">Technician dashboard</h2>
-                <p className="mt-1 text-sm text-slate-600">Your current queue and repair performance.</p>
-            </header>
+            <PageHeader eyebrow="My workspace" title="Technician dashboard" description="Your current queue and repair performance." />
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
                 <KpiCard label="Assigned tickets" value={kpis.assigned_tickets} />
                 <KpiCard label="Overdue tickets" value={kpis.overdue_tickets} hint="Based on the configured intake threshold" />
@@ -233,11 +211,11 @@ function ClientDashboardPage({ dashboard }: { dashboard: ClientDashboard }) {
 
     return (
         <section className="space-y-6">
-            <header>
-                <p className="text-sm font-semibold text-blue-600">My service desk</p>
-                <h2 className="mt-1 text-2xl font-bold text-slate-950">Client dashboard</h2>
-                <p className="mt-1 text-sm text-slate-600">Your products, warranty coverage, and latest repair updates.</p>
-            </header>
+            <PageHeader
+                eyebrow="My service desk"
+                title="Client dashboard"
+                description="Your products, warranty coverage, and latest repair updates."
+            />
             <div className="grid gap-4 sm:grid-cols-3">
                 <KpiCard label="My products" value={dashboard.kpis.my_products} />
                 <KpiCard label="Active warranties" value={dashboard.kpis.active_warranties} />

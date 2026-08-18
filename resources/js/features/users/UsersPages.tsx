@@ -3,11 +3,20 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
+import { ApiErrorAlert as ErrorMessage, getApiErrorMessage } from '@/components/ApiErrorAlert';
 import { z } from 'zod';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { DataTable, type DataTableColumn } from '@/components/DataTable';
+import { FormField } from '@/components/FormField';
+import { PageHeader } from '@/components/PageHeader';
+import { ErrorState, PageSkeleton, TableSkeleton } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Badge } from '@/components/ui/badge';
+import { Button, buttonVariants } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { listClients } from '@/features/clients/api';
 import { archiveUser, createUser, getUser, listRoles, listUsers, updateUser } from '@/features/users/api';
 import type { ManagedUser, UserFilters, UserPayload, UserStatus } from '@/features/users/types';
@@ -15,20 +24,6 @@ import { Can, usePermissions } from '@/hooks/usePermissions';
 import { formatDate } from '@/utils/format';
 
 const userStatuses: UserStatus[] = ['active', 'invited', 'suspended', 'archived'];
-const inputClassName =
-    'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
-
-function PageHeader({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
-    return (
-        <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
-                <p className="mt-1 text-sm text-slate-600">{description}</p>
-            </div>
-            {action}
-        </div>
-    );
-}
 
 export function UsersPage() {
     const [filters, setFilters] = useState<UserFilters>({ per_page: 10, sort: 'created_at', direction: 'desc' });
@@ -47,138 +42,159 @@ export function UsersPage() {
     const updateFilters = (next: Partial<UserFilters>) => setFilters((current) => ({ ...current, ...next, page: 1 }));
     const canManage = (user: ManagedUser) =>
         canManagePrivilegedAccounts || !user.roles.some((role) => role === 'super_admin' || role === 'admin');
+    const columns: DataTableColumn<ManagedUser>[] = [
+        {
+            id: 'user',
+            header: 'User',
+            cell: (user) => (
+                <div className="min-w-48">
+                    <Link className="font-semibold text-foreground hover:text-primary hover:underline" to={`/admin/users/${user.uuid}`}>
+                        {user.first_name} {user.last_name}
+                    </Link>
+                    <p className="mt-0.5 text-muted-foreground">{user.email}</p>
+                </div>
+            ),
+        },
+        {
+            id: 'roles',
+            header: 'Roles',
+            cell: (user) => (
+                <div className="flex min-w-36 flex-wrap gap-1.5">
+                    {user.roles.map((role) => (
+                        <Badge key={role} variant="outline">
+                            {role}
+                        </Badge>
+                    ))}
+                </div>
+            ),
+        },
+        {
+            id: 'client',
+            header: 'Client profile',
+            cell: (user) => <span className="text-muted-foreground">{user.client?.display_name ?? '—'}</span>,
+        },
+        { id: 'status', header: 'Status', cell: (user) => <StatusBadge value={user.status} /> },
+        {
+            id: 'last-login',
+            header: 'Last login',
+            cell: (user) => <span className="whitespace-nowrap text-muted-foreground">{formatDate(user.last_login_at)}</span>,
+        },
+        {
+            id: 'actions',
+            header: 'Actions',
+            headerClassName: 'text-right',
+            cellClassName: 'text-right',
+            cell: (user) => (
+                <div className="flex min-w-max flex-wrap justify-end gap-1">
+                    <Link className={buttonVariants({ variant: 'ghost', size: 'sm' })} to={`/admin/users/${user.uuid}`}>
+                        View
+                    </Link>
+                    {canManage(user) && (
+                        <Can permission="users.update">
+                            <Link className={buttonVariants({ variant: 'ghost', size: 'sm' })} to={`/admin/users/${user.uuid}/edit`}>
+                                Edit
+                            </Link>
+                        </Can>
+                    )}
+                    {canManage(user) && (
+                        <Can permission="users.delete">
+                            <Button
+                                className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setArchiveTarget(user)}
+                            >
+                                Archive
+                            </Button>
+                        </Can>
+                    )}
+                </div>
+            ),
+        },
+    ];
 
     return (
         <section className="space-y-6">
             <PageHeader
                 title="Users"
                 description="Manage staff and linked client portal accounts."
-                action={
+                actions={
                     <Can permission="users.create">
-                        <Link className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm" to="/admin/users/new">
+                        <Link className={buttonVariants()} to="/admin/users/new">
                             Add user
                         </Link>
                     </Can>
                 }
             />
-            <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-4">
-                <input
-                    className={inputClassName}
-                    placeholder="Search name, email, phone..."
-                    value={filters.search ?? ''}
-                    onChange={(event) => updateFilters({ search: event.target.value || undefined })}
-                />
-                <select
-                    className={inputClassName}
-                    value={filters.status ?? ''}
-                    onChange={(event) => updateFilters({ status: event.target.value as UserStatus | '' })}
-                >
-                    <option value="">All statuses</option>
-                    {userStatuses.map((status) => (
-                        <option key={status} value={status}>
-                            {status}
-                        </option>
-                    ))}
-                </select>
-                <select
-                    className={inputClassName}
-                    value={filters.role ?? ''}
-                    onChange={(event) => updateFilters({ role: event.target.value || undefined })}
-                >
-                    <option value="">All roles</option>
-                    {['super_admin', 'admin', 'sav_agent', 'technician', 'client'].map((role) => (
-                        <option key={role} value={role}>
-                            {role}
-                        </option>
-                    ))}
-                </select>
-                <select
-                    className={inputClassName}
-                    value={filters.technician === undefined ? '' : String(filters.technician)}
-                    onChange={(event) =>
-                        updateFilters({ technician: event.target.value === '' ? undefined : event.target.value === 'true' })
-                    }
-                >
-                    <option value="">All account types</option>
-                    <option value="true">Technicians only</option>
-                    <option value="false">Without technician profile</option>
-                </select>
-            </div>
+            <Card className="grid gap-3 bg-muted/30 p-4 sm:grid-cols-2 xl:grid-cols-4">
+                <label>
+                    <span className="sr-only">Search users</span>
+                    <Input
+                        type="search"
+                        placeholder="Search name, email, phone..."
+                        value={filters.search ?? ''}
+                        onChange={(event) => updateFilters({ search: event.target.value || undefined })}
+                    />
+                </label>
+                <label>
+                    <span className="sr-only">Filter by status</span>
+                    <Select
+                        value={filters.status ?? ''}
+                        onChange={(event) => updateFilters({ status: event.target.value as UserStatus | '' })}
+                    >
+                        <option value="">All statuses</option>
+                        {userStatuses.map((status) => (
+                            <option key={status} value={status}>
+                                {status}
+                            </option>
+                        ))}
+                    </Select>
+                </label>
+                <label>
+                    <span className="sr-only">Filter by role</span>
+                    <Select value={filters.role ?? ''} onChange={(event) => updateFilters({ role: event.target.value || undefined })}>
+                        <option value="">All roles</option>
+                        {['super_admin', 'admin', 'sav_agent', 'technician', 'client'].map((role) => (
+                            <option key={role} value={role}>
+                                {role}
+                            </option>
+                        ))}
+                    </Select>
+                </label>
+                <label>
+                    <span className="sr-only">Filter by account type</span>
+                    <Select
+                        value={filters.technician === undefined ? '' : String(filters.technician)}
+                        onChange={(event) =>
+                            updateFilters({ technician: event.target.value === '' ? undefined : event.target.value === 'true' })
+                        }
+                    >
+                        <option value="">All account types</option>
+                        <option value="true">Technicians only</option>
+                        <option value="false">Without technician profile</option>
+                    </Select>
+                </label>
+            </Card>
             {usersQuery.isLoading ? (
-                <p className="text-sm text-slate-600">Loading users...</p>
+                <TableSkeleton rows={6} columns={6} />
+            ) : usersQuery.error ? (
+                <ErrorState
+                    title="Unable to load users"
+                    description={
+                        getApiErrorMessage(usersQuery.error, 'The user list could not be loaded.') ?? 'The user list could not be loaded.'
+                    }
+                    onRetry={() => void usersQuery.refetch()}
+                />
             ) : (
                 <>
-                    <ErrorMessage error={usersQuery.error} />
-                    <div className="overflow-x-auto rounded-xl border border-slate-200">
-                        <table className="min-w-full divide-y divide-slate-200 text-sm">
-                            <thead className="bg-slate-50 text-left text-slate-600">
-                                <tr>
-                                    <th className="px-4 py-3 font-semibold">User</th>
-                                    <th className="px-4 py-3 font-semibold">Roles</th>
-                                    <th className="px-4 py-3 font-semibold">Client profile</th>
-                                    <th className="px-4 py-3 font-semibold">Status</th>
-                                    <th className="px-4 py-3 font-semibold">Last login</th>
-                                    <th className="px-4 py-3 text-right font-semibold">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 bg-white">
-                                {usersQuery.data?.data.map((user) => (
-                                    <tr key={user.uuid}>
-                                        <td className="px-4 py-3">
-                                            <Link
-                                                className="font-semibold text-slate-900 hover:text-blue-700"
-                                                to={`/admin/users/${user.uuid}`}
-                                            >
-                                                {user.first_name} {user.last_name}
-                                            </Link>
-                                            <p className="mt-0.5 text-slate-500">{user.email}</p>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex flex-wrap gap-1">
-                                                {user.roles.map((role) => (
-                                                    <span key={role} className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-700">
-                                                        {role}
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600">{user.client?.display_name ?? '—'}</td>
-                                        <td className="px-4 py-3">
-                                            <StatusBadge value={user.status} />
-                                        </td>
-                                        <td className="px-4 py-3 text-slate-600">{formatDate(user.last_login_at)}</td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex justify-end gap-3">
-                                                <Link className="font-medium text-blue-700" to={`/admin/users/${user.uuid}`}>
-                                                    View
-                                                </Link>
-                                                {canManage(user) && (
-                                                    <Can permission="users.update">
-                                                        <Link className="font-medium text-blue-700" to={`/admin/users/${user.uuid}/edit`}>
-                                                            Edit
-                                                        </Link>
-                                                    </Can>
-                                                )}
-                                                {canManage(user) && (
-                                                    <Can permission="users.delete">
-                                                        <button
-                                                            className="font-medium text-rose-700"
-                                                            onClick={() => setArchiveTarget(user)}
-                                                        >
-                                                            Archive
-                                                        </button>
-                                                    </Can>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                        {usersQuery.data?.data.length === 0 && (
-                            <p className="p-6 text-center text-sm text-slate-600">No users match these filters.</p>
-                        )}
-                    </div>
+                    <DataTable
+                        rows={usersQuery.data?.data ?? []}
+                        columns={columns}
+                        getRowKey={(user) => user.uuid}
+                        ariaLabel="Users"
+                        emptyMessage="No users match these filters."
+                        emptyDescription="Try changing or clearing one of the filters above."
+                    />
                     {usersQuery.data && (
                         <Pagination meta={usersQuery.data.meta} onPageChange={(page) => setFilters((current) => ({ ...current, page }))} />
                     )}
@@ -334,7 +350,16 @@ export function UserFormPage() {
         form.setValue('client_id', null, { shouldValidate: true });
     };
 
-    if (isEditing && userQuery.isLoading) return <p className="text-sm text-slate-600">Loading user...</p>;
+    if (isEditing && userQuery.isLoading) return <PageSkeleton />;
+    if (isEditing && !userQuery.data && userQuery.error) {
+        return (
+            <ErrorState
+                title="Unable to load user"
+                description={getApiErrorMessage(userQuery.error, 'The user could not be loaded.') ?? 'The user could not be loaded.'}
+                onRetry={() => void userQuery.refetch()}
+            />
+        );
+    }
 
     return (
         <section className="max-w-3xl space-y-6">
@@ -347,75 +372,96 @@ export function UserFormPage() {
                 }
             />
             <form
-                className="space-y-6 rounded-xl border border-slate-200 bg-white p-6"
+                className="space-y-6 rounded-xl border border-border bg-card p-4 shadow-sm sm:p-6"
                 onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}
             >
                 <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="First name" error={form.formState.errors.first_name?.message}>
-                        <input className={inputClassName} {...form.register('first_name')} />
-                    </Field>
-                    <Field label="Last name" error={form.formState.errors.last_name?.message}>
-                        <input className={inputClassName} {...form.register('last_name')} />
-                    </Field>
-                    <Field label="Email" error={form.formState.errors.email?.message}>
-                        <input className={inputClassName} type="email" {...form.register('email')} />
-                    </Field>
-                    <Field label="Phone" error={form.formState.errors.phone?.message}>
-                        <input className={inputClassName} {...form.register('phone')} />
-                    </Field>
-                    <Field label="Status" error={form.formState.errors.status?.message}>
-                        <select className={inputClassName} {...form.register('status')}>
+                    <FormField required label="First name" error={form.formState.errors.first_name?.message}>
+                        <Input required {...form.register('first_name')} />
+                    </FormField>
+                    <FormField required label="Last name" error={form.formState.errors.last_name?.message}>
+                        <Input required {...form.register('last_name')} />
+                    </FormField>
+                    <FormField required label="Email" error={form.formState.errors.email?.message}>
+                        <Input required type="email" autoComplete="email" {...form.register('email')} />
+                    </FormField>
+                    <FormField label="Phone" error={form.formState.errors.phone?.message}>
+                        <Input type="tel" autoComplete="tel" {...form.register('phone')} />
+                    </FormField>
+                    <FormField required label="Status" error={form.formState.errors.status?.message}>
+                        <Select required {...form.register('status')}>
                             {userStatuses.map((status) => (
                                 <option key={status} value={status}>
                                     {status}
                                 </option>
                             ))}
-                        </select>
-                    </Field>
-                    <Field label="Locale" error={form.formState.errors.locale?.message}>
-                        <input className={inputClassName} {...form.register('locale')} />
-                    </Field>
-                    <Field label="Timezone" error={form.formState.errors.timezone?.message}>
-                        <input className={inputClassName} {...form.register('timezone')} />
-                    </Field>
+                        </Select>
+                    </FormField>
+                    <FormField required label="Locale" error={form.formState.errors.locale?.message}>
+                        <Input required {...form.register('locale')} />
+                    </FormField>
+                    <FormField required label="Timezone" error={form.formState.errors.timezone?.message}>
+                        <Input required {...form.register('timezone')} />
+                    </FormField>
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
-                    <Field
+                    <FormField
+                        required={!isEditing}
                         label={isEditing ? 'New password (optional)' : 'Initial password'}
                         error={form.formState.errors.password?.message}
                     >
-                        <input className={inputClassName} type="password" autoComplete="new-password" {...form.register('password')} />
-                    </Field>
-                    <Field label="Confirm password" error={form.formState.errors.password_confirmation?.message}>
-                        <input
-                            className={inputClassName}
+                        <Input required={!isEditing} type="password" autoComplete="new-password" {...form.register('password')} />
+                    </FormField>
+                    <FormField required={!isEditing} label="Confirm password" error={form.formState.errors.password_confirmation?.message}>
+                        <Input
+                            required={!isEditing}
                             type="password"
                             autoComplete="new-password"
                             {...form.register('password_confirmation')}
                         />
-                    </Field>
+                    </FormField>
                 </div>
-                <fieldset>
-                    <legend className="text-sm font-semibold text-slate-900">Roles</legend>
-                    <p className="mt-1 text-sm text-slate-600">
+                <fieldset
+                    className="rounded-lg border border-border p-4"
+                    aria-describedby={form.formState.errors.roles?.message ? 'user-roles-error' : 'user-roles-hint'}
+                    aria-invalid={form.formState.errors.roles?.message ? true : undefined}
+                    aria-required="true"
+                >
+                    <legend className="px-1 text-sm font-semibold text-foreground">
+                        Roles
+                        <span className="ml-1 text-destructive" aria-hidden="true">
+                            *
+                        </span>
+                    </legend>
+                    <p id="user-roles-hint" className="text-sm text-muted-foreground">
                         Client portal accounts must use the client role alone and be linked to one client profile.
                     </p>
-                    <div className="mt-3 flex flex-wrap gap-3">
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2">
                         {assignableRoles?.map((role) => (
-                            <label key={role} className="flex items-center gap-2 rounded-md border border-slate-200 px-3 py-2 text-sm">
-                                <input type="checkbox" checked={selectedRoles.includes(role)} onChange={() => toggleRole(role)} />
+                            <label
+                                key={role}
+                                className="flex min-h-11 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground transition-colors hover:bg-accent"
+                            >
+                                <input
+                                    className="size-4 accent-primary"
+                                    type="checkbox"
+                                    checked={selectedRoles.includes(role)}
+                                    onChange={() => toggleRole(role)}
+                                />
                                 {role}
                             </label>
                         ))}
                     </div>
                     {form.formState.errors.roles?.message && (
-                        <p className="mt-2 text-sm text-rose-700">{form.formState.errors.roles.message}</p>
+                        <p id="user-roles-error" className="mt-2 text-xs font-medium text-destructive" role="alert">
+                            {form.formState.errors.roles.message}
+                        </p>
                     )}
                 </fieldset>
                 {selectedRoles.includes('client') && (
-                    <Field label="Linked client profile" error={form.formState.errors.client_id?.message}>
-                        <select
-                            className={inputClassName}
+                    <FormField required label="Linked client profile" error={form.formState.errors.client_id?.message}>
+                        <Select
+                            required
                             value={selectedClientId ?? ''}
                             onChange={(event) =>
                                 form.setValue('client_id', event.target.value === '' ? null : Number(event.target.value), {
@@ -429,36 +475,20 @@ export function UserFormPage() {
                                     {client.display_name} · {client.email ?? client.phone}
                                 </option>
                             ))}
-                        </select>
-                    </Field>
+                        </Select>
+                    </FormField>
                 )}
-                <ErrorMessage error={clientsQuery.error ?? saveMutation.error} />
-                <div className="flex justify-end gap-3">
-                    <Link
-                        className="rounded-md border border-slate-300 px-4 py-2 text-sm font-medium"
-                        to={isEditing ? `/admin/users/${uuid}` : '/admin/users'}
-                    >
+                <ErrorMessage error={rolesQuery.error ?? clientsQuery.error ?? saveMutation.error} />
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <Link className={buttonVariants({ variant: 'outline' })} to={isEditing ? `/admin/users/${uuid}` : '/admin/users'}>
                         Cancel
                     </Link>
-                    <button
-                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                        disabled={saveMutation.isPending}
-                    >
+                    <Button type="submit" disabled={saveMutation.isPending}>
                         {saveMutation.isPending ? 'Saving...' : 'Save user'}
-                    </button>
+                    </Button>
                 </div>
             </form>
         </section>
-    );
-}
-
-function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
-    return (
-        <label className="block text-sm font-medium text-slate-800">
-            {label}
-            {children}
-            {error && <span className="mt-1 block text-sm font-normal text-rose-700">{error}</span>}
-        </label>
     );
 }
 
@@ -468,28 +498,36 @@ export function UserDetailsPage() {
     const userQuery = useQuery({ queryKey: ['users', uuid], queryFn: () => getUser(uuid ?? ''), enabled: uuid !== undefined });
     const user = userQuery.data;
     const canManage = roles.includes('super_admin') || !user?.roles.some((role) => role === 'super_admin' || role === 'admin');
-    if (userQuery.isLoading) return <p className="text-sm text-slate-600">Loading user...</p>;
-    if (!user) return <ErrorMessage error={userQuery.error ?? new Error('User not found.')} />;
+    if (userQuery.isLoading) return <PageSkeleton />;
+    if (!user) {
+        return (
+            <ErrorState
+                title="User unavailable"
+                description={
+                    getApiErrorMessage(userQuery.error, 'The requested user could not be found.') ??
+                    'The requested user could not be found.'
+                }
+                onRetry={() => void userQuery.refetch()}
+            />
+        );
+    }
 
     return (
         <section className="max-w-3xl space-y-6">
             <PageHeader
                 title={`${user.first_name} ${user.last_name}`}
                 description="Account details and assigned access."
-                action={
+                actions={
                     canManage ? (
                         <Can permission="users.update">
-                            <Link
-                                className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white"
-                                to={`/admin/users/${user.uuid}/edit`}
-                            >
+                            <Link className={buttonVariants()} to={`/admin/users/${user.uuid}/edit`}>
                                 Edit user
                             </Link>
                         </Can>
                     ) : undefined
                 }
             />
-            <div className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 md:grid-cols-2">
+            <Card className="grid gap-5 p-5 sm:p-6 md:grid-cols-2">
                 <Detail label="Email" value={user.email} />
                 <Detail label="Phone" value={user.phone ?? '—'} />
                 <Detail label="Status" value={<StatusBadge value={user.status} />} />
@@ -497,47 +535,52 @@ export function UserDetailsPage() {
                 <Detail label="Locale" value={user.locale} />
                 <Detail label="Timezone" value={user.timezone} />
                 {user.client && (
-                    <div className="md:col-span-2 rounded-lg bg-blue-50 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Linked client portal profile</p>
-                        <Link className="mt-1 inline-block font-semibold text-blue-900" to={`/admin/clients/${user.client.uuid}`}>
+                    <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 md:col-span-2">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-primary">Linked client portal profile</p>
+                        <Link
+                            className="mt-1 inline-block font-semibold text-foreground hover:text-primary"
+                            to={`/admin/clients/${user.client.uuid}`}
+                        >
                             {user.client.display_name}
                         </Link>
                     </div>
                 )}
                 <div className="md:col-span-2">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Roles</p>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Roles</p>
                     <div className="mt-2 flex flex-wrap gap-2">
                         {user.roles.map((role) => (
-                            <span key={role} className="rounded bg-slate-100 px-2 py-1 text-sm text-slate-700">
+                            <Badge key={role} variant="outline">
                                 {role}
-                            </span>
+                            </Badge>
                         ))}
                     </div>
                 </div>
                 {user.technician && (
-                    <div className="md:col-span-2 rounded-lg bg-slate-50 p-4">
-                        <p className="font-semibold text-slate-900">Technician profile</p>
-                        <p className="mt-1 text-sm text-slate-600">
-                            {user.technician.employee_code} · <StatusBadge value={user.technician.availability_status} />
-                        </p>
+                    <div className="rounded-lg bg-muted/60 p-4 md:col-span-2">
+                        <p className="font-semibold text-foreground">Technician profile</p>
+                        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                            <span>{user.technician.employee_code}</span>
+                            <span aria-hidden="true">·</span>
+                            <StatusBadge value={user.technician.availability_status} />
+                        </div>
                         <Link
-                            className="mt-3 inline-block text-sm font-medium text-blue-700"
+                            className="mt-3 inline-block text-sm font-medium text-primary hover:underline"
                             to={`/admin/technicians/${user.technician.id}`}
                         >
                             View technician profile
                         </Link>
                     </div>
                 )}
-            </div>
+            </Card>
         </section>
     );
 }
 
 function Detail({ label, value }: { label: string; value: ReactNode }) {
     return (
-        <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-            <div className="mt-1 text-sm text-slate-800">{value}</div>
+        <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+            <div className="mt-1 break-words text-sm text-foreground">{value}</div>
         </div>
     );
 }

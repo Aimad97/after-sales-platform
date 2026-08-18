@@ -3,11 +3,20 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useParams } from 'react-router-dom';
-import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
+import { ApiErrorAlert as ErrorMessage, getApiErrorMessage } from '@/components/ApiErrorAlert';
 import { z } from 'zod';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
+import { FormField } from '@/components/FormField';
+import { PageHeader } from '@/components/PageHeader';
+import { EmptyState, ErrorState, PageSkeleton, TableSkeleton } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Textarea } from '@/components/ui/textarea';
 import { listProducts } from '@/features/catalog/api';
 import { listClients } from '@/features/clients/api';
 import {
@@ -21,9 +30,6 @@ import {
 import type { Warranty, WarrantyEligibility, WarrantyFilters, WarrantyStatus, WarrantyUpdatePayload } from '@/features/warranties/types';
 import { Can } from '@/hooks/usePermissions';
 import { formatDate } from '@/utils/format';
-
-const inputClassName =
-    'mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100';
 
 export const warrantyUpdateSchema = z
     .object({
@@ -42,28 +48,6 @@ export const warrantyUpdateSchema = z
     });
 
 type WarrantyUpdateFormValues = z.infer<typeof warrantyUpdateSchema>;
-
-function PageHeader({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
-    return (
-        <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-                <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
-                <p className="mt-1 text-sm text-slate-600">{description}</p>
-            </div>
-            {action}
-        </div>
-    );
-}
-
-function Field({ label, error, children }: { label: string; error?: string; children: ReactNode }) {
-    return (
-        <label className="block text-sm font-medium text-slate-800">
-            {label}
-            {children}
-            {error && <span className="mt-1 block text-sm font-normal text-rose-700">{error}</span>}
-        </label>
-    );
-}
 
 function formatDateOnly(value: string | null): string {
     if (!value) return '—';
@@ -98,25 +82,25 @@ export function WarrantiesPage() {
             header: 'Warranty / serial',
             cell: (warranty) => (
                 <div>
-                    <Link className="font-semibold text-slate-900 hover:text-blue-700" to={`/admin/warranties/${warranty.uuid}`}>
+                    <Link className="font-semibold text-foreground hover:text-primary" to={`/admin/warranties/${warranty.uuid}`}>
                         {warranty.serial_number ?? 'No serial number'}
                     </Link>
-                    <p className="mt-0.5 text-xs text-slate-500">{warranty.uuid}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{warranty.uuid}</p>
                 </div>
             ),
         },
         {
             id: 'client',
             header: 'Client',
-            cell: (warranty) => <span className="text-slate-700">{warranty.client?.display_name ?? 'Unknown client'}</span>,
+            cell: (warranty) => <span className="text-foreground/80">{warranty.client?.display_name ?? 'Unknown client'}</span>,
         },
         {
             id: 'product',
             header: 'Product',
             cell: (warranty) => (
-                <div className="text-slate-700">
+                <div className="text-foreground/80">
                     <p>{warranty.product?.name ?? 'Unknown product'}</p>
-                    <p className="mt-0.5 text-xs text-slate-500">
+                    <p className="mt-0.5 text-xs text-muted-foreground">
                         {warranty.product?.sku ?? '—'} · {warranty.product?.model ?? '—'}
                     </p>
                 </div>
@@ -126,7 +110,7 @@ export function WarrantiesPage() {
             id: 'coverage',
             header: 'Coverage',
             cell: (warranty) => (
-                <span className="text-slate-600">
+                <span className="text-muted-foreground">
                     {formatDateOnly(warranty.starts_at)}
                     <br />
                     {formatDateOnly(warranty.expires_at)}
@@ -140,7 +124,7 @@ export function WarrantiesPage() {
             headerClassName: 'text-right',
             cellClassName: 'text-right',
             cell: (warranty) => (
-                <Link className="font-medium text-blue-700" to={`/admin/warranties/${warranty.uuid}`}>
+                <Link className="font-medium text-primary hover:underline" to={`/admin/warranties/${warranty.uuid}`}>
                     View
                 </Link>
             ),
@@ -153,96 +137,110 @@ export function WarrantiesPage() {
                 title="Warranties"
                 description="Verify coverage for individual sold products and manage warranty lifecycle decisions."
             />
-            <section className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+            <section className="rounded-xl border border-primary/20 bg-primary/5 p-4 sm:p-5">
                 <form
-                    className="flex flex-col gap-3 sm:flex-row"
+                    className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
                     onSubmit={(event) => {
                         event.preventDefault();
                         setSubmittedLookupSerial(lookupSerial.trim() || null);
                     }}
                 >
-                    <label className="sr-only" htmlFor="serial-lookup">
-                        Serial number
-                    </label>
-                    <input
-                        id="serial-lookup"
-                        className="w-full rounded-md border border-blue-200 bg-white px-3 py-2 text-sm shadow-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                        placeholder="Look up a serial number..."
-                        value={lookupSerial}
-                        onChange={(event) => setLookupSerial(event.target.value)}
-                    />
-                    <button
-                        className="rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                        disabled={lookupSerial.trim().length === 0}
-                    >
+                    <FormField label="Serial number">
+                        <Input
+                            id="serial-lookup"
+                            placeholder="Look up a serial number"
+                            value={lookupSerial}
+                            onChange={(event) => setLookupSerial(event.target.value)}
+                        />
+                    </FormField>
+                    <Button type="submit" disabled={lookupSerial.trim().length === 0}>
                         Check warranty
-                    </button>
+                    </Button>
                 </form>
-                {lookupQuery.isFetching && <p className="mt-3 text-sm text-slate-600">Looking up warranty...</p>}
+                {lookupQuery.isFetching && (
+                    <p className="mt-3 text-sm text-muted-foreground" role="status">
+                        Looking up warranty...
+                    </p>
+                )}
                 {lookupQuery.data && (
-                    <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-blue-100 bg-white p-3 text-sm">
+                    <div className="mt-3 flex flex-col gap-3 rounded-md border border-border bg-card p-3 text-sm sm:flex-row sm:items-center sm:justify-between">
                         <div>
-                            <p className="font-semibold text-slate-900">
+                            <p className="font-semibold text-foreground">
                                 {lookupQuery.data.warranty.product?.name ?? 'Product'} · {lookupQuery.data.warranty.serial_number}
                             </p>
-                            <p className="mt-1 text-slate-600">{lookupQuery.data.eligibility.reason}</p>
+                            <p className="mt-1 text-muted-foreground">{lookupQuery.data.eligibility.reason}</p>
                         </div>
-                        <Link className="font-medium text-blue-700" to={`/admin/warranties/${lookupQuery.data.warranty.uuid}`}>
+                        <Link
+                            className="font-medium text-primary hover:underline"
+                            to={`/admin/warranties/${lookupQuery.data.warranty.uuid}`}
+                        >
                             View warranty
                         </Link>
                     </div>
                 )}
                 {submittedLookupSerial !== null && lookupQuery.error && <ErrorMessage error={lookupQuery.error} />}
             </section>
-            <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-4 md:grid-cols-2 xl:grid-cols-4">
-                <input
-                    className={inputClassName}
-                    placeholder="Search serial, client, product..."
-                    value={filters.search ?? ''}
-                    onChange={(event) => updateFilters({ search: event.target.value || undefined })}
-                />
-                <select
-                    className={inputClassName}
-                    value={filters.client_id ?? ''}
-                    onChange={(event) => updateFilters({ client_id: event.target.value === '' ? '' : Number(event.target.value) })}
-                >
-                    <option value="">All clients</option>
-                    {clientsQuery.data?.data.map((client) => (
-                        <option key={client.id} value={client.id}>
-                            {client.display_name}
-                        </option>
-                    ))}
-                </select>
-                <select
-                    className={inputClassName}
-                    value={filters.product_id ?? ''}
-                    onChange={(event) => updateFilters({ product_id: event.target.value === '' ? '' : Number(event.target.value) })}
-                >
-                    <option value="">All products</option>
-                    {productsQuery.data?.data.map((product) => (
-                        <option key={product.id} value={product.id}>
-                            {product.name} · {product.sku}
-                        </option>
-                    ))}
-                </select>
-                <select
-                    className={inputClassName}
-                    value={filters.status ?? ''}
-                    onChange={(event) => updateFilters({ status: event.target.value === '' ? '' : (event.target.value as WarrantyStatus) })}
-                >
-                    <option value="">All statuses</option>
-                    <option value="active">Active</option>
-                    <option value="expired">Expired</option>
-                    <option value="void">Void</option>
-                    <option value="replaced">Replaced</option>
-                </select>
+            <div className="grid gap-4 rounded-xl border border-border bg-muted/35 p-4 sm:grid-cols-2 xl:grid-cols-4">
+                <FormField label="Search">
+                    <Input
+                        placeholder="Serial, client, or product"
+                        value={filters.search ?? ''}
+                        onChange={(event) => updateFilters({ search: event.target.value || undefined })}
+                    />
+                </FormField>
+                <FormField label="Client">
+                    <Select
+                        value={filters.client_id ?? ''}
+                        onChange={(event) => updateFilters({ client_id: event.target.value === '' ? '' : Number(event.target.value) })}
+                    >
+                        <option value="">All clients</option>
+                        {clientsQuery.data?.data.map((client) => (
+                            <option key={client.id} value={client.id}>
+                                {client.display_name}
+                            </option>
+                        ))}
+                    </Select>
+                </FormField>
+                <FormField label="Product">
+                    <Select
+                        value={filters.product_id ?? ''}
+                        onChange={(event) => updateFilters({ product_id: event.target.value === '' ? '' : Number(event.target.value) })}
+                    >
+                        <option value="">All products</option>
+                        {productsQuery.data?.data.map((product) => (
+                            <option key={product.id} value={product.id}>
+                                {product.name} · {product.sku}
+                            </option>
+                        ))}
+                    </Select>
+                </FormField>
+                <FormField label="Status">
+                    <Select
+                        value={filters.status ?? ''}
+                        onChange={(event) =>
+                            updateFilters({ status: event.target.value === '' ? '' : (event.target.value as WarrantyStatus) })
+                        }
+                    >
+                        <option value="">All statuses</option>
+                        <option value="active">Active</option>
+                        <option value="expired">Expired</option>
+                        <option value="void">Void</option>
+                        <option value="replaced">Replaced</option>
+                    </Select>
+                </FormField>
             </div>
+            <ErrorMessage error={clientsQuery.error ?? productsQuery.error} />
             {warrantiesQuery.isLoading ? (
-                <p className="text-sm text-slate-600">Loading warranties...</p>
+                <TableSkeleton columns={6} />
+            ) : warrantiesQuery.error ? (
+                <ErrorState
+                    description={getApiErrorMessage(warrantiesQuery.error, 'Unable to load warranties.') ?? 'Unable to load warranties.'}
+                    onRetry={() => void warrantiesQuery.refetch()}
+                />
             ) : (
                 <>
-                    <ErrorMessage error={warrantiesQuery.error} />
                     <DataTable
+                        ariaLabel="Warranties"
                         rows={warrantiesQuery.data?.data ?? []}
                         columns={columns}
                         getRowKey={(warranty) => warranty.uuid}
@@ -306,18 +304,28 @@ export function WarrantyDetailsPage() {
     });
     const warranty = warrantyQuery.data;
 
-    if (warrantyQuery.isLoading) return <p className="text-sm text-slate-600">Loading warranty...</p>;
-    if (!warranty) return <ErrorMessage error={warrantyQuery.error ?? new Error('Warranty not found.')} />;
+    if (warrantyQuery.isLoading) return <PageSkeleton />;
+    if (!warranty)
+        return (
+            <ErrorState
+                title="Warranty unavailable"
+                description={
+                    getApiErrorMessage(warrantyQuery.error, 'The requested warranty could not be found.') ??
+                    'The requested warranty could not be found.'
+                }
+                onRetry={() => void warrantyQuery.refetch()}
+            />
+        );
 
     return (
         <section className="max-w-5xl space-y-6">
             <PageHeader
                 title={warranty.serial_number ?? 'Warranty record'}
                 description={`${warranty.product?.name ?? 'Product'} · ${warranty.client?.display_name ?? 'Client'}`}
-                action={<StatusBadge value={warranty.status} />}
+                actions={<StatusBadge value={warranty.status} />}
             />
             <EligibilityCard eligibility={eligibilityQuery.data} isLoading={eligibilityQuery.isLoading} error={eligibilityQuery.error} />
-            <section className="grid gap-4 rounded-xl border border-slate-200 bg-white p-6 md:grid-cols-2 lg:grid-cols-3">
+            <section className="grid gap-5 rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6 md:grid-cols-2 lg:grid-cols-3">
                 <Detail label="Warranty UUID" value={warranty.uuid} />
                 <Detail label="Status" value={<StatusBadge value={warranty.status} />} />
                 <Detail label="Serial number" value={warranty.serial_number ?? 'Not recorded'} />
@@ -349,36 +357,63 @@ export function ClientWarrantyHistory({ clientUuid }: { clientUuid: string }) {
     });
 
     return (
-        <section className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-lg font-bold text-slate-900">Warranty history</h3>
-            <p className="mt-1 text-sm text-slate-600">All product warranties, including active, expired, void, and replaced coverage.</p>
+        <section className="rounded-xl border border-border bg-card p-5 shadow-sm sm:p-6">
+            <h2 className="text-lg font-semibold text-foreground">Warranty history</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+                All product warranties, including active, expired, void, and replaced coverage.
+            </p>
             {warrantiesQuery.isLoading ? (
-                <p className="mt-4 text-sm text-slate-600">Loading warranties...</p>
+                <div className="mt-4">
+                    <TableSkeleton rows={3} columns={4} />
+                </div>
             ) : warrantiesQuery.error ? (
-                <ErrorMessage error={warrantiesQuery.error} />
+                <ErrorState
+                    className="mt-4"
+                    description={
+                        getApiErrorMessage(warrantiesQuery.error, 'Unable to load warranty history.') ?? 'Unable to load warranty history.'
+                    }
+                    onRetry={() => void warrantiesQuery.refetch()}
+                />
             ) : warrantiesQuery.data?.data.length === 0 ? (
-                <p className="mt-4 rounded-md bg-slate-50 p-4 text-sm text-slate-600">No warranties are registered for this client.</p>
+                <EmptyState
+                    className="mt-4 rounded-lg border border-dashed border-border"
+                    compact
+                    title="No warranties yet"
+                    description="No warranties are registered for this client."
+                />
             ) : (
                 <div className="mt-4 overflow-x-auto">
                     <table className="min-w-full text-sm">
-                        <thead className="border-b text-left text-slate-500">
+                        <caption className="sr-only">Warranty history for this client</caption>
+                        <thead className="border-b border-border text-left text-muted-foreground">
                             <tr>
-                                <th className="pb-2 font-semibold">Product</th>
-                                <th className="pb-2 font-semibold">Serial</th>
-                                <th className="pb-2 font-semibold">Expires</th>
-                                <th className="pb-2 font-semibold">Status</th>
+                                <th scope="col" className="pb-2 font-semibold">
+                                    Product
+                                </th>
+                                <th scope="col" className="pb-2 font-semibold">
+                                    Serial
+                                </th>
+                                <th scope="col" className="pb-2 font-semibold">
+                                    Expires
+                                </th>
+                                <th scope="col" className="pb-2 font-semibold">
+                                    Status
+                                </th>
                             </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-border">
                             {warrantiesQuery.data?.data.map((warranty) => (
                                 <tr key={warranty.uuid}>
                                     <td className="py-3">
-                                        <Link className="font-medium text-blue-700" to={`/admin/warranties/${warranty.uuid}`}>
+                                        <Link
+                                            className="font-medium text-primary hover:underline"
+                                            to={`/admin/warranties/${warranty.uuid}`}
+                                        >
                                             {warranty.product?.name ?? 'Unknown product'}
                                         </Link>
                                     </td>
-                                    <td className="py-3 text-slate-600">{warranty.serial_number ?? '—'}</td>
-                                    <td className="py-3 text-slate-600">{formatDateOnly(warranty.expires_at)}</td>
+                                    <td className="py-3 text-muted-foreground">{warranty.serial_number ?? '—'}</td>
+                                    <td className="py-3 text-muted-foreground">{formatDateOnly(warranty.expires_at)}</td>
                                     <td className="py-3">
                                         <StatusBadge value={warranty.status} />
                                     </td>
@@ -393,24 +428,43 @@ export function ClientWarrantyHistory({ clientUuid }: { clientUuid: string }) {
 }
 
 function EligibilityCard({ eligibility, isLoading, error }: { eligibility?: WarrantyEligibility; isLoading: boolean; error: unknown }) {
-    if (isLoading)
-        return <p className="rounded-xl border border-slate-200 bg-white p-5 text-sm text-slate-600">Checking warranty eligibility...</p>;
-    if (!eligibility) return <ErrorMessage error={error} />;
+    if (isLoading) {
+        return (
+            <div className="space-y-3 rounded-xl border border-border bg-card p-5" role="status" aria-label="Checking warranty eligibility">
+                <Skeleton className="h-5 w-56" />
+                <Skeleton className="h-4 w-full max-w-lg" />
+                <Skeleton className="h-4 w-72" />
+            </div>
+        );
+    }
+    if (!eligibility)
+        return (
+            <ErrorState
+                title="Eligibility unavailable"
+                description={
+                    getApiErrorMessage(error, 'Warranty eligibility could not be checked.') ?? 'Warranty eligibility could not be checked.'
+                }
+            />
+        );
 
     return (
         <section
-            className={`rounded-xl border p-5 ${eligibility.is_under_warranty ? 'border-emerald-200 bg-emerald-50' : 'border-rose-200 bg-rose-50'}`}
+            className={`rounded-xl border p-5 ${
+                eligibility.is_under_warranty
+                    ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/35'
+                    : 'border-rose-200 bg-rose-50 dark:border-rose-900 dark:bg-rose-950/35'
+            }`}
         >
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                    <h3 className="font-bold text-slate-900">
+                    <h2 className="font-semibold text-foreground">
                         {eligibility.is_under_warranty ? 'Product is under warranty' : 'Product is not under warranty'}
-                    </h3>
-                    <p className="mt-1 text-sm text-slate-700">{eligibility.reason}</p>
+                    </h2>
+                    <p className="mt-1 text-sm text-foreground/80">{eligibility.reason}</p>
                 </div>
                 <StatusBadge value={eligibility.status} />
             </div>
-            <p className="mt-3 text-sm text-slate-700">
+            <p className="mt-3 text-sm text-foreground/80">
                 Coverage: {formatDateOnly(eligibility.starts_at)} to {formatDateOnly(eligibility.expires_at)} · {eligibility.remaining_days}{' '}
                 day{eligibility.remaining_days === 1 ? '' : 's'} remaining
             </p>
@@ -426,38 +480,53 @@ function WarrantyManagementForm({
     mutation: ReturnType<typeof useMutation<Warranty, Error, WarrantyUpdateFormValues>>;
 }) {
     const status = form.watch('status');
+    const [pendingDecision, setPendingDecision] = useState<WarrantyUpdateFormValues | null>(null);
+    const isVoidDecision = pendingDecision?.status === 'void';
 
     return (
-        <section className="rounded-xl border border-amber-200 bg-amber-50 p-6">
-            <h3 className="text-lg font-bold text-slate-900">Manage warranty</h3>
-            <p className="mt-1 text-sm text-slate-700">
+        <section className="rounded-xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30 sm:p-6">
+            <h2 className="text-lg font-semibold text-foreground">Manage warranty</h2>
+            <p className="mt-1 text-sm text-foreground/80">
                 Void or mark this warranty as replaced. These lifecycle decisions cannot be reversed.
             </p>
-            <form className="mt-4 space-y-4" onSubmit={form.handleSubmit((values) => mutation.mutate(values))}>
+            <form className="mt-4 space-y-4" onSubmit={form.handleSubmit((values) => setPendingDecision(values))}>
                 <div className="grid gap-4 md:grid-cols-2">
-                    <Field label="New status" error={form.formState.errors.status?.message}>
-                        <select className={inputClassName} {...form.register('status')}>
+                    <FormField label="New status" required error={form.formState.errors.status?.message}>
+                        <Select {...form.register('status')}>
                             <option value="void">Void warranty</option>
                             <option value="replaced">Mark as replaced</option>
-                        </select>
-                    </Field>
+                        </Select>
+                    </FormField>
                     {status === 'void' && (
-                        <Field label="Void reason" error={form.formState.errors.void_reason?.message}>
-                            <input className={inputClassName} {...form.register('void_reason')} />
-                        </Field>
+                        <FormField label="Void reason" required error={form.formState.errors.void_reason?.message}>
+                            <Input {...form.register('void_reason')} />
+                        </FormField>
                     )}
                 </div>
-                <Field label="Notes" error={form.formState.errors.notes?.message}>
-                    <textarea className={inputClassName} rows={3} {...form.register('notes')} />
-                </Field>
+                <FormField label="Notes (optional)" error={form.formState.errors.notes?.message}>
+                    <Textarea rows={3} {...form.register('notes')} />
+                </FormField>
                 <ErrorMessage error={mutation.error} />
-                <button
-                    className="rounded-md bg-amber-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
-                    disabled={mutation.isPending}
-                >
+                <Button type="submit" variant="destructive" disabled={mutation.isPending}>
                     {mutation.isPending ? 'Saving...' : 'Save warranty decision'}
-                </button>
+                </Button>
             </form>
+            <ConfirmDialog
+                open={pendingDecision !== null}
+                title={isVoidDecision ? 'Void warranty' : 'Mark warranty as replaced'}
+                description={
+                    isVoidDecision
+                        ? 'Void this warranty? Coverage will end immediately and this decision cannot be reversed.'
+                        : 'Mark this warranty as replaced? This lifecycle decision cannot be reversed.'
+                }
+                confirmLabel={isVoidDecision ? 'Void warranty' : 'Mark as replaced'}
+                isPending={mutation.isPending}
+                onCancel={() => setPendingDecision(null)}
+                onConfirm={() => {
+                    if (!pendingDecision) return;
+                    mutation.mutate(pendingDecision, { onSuccess: () => setPendingDecision(null) });
+                }}
+            />
         </section>
     );
 }
@@ -465,8 +534,8 @@ function WarrantyManagementForm({
 function Detail({ label, value }: { label: string; value: ReactNode }) {
     return (
         <div>
-            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-            <div className="mt-1 break-words text-sm text-slate-800">{value}</div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+            <div className="mt-1 break-words text-sm text-foreground">{value}</div>
         </div>
     );
 }
