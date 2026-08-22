@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\ClientPortal;
 
+use App\Enums\TicketStatus;
 use App\Models\Attachment;
 use App\Models\Client;
 use App\Models\Product;
@@ -171,6 +172,111 @@ class ClientPortalTest extends TestCase
         $this->actingAs($clientUser)->getJson("/api/tickets/{$ownTicket->uuid}")->assertForbidden();
         $this->actingAs($clientUser)->getJson('/api/repairs/'.$ownTicket->repair->id)->assertForbidden();
         $this->actingAs($clientUser)->getJson('/api/audit-logs')->assertForbidden();
+    }
+
+    public function test_client_can_approve_only_their_own_repair_plan_once(): void
+    {
+        $admin = $this->user('admin');
+        $client = Client::factory()->create();
+        $otherClient = Client::factory()->create();
+        $clientUser = $this->clientUser($client);
+        $otherClientUser = $this->clientUser($otherClient);
+        $technician = $this->technician();
+        $ticket = $this->ticket(
+            $client,
+            $admin,
+            $this->warranty($client, $this->product('PORTAL-APPROVAL'), 'APPROVAL-OWN'),
+        );
+        $ticket->forceFill([
+            'status' => TicketStatus::AwaitingCustomerApproval,
+            'assigned_technician_id' => $technician->id,
+        ])->save();
+        $repair = Repair::query()->create([
+            'ticket_id' => $ticket->id,
+            'technician_id' => $technician->id,
+            'customer_notes' => 'Please approve replacement of the paper-feed assembly.',
+        ]);
+
+        $this->actingAs($otherClientUser)
+            ->postJson("/api/client/tickets/{$ticket->uuid}/repair-approval", [
+                'decision' => 'approved',
+            ])
+            ->assertNotFound();
+
+        $this->actingAs($clientUser)
+            ->postJson("/api/client/tickets/{$ticket->uuid}/repair-approval", [
+                'decision' => 'approved',
+                'notes' => 'Approved. Please continue with the repair.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'diagnosing')
+            ->assertJsonPath('data.can_respond_to_repair_approval', false);
+
+        $this->assertDatabaseHas('tickets', [
+            'id' => $ticket->id,
+            'status' => TicketStatus::Diagnosing->value,
+        ]);
+        $this->assertDatabaseHas('ticket_status_histories', [
+            'ticket_id' => $ticket->id,
+            'from_status' => TicketStatus::AwaitingCustomerApproval->value,
+            'to_status' => TicketStatus::Diagnosing->value,
+            'transitioned_by' => $clientUser->id,
+        ]);
+        $this->assertDatabaseHas('repair_histories', [
+            'repair_id' => $repair->id,
+            'event' => 'customer_approval_approved',
+            'changed_by' => $clientUser->id,
+        ]);
+
+        $this->actingAs($clientUser)
+            ->postJson("/api/client/tickets/{$ticket->uuid}/repair-approval", [
+                'decision' => 'approved',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('decision');
+    }
+
+    public function test_client_can_request_changes_to_a_repair_plan(): void
+    {
+        $admin = $this->user('admin');
+        $client = Client::factory()->create();
+        $clientUser = $this->clientUser($client);
+        $technician = $this->technician();
+        $ticket = $this->ticket(
+            $client,
+            $admin,
+            $this->warranty($client, $this->product('PORTAL-CHANGES'), 'CHANGES-OWN'),
+        );
+        $ticket->forceFill([
+            'status' => TicketStatus::AwaitingCustomerApproval,
+            'assigned_technician_id' => $technician->id,
+        ])->save();
+        $repair = Repair::query()->create([
+            'ticket_id' => $ticket->id,
+            'technician_id' => $technician->id,
+            'started_at' => now()->subHours(2),
+            'completed_at' => now()->subHour(),
+            'result' => 'replacement_required',
+        ]);
+
+        $this->actingAs($clientUser)
+            ->postJson("/api/client/tickets/{$ticket->uuid}/repair-approval", [
+                'decision' => 'changes_requested',
+                'notes' => 'Please contact me with an alternative before continuing.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'diagnosing');
+
+        $this->assertDatabaseHas('repair_histories', [
+            'repair_id' => $repair->id,
+            'event' => 'customer_approval_changes_requested',
+            'changed_by' => $clientUser->id,
+        ]);
+        $this->assertDatabaseHas('repairs', [
+            'id' => $repair->id,
+            'completed_at' => null,
+            'result' => null,
+        ]);
     }
 
     public function test_client_uploads_are_private_and_staff_attachments_are_not_visible_in_the_portal(): void

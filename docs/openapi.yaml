@@ -1197,6 +1197,34 @@ paths:
                 '403': { $ref: '#/components/responses/Forbidden' }
                 '404': { $ref: '#/components/responses/NotFound' }
 
+    /api/client/tickets/{ticket}/repair-approval:
+        post:
+            tags: [Tickets]
+            summary: Approve a repair plan or request changes
+            description: Available only to the linked client while the ticket is awaiting customer approval. The server records the decision and returns the ticket to diagnosis for the technician to continue.
+            operationId: respondToPortalRepairApproval
+            x-required-permission: linked client owner
+            parameters: [{ $ref: '#/components/parameters/TicketUuid' }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required: [decision]
+                            properties:
+                                decision: { type: string, enum: [approved, changes_requested] }
+                                notes: { type: string, nullable: true, maxLength: 2000 }
+            responses:
+                '200':
+                    {
+                        description: Portal-safe ticket after the recorded customer decision.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
     /api/repairs:
         get:
             tags: [Repairs]

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     AlertTriangle,
     ArrowLeft,
+    CheckCircle2,
     FileText,
     LoaderCircle,
     PackageCheck,
@@ -10,6 +11,7 @@ import {
     Plus,
     ShieldCheck,
     TicketCheck,
+    Undo2,
 } from 'lucide-react';
 import { useMemo, useState, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
@@ -36,11 +38,13 @@ import {
     getPortalTicket,
     listPortalProducts,
     listPortalTickets,
+    respondToPortalRepairApproval,
     uploadPortalTicketAttachment,
 } from '@/features/client-portal/api';
 import type {
     PortalProductFilters,
     PortalPurchasedProduct,
+    PortalRepairApprovalPayload,
     PortalTicket,
     PortalTicketFilters,
     PortalTicketPayload,
@@ -712,7 +716,17 @@ export function ClientTicketDetailsPage() {
         enabled: uuid !== undefined,
     });
     const ticket = ticketQuery.data;
+    const queryClient = useQueryClient();
     useTicketRealtime(ticket?.id ?? null);
+
+    const updateTicket = (updatedTicket: PortalTicket) => {
+        queryClient.setQueryData(['client-portal', 'tickets', uuid], updatedTicket);
+        void queryClient.invalidateQueries({
+            queryKey: ['client-portal', 'tickets'],
+            exact: false,
+            refetchType: 'none',
+        });
+    };
 
     if (ticketQuery.isLoading) return <PageSkeleton />;
     if (!ticket) return <ErrorMessage error={ticketQuery.error ?? new Error('SAV request not found.')} />;
@@ -759,8 +773,9 @@ export function ClientTicketDetailsPage() {
                     </Detail>
                 </div>
             </Card>
+            {ticket.can_respond_to_repair_approval && <RepairApprovalPanel ticket={ticket} onUpdated={updateTicket} />}
             <TicketProgress ticket={ticket} />
-            {ticket.repair_outcome && <RepairOutcome ticket={ticket} />}
+            {ticket.repair_outcome && !ticket.can_respond_to_repair_approval && <RepairOutcome ticket={ticket} />}
             <AttachmentPanel
                 resourceType="client/tickets"
                 resourceKey={ticket.uuid}
@@ -770,6 +785,75 @@ export function ClientTicketDetailsPage() {
                 disabled={!ticket.can_upload_attachments}
             />
         </section>
+    );
+}
+
+function RepairApprovalPanel({ ticket, onUpdated }: { ticket: PortalTicket; onUpdated: (ticket: PortalTicket) => void }) {
+    const [notes, setNotes] = useState('');
+    const mutation = useMutation({
+        mutationFn: (decision: PortalRepairApprovalPayload['decision']) =>
+            respondToPortalRepairApproval(ticket.uuid, {
+                decision,
+                notes: notes.trim() === '' ? null : notes.trim(),
+            }),
+        onSuccess: (updatedTicket) => {
+            setNotes('');
+            onUpdated(updatedTicket);
+        },
+    });
+
+    return (
+        <Card className="border-amber-300 bg-amber-50/70 dark:border-amber-900 dark:bg-amber-950/25">
+            <CardHeader className="border-b border-amber-200 dark:border-amber-900">
+                <SectionHeader
+                    title="Your approval is required"
+                    description="The technician is waiting for your decision before continuing this repair."
+                />
+            </CardHeader>
+            <CardContent className="space-y-5 pt-5 sm:pt-6">
+                {ticket.repair_outcome?.customer_notes && (
+                    <div className="rounded-lg border border-amber-200 bg-card p-4 dark:border-amber-900">
+                        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">Service team message</p>
+                        <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-foreground">{ticket.repair_outcome.customer_notes}</p>
+                    </div>
+                )}
+                <FormField label="Message to the technician (optional)" hint="Add a question or condition before sending your decision.">
+                    <Textarea
+                        maxLength={2000}
+                        rows={3}
+                        value={notes}
+                        onChange={(event) => setNotes(event.target.value)}
+                        placeholder="Add an optional message"
+                    />
+                </FormField>
+                <ErrorMessage error={mutation.error} />
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <Button
+                        className="w-full sm:w-auto"
+                        type="button"
+                        variant="outline"
+                        disabled={mutation.isPending}
+                        onClick={() => mutation.mutate('changes_requested')}
+                    >
+                        {mutation.isPending ? <LoaderCircle className="animate-spin" aria-hidden="true" /> : <Undo2 aria-hidden="true" />}
+                        Request changes
+                    </Button>
+                    <Button
+                        className="w-full sm:w-auto"
+                        type="button"
+                        disabled={mutation.isPending}
+                        onClick={() => mutation.mutate('approved')}
+                    >
+                        {mutation.isPending ? (
+                            <LoaderCircle className="animate-spin" aria-hidden="true" />
+                        ) : (
+                            <CheckCircle2 aria-hidden="true" />
+                        )}
+                        {mutation.isPending ? 'Sending decision...' : 'Approve repair'}
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
     );
 }
 

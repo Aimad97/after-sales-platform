@@ -69,6 +69,7 @@ export interface PortalTicket {
     received_at: string | null;
     closed_at: string | null;
     can_upload_attachments: boolean;
+    can_respond_to_repair_approval: boolean;
     product: { uuid: string; sku: string; name: string; model: string | null } | null;
     warranty: {
         uuid: string;
@@ -103,4 +104,9 @@ export interface PortalTicketPayload {
     purchased_product_uuid: string;
     title: string;
     problem_description: string;
+}
+
+export interface PortalRepairApprovalPayload {
+    decision: 'approved' | 'changes_requested';
+    notes: string | null;
 }

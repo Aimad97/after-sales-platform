@@ -108,6 +108,19 @@ describe('TechnicianRepairWorkflow', () => {
         expect(onUpdated).toHaveBeenCalledWith(startedRepair);
     });
 
+    it('allows an already-started repair returned for customer feedback to resume', () => {
+        const reopenedRepair: Repair = {
+            ...baseRepair,
+            started_at: '2026-08-17T10:00:00Z',
+            ticket: { ...baseRepair.ticket!, status: 'diagnosing' },
+        };
+
+        renderWithProviders(<TechnicianRepairWorkflow repair={reopenedRepair} onUpdated={vi.fn()} />);
+
+        expect(screen.getByRole('option', { name: 'Resume repair work' })).toHaveValue('repairing');
+        expect(screen.getByRole('combobox', { name: 'Next ticket status' })).toHaveValue('repairing');
+    });
+
     it('saves technician details and completes an active repair', async () => {
         const user = userEvent.setup();
         const activeRepair: Repair = {
@@ -157,6 +170,7 @@ describe('TechnicianRepairWorkflow', () => {
         );
 
         await user.type(screen.getByRole('textbox', { name: 'Final customer-visible notes' }), 'Ready for collection.');
+        await user.click(screen.getByRole('button', { name: 'Review completion' }));
         await user.click(screen.getByRole('button', { name: 'Complete repair' }));
 
         await waitFor(() =>

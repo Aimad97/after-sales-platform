@@ -15,6 +15,7 @@ class ClientPortalTicketResource extends JsonResource
     public function toArray(Request $request): array
     {
         return [
+            'id' => $this->id,
             'uuid' => $this->uuid,
             'ticket_number' => $this->ticket_number,
             'title' => $this->title,
@@ -26,6 +27,9 @@ class ClientPortalTicketResource extends JsonResource
             'received_at' => $this->received_at?->toISOString(),
             'closed_at' => $this->closed_at?->toISOString(),
             'can_upload_attachments' => ! $this->status->isTerminal(),
+            'can_respond_to_repair_approval' => $this->status->value === 'awaiting_customer_approval'
+                && $this->relationLoaded('repair')
+                && $this->repair !== null,
             'product' => $this->relationLoaded('product') && $this->product !== null ? [
                 'uuid' => $this->product->uuid,
                 'sku' => $this->product->sku,
@@ -44,6 +48,7 @@ class ClientPortalTicketResource extends JsonResource
             ] : null,
             'status_timeline' => $this->relationLoaded('statusHistory')
                 ? $this->statusHistory->map(fn (TicketStatusHistory $history): array => [
+                    'id' => $history->id,
                     'from_status' => $this->enumValue($history->from_status),
                     'to_status' => $this->enumValue($history->to_status),
                     'transitioned_at' => $history->transitioned_at?->toISOString(),

@@ -258,6 +258,110 @@ class TicketManagementService
         return $updatedTicket;
     }
 
+    public function recordCustomerApprovalDecision(
+        Ticket $ticket,
+        bool $approved,
+        User $actor,
+        ?string $notes = null,
+    ): Ticket {
+        $from = null;
+        $to = TicketStatus::Diagnosing;
+        $decision = $approved ? 'approved' : 'changes_requested';
+        $description = $approved
+            ? 'Customer approved the repair plan.'
+            : 'Customer requested changes to the repair plan.';
+        $customerNotes = filled($notes) ? trim((string) $notes) : null;
+
+        $updatedTicket = DB::transaction(function () use (
+            $ticket,
+            $actor,
+            $to,
+            $decision,
+            $description,
+            $customerNotes,
+            &$from,
+        ): Ticket {
+            $ticket = $this->lockedTicket($ticket);
+            $from = $ticket->status;
+
+            if ($from !== TicketStatus::AwaitingCustomerApproval) {
+                throw ValidationException::withMessages([
+                    'decision' => 'This ticket is not awaiting customer approval.',
+                ]);
+            }
+
+            $repair = $ticket->repair()->lockForUpdate()->first();
+
+            if ($repair === null) {
+                throw ValidationException::withMessages([
+                    'decision' => 'A repair record is required before customer approval can be recorded.',
+                ]);
+            }
+
+            $wasCompleted = $repair->completed_at !== null;
+            $previousResult = $repair->result?->value;
+            $previousCompletedAt = $repair->completed_at?->toISOString();
+
+            if ($wasCompleted) {
+                $repair->forceFill([
+                    'completed_at' => null,
+                    'result' => null,
+                ])->save();
+            }
+
+            $this->workflow->assertTransition($from, $to);
+            $statusNotes = $customerNotes === null
+                ? $description
+                : "{$description} Customer note: {$customerNotes}";
+
+            $ticket->status = $to;
+            $ticket->save();
+            $ticket->statusHistory()->create([
+                'from_status' => $from,
+                'to_status' => $to,
+                'transitioned_by' => $actor->id,
+                'notes' => $statusNotes,
+                'transitioned_at' => now(),
+            ]);
+            $repair->history()->create([
+                'event' => 'customer_approval_'.$decision,
+                'changes' => [
+                    'decision' => $decision,
+                    'notes' => $customerNotes,
+                    'repair_reopened' => $wasCompleted,
+                    'previous_result' => $previousResult,
+                    'previous_completed_at' => $previousCompletedAt,
+                ],
+                'changed_by' => $actor->id,
+                'occurred_at' => now(),
+            ]);
+            $this->history->record(
+                $ticket,
+                'customer_approval_responded',
+                $description,
+                $actor,
+                ['decision' => $decision, 'notes' => $customerNotes],
+            );
+
+            return $this->loadTicket($ticket);
+        });
+
+        if (! $from instanceof TicketStatus) {
+            throw new \LogicException('The customer approval transition could not be resolved.');
+        }
+
+        TicketStatusChanged::dispatch(
+            $updatedTicket,
+            $from,
+            $to,
+            $actor,
+            $this->realtimeAudience->ticketRecipientUserIds($updatedTicket),
+            $this->realtimePayloads->ticket($updatedTicket),
+        );
+
+        return $updatedTicket;
+    }
+
     public function cancel(Ticket $ticket, User $actor, string $reason): Ticket
     {
         $from = null;

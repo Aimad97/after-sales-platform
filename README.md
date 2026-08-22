@@ -239,6 +239,7 @@ The authenticated portal API provides:
 - `GET /api/client/products` and `GET /api/client/products/{warrantyUuid}`
 - `GET /api/client/warranties/{warrantyUuid}`
 - `GET, POST /api/client/tickets` and `GET /api/client/tickets/{ticketUuid}`
+- `POST /api/client/tickets/{ticketUuid}/repair-approval` to approve a pending repair plan or request changes
 - `GET, POST /api/client/tickets/{ticketUuid}/attachments`
 
 Every list query starts from the authenticated user's linked client record. Object endpoints additionally enforce portal-specific policy abilities and return `404` for foreign records. Portal resources omit client administration notes, status-transition notes and actors, ticket audit history, repair history, technician internal notes, root-cause analysis, and repair costs. Client downloads are limited to ticket files uploaded by accounts linked to that same client; staff-only ticket attachments are not exposed.

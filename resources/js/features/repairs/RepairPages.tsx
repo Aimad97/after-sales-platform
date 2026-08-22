@@ -1,17 +1,23 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle2, Play, Save } from 'lucide-react';
 import { useState, type ReactElement, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
 import { AttachmentPanel } from '@/components/AttachmentPanel';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
 import { FormField } from '@/components/FormField';
 import { PageHeader as SharedPageHeader } from '@/components/PageHeader';
 import { PageSkeleton } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { completeRepair, getRepair, listRepairs, recordDiagnosis, startRepair, updateRepair } from '@/features/repairs/api';
 import type { Repair, RepairCompletionPayload, RepairDiagnosisPayload, RepairFilters, RepairUpdatePayload } from '@/features/repairs/types';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -25,7 +31,7 @@ const diagnosisSchema = z.object({
     diagnosis: z.string().trim().min(3, 'Describe the diagnosis.').max(10_000),
     root_cause: z.string().trim().max(10_000),
     customer_notes: z.string().trim().max(10_000),
-    next_status: z.enum(['awaiting_customer_approval', 'awaiting_part']),
+    next_status: z.enum(['awaiting_customer_approval', 'awaiting_part', 'repairing']),
 });
 const moneySchema = z
     .string()
@@ -98,7 +104,7 @@ export function TechnicianRepairWorkflow({ repair, onUpdated }: { repair: Repair
             diagnosis: repair.diagnosis ?? '',
             root_cause: repair.root_cause ?? '',
             customer_notes: repair.customer_notes ?? '',
-            next_status: 'awaiting_part',
+            next_status: repair.started_at === null ? 'awaiting_part' : 'repairing',
         },
     });
     const updateForm = useForm<RepairUpdateValues>({
@@ -215,6 +221,7 @@ export function TechnicianRepairWorkflow({ repair, onUpdated }: { repair: Repair
                         <Select {...diagnosisForm.register('next_status')}>
                             <option value="awaiting_part">Awaiting part</option>
                             <option value="awaiting_customer_approval">Awaiting customer approval</option>
+                            {repair.started_at !== null && <option value="repairing">Resume repair work</option>}
                         </Select>
                     </WorkflowField>
                     <ErrorMessage error={diagnosisMutation.error} />

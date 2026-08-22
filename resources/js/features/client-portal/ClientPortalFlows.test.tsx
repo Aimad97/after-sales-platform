@@ -8,6 +8,7 @@ import {
     getPortalProduct,
     getPortalTicket,
     listPortalProducts,
+    respondToPortalRepairApproval,
     uploadPortalTicketAttachment,
 } from '@/features/client-portal/api';
 import type { PortalPurchasedProduct, PortalTicket } from '@/features/client-portal/types';
@@ -20,6 +21,7 @@ vi.mock('@/features/client-portal/api', () => ({
     getPortalTicket: vi.fn(),
     listPortalProducts: vi.fn(),
     listPortalTickets: vi.fn(),
+    respondToPortalRepairApproval: vi.fn(),
     uploadPortalTicketAttachment: vi.fn(),
 }));
 vi.mock('@/hooks/useRealtime', () => ({ useTicketRealtime: vi.fn() }));
@@ -62,6 +64,7 @@ const createdTicket: PortalTicket = {
     received_at: '2026-08-17T10:00:00Z',
     closed_at: null,
     can_upload_attachments: true,
+    can_respond_to_repair_approval: false,
     product: { uuid: purchasedProduct.product?.uuid ?? '', sku: 'LAP-100', name: 'UltraBook Pro', model: 'UBP-14' },
     warranty: {
         uuid: '75a580be-c75b-4ddf-8ac5-203819576336',
@@ -83,6 +86,7 @@ const mockedGetProduct = vi.mocked(getPortalProduct);
 const mockedCreateTicket = vi.mocked(createPortalTicket);
 const mockedUpload = vi.mocked(uploadPortalTicketAttachment);
 const mockedGetTicket = vi.mocked(getPortalTicket);
+const mockedRespondToApproval = vi.mocked(respondToPortalRepairApproval);
 
 describe('client ticket flows', () => {
     beforeEach(() => {
@@ -106,6 +110,7 @@ describe('client ticket flows', () => {
             uploaded_by: null,
         });
         mockedGetTicket.mockResolvedValue(createdTicket);
+        mockedRespondToApproval.mockReset();
     });
 
     it('lists purchased products, submits a request, and uploads its attachment', async () => {
@@ -170,5 +175,49 @@ describe('client ticket flows', () => {
         expect(screen.getByText('Power board replaced and tested.')).toBeInTheDocument();
         expect(screen.getByText('Device is ready for collection.')).toBeInTheDocument();
         expect(screen.queryByText(/internal technician/i)).not.toBeInTheDocument();
+    });
+
+    it('lets the customer approve a pending repair plan and refreshes the ticket status', async () => {
+        const user = userEvent.setup();
+        const awaitingApprovalTicket: PortalTicket = {
+            ...createdTicket,
+            status: 'awaiting_customer_approval',
+            can_respond_to_repair_approval: true,
+            repair_outcome: {
+                diagnosis: null,
+                repair_action: null,
+                customer_notes: 'Please approve replacement of the paper-feed assembly.',
+                result: null,
+                started_at: null,
+                completed_at: null,
+            },
+        };
+        mockedGetTicket.mockResolvedValue(awaitingApprovalTicket);
+        mockedRespondToApproval.mockResolvedValue({
+            ...awaitingApprovalTicket,
+            status: 'diagnosing',
+            can_respond_to_repair_approval: false,
+        });
+
+        renderWithProviders(
+            <Routes>
+                <Route path="/client/tickets/:uuid" element={<ClientTicketDetailsPage />} />
+            </Routes>,
+            { route: `/client/tickets/${createdTicket.uuid}` },
+        );
+
+        expect(await screen.findByRole('heading', { name: 'Your approval is required' })).toBeInTheDocument();
+        expect(screen.getByText('Please approve replacement of the paper-feed assembly.')).toBeInTheDocument();
+        await user.type(screen.getByRole('textbox', { name: 'Message to the technician (optional)' }), 'Approved, please continue.');
+        await user.click(screen.getByRole('button', { name: 'Approve repair' }));
+
+        await waitFor(() =>
+            expect(mockedRespondToApproval).toHaveBeenCalledWith(createdTicket.uuid, {
+                decision: 'approved',
+                notes: 'Approved, please continue.',
+            }),
+        );
+        await waitFor(() => expect(screen.queryByRole('button', { name: 'Approve repair' })).not.toBeInTheDocument());
+        expect(screen.getAllByText('Diagnosing').length).toBeGreaterThan(0);
     });
 });

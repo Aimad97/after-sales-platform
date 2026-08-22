@@ -126,6 +126,7 @@ Invoice totals and warranty dates are calculated by the server. Clients must not
 | `GET`       | `/api/client/tickets`              | Client owner     | Portal-safe ticket history; filters search/status/page, max 50 per page.                                                                                                |
 | `POST`      | `/api/client/tickets`              | Client owner     | Required owned `purchased_product_uuid`, title (3–255), problem (10–10,000). Returns 201; unowned purchase is hidden as 404.                                            |
 | `GET`       | `/api/client/tickets/{ticket}`     | Client owner     | Portal-safe progress/history/repair outcome; internal technician notes are never serialized.                                                                            |
+| `POST`      | `/api/client/tickets/{ticket}/repair-approval` | Client owner | Records one `approved` or `changes_requested` decision while the ticket awaits customer approval; optional notes max 2,000. Foreign tickets return 404 and stale responses return 422. |
 
 ## Repairs
 
