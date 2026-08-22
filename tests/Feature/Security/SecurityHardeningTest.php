@@ -29,7 +29,7 @@ class SecurityHardeningTest extends TestCase
             ->assertOk()
             ->assertHeader('x-content-type-options', 'nosniff')
             ->assertHeader('x-frame-options', 'DENY')
-            ->assertHeader('referrer-policy', 'no-referrer')
+            ->assertHeader('referrer-policy', 'same-origin')
             ->assertHeader('cache-control', 'no-store, private')
             ->assertHeader('pragma', 'no-cache')
             ->assertHeader('cross-origin-opener-policy', 'same-origin')
@@ -37,6 +37,13 @@ class SecurityHardeningTest extends TestCase
             ->assertHeaderContains('content-security-policy', "default-src 'self'")
             ->assertHeaderContains('content-security-policy', "object-src 'none'")
             ->assertHeaderContains('content-security-policy', "frame-ancestors 'none'");
+    }
+
+    public function test_spa_preserves_the_same_origin_referrer_required_by_sanctum(): void
+    {
+        $this->get('/login')
+            ->assertOk()
+            ->assertHeader('referrer-policy', 'same-origin');
     }
 
     public function test_credentialed_cors_never_uses_a_wildcard_origin(): void

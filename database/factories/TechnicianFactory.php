@@ -7,11 +7,20 @@ use App\Models\Technician;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 /** @extends Factory<Technician> */
 class TechnicianFactory extends Factory
 {
     protected $model = Technician::class;
+
+    public function configure(): static
+    {
+        return $this->afterCreating(function (Technician $technician): void {
+            Role::findOrCreate('technician', 'web');
+            $technician->user->syncRoles('technician');
+        });
+    }
 
     /** @return array<string, mixed> */
     public function definition(): array
@@ -34,5 +43,10 @@ class TechnicianFactory extends Factory
     public function unavailable(): static
     {
         return $this->state(fn (): array => ['availability_status' => TechnicianAvailabilityStatus::Unavailable]);
+    }
+
+    public function onLeave(): static
+    {
+        return $this->state(fn (): array => ['availability_status' => TechnicianAvailabilityStatus::Leave]);
     }
 }

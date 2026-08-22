@@ -53,6 +53,40 @@ class WarrantyFactory extends Factory
         });
     }
 
+    public function active(): static
+    {
+        return $this->state(function (): array {
+            $startsAt = today()->subMonths(3);
+            $expiresAt = today()->addMonths(21);
+
+            return [
+                'purchase_date' => $startsAt,
+                'warranty_end' => $expiresAt,
+                'starts_at' => $startsAt,
+                'expires_at' => $expiresAt,
+                'status' => WarrantyStatus::Active,
+                'void_reason' => null,
+            ];
+        });
+    }
+
+    public function expiringSoon(int $days = 30): static
+    {
+        return $this->state(function () use ($days): array {
+            $startsAt = today()->subYear();
+            $expiresAt = today()->addDays($days);
+
+            return [
+                'purchase_date' => $startsAt,
+                'warranty_end' => $expiresAt,
+                'starts_at' => $startsAt,
+                'expires_at' => $expiresAt,
+                'status' => WarrantyStatus::Active,
+                'void_reason' => null,
+            ];
+        });
+    }
+
     public function future(): static
     {
         return $this->state(function (): array {

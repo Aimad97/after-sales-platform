@@ -1,4 +1,5 @@
 import axios, { type AxiosError } from 'axios';
+import { apiBaseUrl } from '@/api/baseUrl';
 
 export interface ApiErrorResponse {
     message: string;
@@ -6,7 +7,7 @@ export interface ApiErrorResponse {
 }
 
 export const apiClient = axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
+    baseURL: apiBaseUrl,
     withCredentials: true,
     withXSRFToken: true,
     headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },

@@ -42,6 +42,26 @@ class AuthenticationTest extends TestCase
         $this->assertNotNull($user->fresh()->last_login_at);
     }
 
+    public function test_same_origin_spa_session_authenticates_a_follow_up_get_request(): void
+    {
+        $user = $this->user();
+
+        $this->postJson('/api/auth/login', [
+            'email' => $user->email,
+            'password' => 'Current!Password123',
+        ])->assertOk()
+            ->assertCookie(config('session.cookie'));
+
+        // Browsers normally send Origin for the login POST and Referer for a
+        // same-origin GET. Sanctum uses that request context to enable the web
+        // session middleware for the API request.
+        $this->withoutHeader('Origin')
+            ->withHeader('Referer', 'http://localhost:5173/login')
+            ->getJson('/api/auth/me')
+            ->assertOk()
+            ->assertJsonPath('data.email', $user->email);
+    }
+
     public function test_login_rejects_invalid_credentials(): void
     {
         $this->user();

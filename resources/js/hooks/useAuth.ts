@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { apiOrigin } from '@/api/baseUrl';
 import { apiClient } from '@/api/client';
 
 export interface AuthUser {
@@ -23,7 +24,7 @@ interface LoginPayload {
 }
 
 const csrfClient = axios.create({
-    baseURL: new URL(import.meta.env.VITE_API_URL).origin,
+    baseURL: apiOrigin,
     withCredentials: true,
     withXSRFToken: true,
 });
@@ -45,8 +46,16 @@ export function useAuth() {
     const login = useMutation({
         mutationFn: async (payload: LoginPayload): Promise<AuthUser> => {
             await csrfClient.get('/sanctum/csrf-cookie');
-            const response = await apiClient.post<ApiResponse<AuthUser>>('/auth/login', payload);
-            return response.data.data;
+            await apiClient.post<ApiResponse<AuthUser>>('/auth/login', payload);
+            const authenticatedUser = await fetchCurrentUser();
+
+            if (authenticatedUser === null) {
+                throw new Error(
+                    'The login succeeded, but the browser did not retain the session cookie. Use the same hostname for the page and API.',
+                );
+            }
+
+            return authenticatedUser;
         },
         onSuccess: (user) => queryClient.setQueryData(['auth', 'user'], user),
     });

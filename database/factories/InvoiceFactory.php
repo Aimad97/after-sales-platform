@@ -34,8 +34,18 @@ class InvoiceFactory extends Factory
         return $this->state(fn (): array => ['status' => InvoiceStatus::Issued]);
     }
 
+    public function draft(): static
+    {
+        return $this->state(fn (): array => ['status' => InvoiceStatus::Draft]);
+    }
+
     public function void(): static
     {
         return $this->state(fn (): array => ['status' => InvoiceStatus::Void]);
+    }
+
+    public function dated(\DateTimeInterface|string $date): static
+    {
+        return $this->state(fn (): array => ['invoice_date' => $date]);
     }
 }

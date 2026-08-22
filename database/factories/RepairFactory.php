@@ -48,6 +48,16 @@ class RepairFactory extends Factory
         return $this->state(fn (): array => ['started_at' => now()]);
     }
 
+    public function inProgress(): static
+    {
+        return $this->state(fn (): array => [
+            'diagnosis' => 'Initial diagnostics identified a reproducible hardware fault.',
+            'root_cause' => 'Component wear under normal operating conditions.',
+            'repair_action' => 'Replacement part ordered and repair work started.',
+            'started_at' => now()->subHours(3),
+        ]);
+    }
+
     public function completed(RepairResult $result = RepairResult::Repaired): static
     {
         return $this->state(fn (): array => [

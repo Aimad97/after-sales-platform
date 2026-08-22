@@ -15,7 +15,10 @@ class SecurityHeaders
 
         $response->headers->set('X-Content-Type-Options', 'nosniff');
         $response->headers->set('X-Frame-Options', 'DENY');
-        $response->headers->set('Referrer-Policy', 'no-referrer');
+        // Sanctum identifies same-origin SPA GET requests from their Referer
+        // header because browsers generally omit Origin on those requests.
+        // Keep that header on our own origin without leaking it cross-origin.
+        $response->headers->set('Referrer-Policy', 'same-origin');
         $response->headers->set('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
         $response->headers->set('X-XSS-Protection', '0');
         $response->headers->set('Cross-Origin-Opener-Policy', 'same-origin');

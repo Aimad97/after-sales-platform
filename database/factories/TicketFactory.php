@@ -57,6 +57,25 @@ class TicketFactory extends Factory
         return $this->state(fn (): array => ['assigned_technician_id' => $technician->id]);
     }
 
+    public function withPriority(TicketPriority $priority): static
+    {
+        return $this->state(fn (): array => ['priority' => $priority]);
+    }
+
+    public function fromSource(TicketSource $source): static
+    {
+        return $this->state(fn (): array => ['source' => $source]);
+    }
+
+    public function receivedAt(\DateTimeInterface|string $date): static
+    {
+        return $this->state(fn (): array => [
+            'received_at' => $date,
+            'opened_at' => $date,
+            'created_at' => $date,
+        ]);
+    }
+
     public function forWarranty(Warranty $warranty): static
     {
         return $this->state(fn (): array => [

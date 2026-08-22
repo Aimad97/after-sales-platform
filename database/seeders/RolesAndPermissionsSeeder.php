@@ -38,17 +38,23 @@ class RolesAndPermissionsSeeder extends Seeder
 
     public function run(): void
     {
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $permissionRegistrar = app(PermissionRegistrar::class);
+        $permissionRegistrar->forgetCachedPermissions();
 
         foreach (self::PERMISSIONS as $permission) {
             Permission::findOrCreate($permission, 'web');
         }
+
+        // DatabaseSeeder uses WithoutModelEvents, so Spatie's model-event cache
+        // invalidation does not run while permissions are created. Refresh the
+        // registrar explicitly before resolving permission names for roles.
+        $permissionRegistrar->forgetCachedPermissions();
 
         foreach (self::ROLE_PERMISSIONS as $name => $permissions) {
             $role = Role::findOrCreate($name, 'web');
             $role->syncPermissions($permissions);
         }
 
-        app(PermissionRegistrar::class)->forgetCachedPermissions();
+        $permissionRegistrar->forgetCachedPermissions();
     }
 }

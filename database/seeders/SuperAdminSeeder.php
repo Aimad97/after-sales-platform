@@ -31,7 +31,7 @@ class SuperAdminSeeder extends Seeder
                 'email' => $email,
                 'password' => Hash::make($password),
                 'status' => 'active',
-                'locale' => 'en',
+                'locale' => 'fr',
                 'timezone' => 'Africa/Casablanca',
             ]);
         }

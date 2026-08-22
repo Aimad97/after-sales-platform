@@ -8,6 +8,7 @@ use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Spatie\Permission\Models\Role;
 
 /**
  * @extends Factory<User>
@@ -35,10 +36,39 @@ class UserFactory extends Factory
             'phone' => fake()->phoneNumber(),
             'password' => static::$password ??= Hash::make('password'),
             'remember_token' => Str::random(10),
-            'locale' => 'en',
+            'locale' => 'fr',
             'timezone' => 'Africa/Casablanca',
             'status' => UserStatus::Active,
         ];
+    }
+
+    public function superAdmin(): static
+    {
+        return $this->withRole('super_admin');
+    }
+
+    public function admin(): static
+    {
+        return $this->withRole('admin');
+    }
+
+    public function savAgent(): static
+    {
+        return $this->withRole('sav_agent');
+    }
+
+    public function technician(): static
+    {
+        return $this->withRole('technician');
+    }
+
+    public function clientPortal(?Client $client = null): static
+    {
+        $factory = $client === null
+            ? $this->state(fn (): array => ['client_id' => Client::factory()])
+            : $this->forClient($client);
+
+        return $factory->withRole('client');
     }
 
     /**
@@ -69,5 +99,13 @@ class UserFactory extends Factory
     public function forClient(Client $client): static
     {
         return $this->state(fn (): array => ['client_id' => $client->id]);
+    }
+
+    private function withRole(string $role): static
+    {
+        return $this->afterCreating(function (User $user) use ($role): void {
+            Role::findOrCreate($role, 'web');
+            $user->syncRoles($role);
+        });
     }
 }

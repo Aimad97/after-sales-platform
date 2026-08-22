@@ -32,6 +32,28 @@ php artisan migrate
 npm run build
 ```
 
+## Demonstration data
+
+For a new local database, generate the complete demonstration dataset with:
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+This creates realistic clients, catalog items, invoices, warranties, tickets across the previous six months, repairs, technician workloads, and read/unread notifications. It is intentionally large enough to populate every dashboard chart. `migrate:fresh` deletes the current database contents, so use `php artisan db:seed --class=DemoDataSeeder` when the migrated local database is already empty.
+
+The primary demo accounts all use the local-only password `ServiceDeskDemo!2026` (override it with `DEMO_PASSWORD` before seeding):
+
+| Role | Email |
+| --- | --- |
+| Super administrator | `superadmin@servicedesk.test` |
+| Administrator | `admin@servicedesk.test` |
+| SAV agent | `agent@servicedesk.test` |
+| Technician | `technician@servicedesk.test` |
+| Client portal | `client@servicedesk.test` |
+
+`DatabaseSeeder` creates demo data only when `APP_ENV` is `local` or `testing`, and `DemoDataSeeder` refuses to run in every other environment. Never copy these accounts or the demo password into a production database. Production administrators must be created with `SuperAdminSeeder` and an explicitly supplied `SUPER_ADMIN_PASSWORD`.
+
 For local development, run these processes in separate terminals:
 
 ```bash
@@ -41,6 +63,8 @@ php artisan schedule:work
 php artisan reverb:start
 npm run dev
 ```
+
+The default `VITE_API_URL=/api` keeps browser API and Sanctum requests on the exact origin used to open the page. Keep this relative value when Laravel serves the SPA so session cookies cannot be lost through a `localhost`/`127.0.0.1` mismatch.
 
 ## Verification
 
