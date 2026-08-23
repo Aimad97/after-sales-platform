@@ -129,6 +129,8 @@ class NotificationSystemTest extends TestCase
         $repair = $ticket->fresh()->repair()->firstOrFail();
         $this->actingAs($technicianUser)->postJson("/api/repairs/{$repair->id}/diagnosis", [
             'diagnosis' => 'The main board has a recoverable power fault.',
+            'labor_cost' => '50.00',
+            'parts_cost' => '150.00',
             'next_status' => 'awaiting_customer_approval',
         ])->assertOk();
         $this->assertNotificationType($admin, 'diagnosis_completed');

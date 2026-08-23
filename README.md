@@ -231,7 +231,7 @@ To enable warranty-expiration reminders, set `NOTIFY_WARRANTY_EXPIRATION=true` a
 
 ## Client portal
 
-Client portal accounts use the exclusive `client` role and must have `users.client_id` linked to a non-archived client record. Administrators create or update that link in user management. The React workspace at `/client` provides the client's profile, purchased products and warranty status, SAV request submission and history, private customer attachments, real-time progress, notifications, and customer-safe repair outcomes.
+Client portal accounts use the exclusive `client` role and must have `users.client_id` linked to a non-archived client record. Administrators create or update that link in user management. The React workspace at `/client` provides the client's profile, purchased products and warranty status, SAV request submission and history, private customer attachments, real-time progress, notifications, customer-safe repair outcomes, and explicit diagnosis/repair-quote approval.
 
 The authenticated portal API provides:
 
@@ -239,9 +239,10 @@ The authenticated portal API provides:
 - `GET /api/client/products` and `GET /api/client/products/{warrantyUuid}`
 - `GET /api/client/warranties/{warrantyUuid}`
 - `GET, POST /api/client/tickets` and `GET /api/client/tickets/{ticketUuid}`
+- `POST /api/client/tickets/{ticketUuid}/repair-approval`
 - `GET, POST /api/client/tickets/{ticketUuid}/attachments`
 
-Every list query starts from the authenticated user's linked client record. Object endpoints additionally enforce portal-specific policy abilities and return `404` for foreign records. Portal resources omit client administration notes, status-transition notes and actors, ticket audit history, repair history, technician internal notes, root-cause analysis, and repair costs. Client downloads are limited to ticket files uploaded by accounts linked to that same client; staff-only ticket attachments are not exposed.
+Every list query starts from the authenticated user's linked client record. Object endpoints additionally enforce portal-specific policy abilities and return `404` for foreign records. Portal resources omit client administration notes, status-transition notes and actors, ticket audit history, repair history, technician internal notes, and root-cause analysis. Repair costs are exposed only as the current customer-approval quote; the client must confirm its exact version, and a technician edit makes an already-open quote stale. Client downloads are limited to ticket files uploaded by accounts linked to that same client; staff-only ticket attachments are not exposed.
 
 ## Reports and exports
 

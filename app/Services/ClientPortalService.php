@@ -132,4 +132,12 @@ class ClientPortalService
 
         return $ticket->setRelation('attachments', $attachments);
     }
+
+    /** @param array{decision: string, quote_version: string, notes?: string|null} $data */
+    public function respondToRepairApproval(User $user, Ticket $ticket, array $data): Ticket
+    {
+        $ticket = $this->tickets->recordCustomerRepairDecision($ticket, $data, $user);
+
+        return $this->ticket($user, $ticket);
+    }
 }

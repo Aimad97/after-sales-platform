@@ -1,17 +1,23 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle2, Play, Save } from 'lucide-react';
 import { useState, type ReactElement, type ReactNode } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useParams } from 'react-router-dom';
 import { z } from 'zod';
 import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
 import { AttachmentPanel } from '@/components/AttachmentPanel';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
 import { DataTable, type DataTableColumn } from '@/components/DataTable';
 import { FormField } from '@/components/FormField';
 import { PageHeader as SharedPageHeader } from '@/components/PageHeader';
 import { PageSkeleton } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { completeRepair, getRepair, listRepairs, recordDiagnosis, startRepair, updateRepair } from '@/features/repairs/api';
 import type { Repair, RepairCompletionPayload, RepairDiagnosisPayload, RepairFilters, RepairUpdatePayload } from '@/features/repairs/types';
 import { usePermissions } from '@/hooks/usePermissions';
@@ -21,16 +27,18 @@ import { formatDate, humanize } from '@/utils/format';
 const inputClassName =
     'mt-1 min-h-10 w-full rounded-md border border-input bg-card px-3 py-2 text-sm text-foreground shadow-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/20';
 
-const diagnosisSchema = z.object({
-    diagnosis: z.string().trim().min(3, 'Describe the diagnosis.').max(10_000),
-    root_cause: z.string().trim().max(10_000),
-    customer_notes: z.string().trim().max(10_000),
-    next_status: z.enum(['awaiting_customer_approval', 'awaiting_part']),
-});
 const moneySchema = z
     .string()
     .trim()
     .regex(/^\d+(?:\.\d{1,2})?$/, 'Enter a non-negative amount with up to two decimals.');
+const diagnosisSchema = z.object({
+    diagnosis: z.string().trim().min(3, 'Describe the diagnosis.').max(10_000),
+    root_cause: z.string().trim().max(10_000),
+    customer_notes: z.string().trim().max(10_000),
+    labor_cost: moneySchema,
+    parts_cost: moneySchema,
+    next_status: z.enum(['awaiting_customer_approval', 'awaiting_part', 'repairing']),
+});
 const repairUpdateSchema = z.object({
     repair_action: z.string().trim().max(10_000),
     internal_notes: z.string().trim().max(10_000),
@@ -98,6 +106,8 @@ export function TechnicianRepairWorkflow({ repair, onUpdated }: { repair: Repair
             diagnosis: repair.diagnosis ?? '',
             root_cause: repair.root_cause ?? '',
             customer_notes: repair.customer_notes ?? '',
+            labor_cost: repair.labor_cost,
+            parts_cost: repair.parts_cost,
             next_status: 'awaiting_part',
         },
     });
@@ -211,10 +221,29 @@ export function TechnicianRepairWorkflow({ repair, onUpdated }: { repair: Repair
                     >
                         <Textarea rows={3} {...diagnosisForm.register('customer_notes')} />
                     </WorkflowField>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                        <WorkflowField
+                            label="Quoted labor cost (MAD)"
+                            error={diagnosisForm.formState.errors.labor_cost?.message}
+                            hint="This amount is shown to the client for approval."
+                            required
+                        >
+                            <Input inputMode="decimal" {...diagnosisForm.register('labor_cost')} />
+                        </WorkflowField>
+                        <WorkflowField
+                            label="Quoted parts cost (MAD)"
+                            error={diagnosisForm.formState.errors.parts_cost?.message}
+                            hint="This amount is shown to the client for approval."
+                            required
+                        >
+                            <Input inputMode="decimal" {...diagnosisForm.register('parts_cost')} />
+                        </WorkflowField>
+                    </div>
                     <WorkflowField label="Next ticket status" error={diagnosisForm.formState.errors.next_status?.message} required>
                         <Select {...diagnosisForm.register('next_status')}>
                             <option value="awaiting_part">Awaiting part</option>
                             <option value="awaiting_customer_approval">Awaiting customer approval</option>
+                            <option value="repairing">{repair.started_at ? 'Resume repair work' : 'Start repair work'}</option>
                         </Select>
                     </WorkflowField>
                     <ErrorMessage error={diagnosisMutation.error} />

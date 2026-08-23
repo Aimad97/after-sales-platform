@@ -55,6 +55,11 @@ class TicketPolicy
         return $user->hasClientPortalAccess();
     }
 
+    public function respondToRepairApproval(User $user, Ticket $ticket): Response
+    {
+        return $this->viewPortal($user, $ticket);
+    }
+
     private function staffCan(User $user, string $permission): bool
     {
         return $user->can($permission) && ! $user->hasRole('client');

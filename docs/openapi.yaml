@@ -1197,6 +1197,28 @@ paths:
                 '403': { $ref: '#/components/responses/Forbidden' }
                 '404': { $ref: '#/components/responses/NotFound' }
 
+    /api/client/tickets/{ticket}/repair-approval:
+        post:
+            tags: [Tickets, Repairs]
+            summary: Respond to the current repair quote
+            description: Approves the exact customer-visible quote or returns it to diagnosis with requested changes. Foreign tickets are hidden as 404 and stale quote versions return 422.
+            operationId: respondToPortalRepairApproval
+            x-required-permission: linked client owner
+            parameters: [{ $ref: '#/components/parameters/TicketUuid' }]
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema: { $ref: '#/components/schemas/PortalRepairApprovalRequest' }
+            responses:
+                '200':
+                    {
+                        description: Portal-safe ticket after recording the customer decision.,
+                        content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } },
+                    }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
     /api/repairs:
         get:
             tags: [Repairs]
@@ -1571,7 +1593,7 @@ paths:
                 - { $ref: '#/components/parameters/DateFrom' }
                 - { $ref: '#/components/parameters/DateTo' }
                 - { name: technician_id, in: query, schema: { type: integer } }
-                - { name: status, in: query, schema: { type: string }, description: Ticket status, or repair result for repairs reports. }
+                - { name: status, in: query, schema: { type: string }, description: 'Ticket status, or repair result for repairs reports.' }
                 - { name: priority, in: query, schema: { $ref: '#/components/schemas/TicketPriority' } }
                 - { name: brand_id, in: query, schema: { type: integer } }
                 - { name: category_id, in: query, schema: { type: integer } }
@@ -2064,7 +2086,7 @@ components:
             additionalProperties: false
             required: [sku, name, category_id, brand_id, model, default_warranty_months, serial_number_required]
             properties:
-                sku: { type: string, maxLength: 100, description: Trimmed, uppercased, unique. }
+                sku: { type: string, maxLength: 100, description: 'Trimmed, uppercased, unique.' }
                 name: { type: string, maxLength: 255 }
                 slug: { type: string, nullable: true, maxLength: 255 }
                 description: { type: string, nullable: true, maxLength: 5000 }
@@ -2267,6 +2289,14 @@ components:
                 purchased_product_uuid: { type: string, format: uuid, description: Must identify a purchase owned by the current client. }
                 title: { type: string, minLength: 3, maxLength: 255 }
                 problem_description: { type: string, minLength: 10, maxLength: 10000 }
+        PortalRepairApprovalRequest:
+            type: object
+            additionalProperties: false
+            required: [decision, quote_version]
+            properties:
+                decision: { type: string, enum: [approved, changes_requested] }
+                quote_version: { type: string, minLength: 64, maxLength: 64, description: Opaque version of the exact customer-visible diagnosis and costs. }
+                notes: { type: string, nullable: true, minLength: 3, maxLength: 2000, description: Required when decision is changes_requested. }
         Ticket:
             type: object
             required:

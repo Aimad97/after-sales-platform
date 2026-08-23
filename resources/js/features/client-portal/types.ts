@@ -48,12 +48,21 @@ export interface PortalTicketTimelineEntry {
 }
 
 export interface PortalRepairOutcome {
-    diagnosis: string | null;
-    repair_action: string | null;
     customer_notes: string | null;
     result: 'repaired' | 'partially_repaired' | 'unrepairable' | 'replacement_required' | null;
     started_at: string | null;
     completed_at: string | null;
+}
+
+export interface PortalRepairQuote {
+    diagnosis: string | null;
+    customer_notes: string | null;
+    labor_cost: string;
+    parts_cost: string;
+    total_cost: string;
+    currency: 'MAD';
+    version: string | null;
+    is_complete: boolean;
 }
 
 export interface PortalTicket {
@@ -80,6 +89,9 @@ export interface PortalTicket {
     assigned_technician: { display_name: string } | null;
     status_timeline: PortalTicketTimelineEntry[];
     attachments: Attachment[];
+    approval_required: boolean;
+    can_respond_to_repair_approval: boolean;
+    repair_quote: PortalRepairQuote | null;
     repair_outcome: PortalRepairOutcome | null;
     created_at: string | null;
     updated_at: string | null;
@@ -103,4 +115,10 @@ export interface PortalTicketPayload {
     purchased_product_uuid: string;
     title: string;
     problem_description: string;
+}
+
+export interface PortalRepairApprovalPayload {
+    decision: 'approved' | 'changes_requested';
+    quote_version: string;
+    notes: string | null;
 }

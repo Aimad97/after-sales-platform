@@ -1,8 +1,9 @@
 import type { LucideIcon } from 'lucide-react';
-import { LogOut, Menu, ShieldCheck, X } from 'lucide-react';
+import { LogOut, Menu, X } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { Breadcrumbs, type WorkspaceVariant } from '@/components/Breadcrumbs';
+import { ApplicationBrand } from '@/components/BrandLogo';
 import { GlobalSearchPalette } from '@/components/GlobalSearchPalette';
 import { NotificationBell } from '@/components/NotificationBell';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -81,22 +82,6 @@ function Navigation({ items, onNavigate, label }: NavigationProps) {
                 );
             })}
         </nav>
-    );
-}
-
-function Brand({ variant }: { variant: WorkspaceVariant }) {
-    return (
-        <div className="flex min-w-0 items-center gap-3">
-            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm">
-                <ShieldCheck className="size-5" aria-hidden="true" />
-            </span>
-            <span className="min-w-0">
-                <span className="block truncate text-sm font-bold tracking-tight text-foreground">UltraPC Care</span>
-                <span className="block truncate text-xs text-muted-foreground">
-                    {variant === 'admin' ? 'Service workspace' : 'Client portal'}
-                </span>
-            </span>
-        </div>
     );
 }
 
@@ -209,7 +194,7 @@ export function AppShell({
                         className="border-b border-border px-5 py-5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                         to={variant === 'admin' ? '/admin' : '/client'}
                     >
-                        <Brand variant={variant} />
+                        <ApplicationBrand variant={variant} />
                     </Link>
                     <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
                         <Navigation items={navigationItems} label="Primary navigation" />
@@ -236,7 +221,7 @@ export function AppShell({
                                     <Menu className="size-5" aria-hidden="true" />
                                 </button>
                                 <div className="hidden sm:block lg:hidden">
-                                    <Brand variant={variant} />
+                                    <ApplicationBrand variant={variant} compact />
                                 </div>
                                 <div className="hidden min-w-0 xl:block">
                                     <p className="truncate text-sm font-semibold text-foreground">{userName}</p>
@@ -294,7 +279,7 @@ export function AppShell({
                     >
                         <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-4">
                             <div id="mobile-navigation-title">
-                                <Brand variant={variant} />
+                                <ApplicationBrand variant={variant} />
                             </div>
                             <button
                                 ref={closeButtonRef}

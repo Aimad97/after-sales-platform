@@ -46,6 +46,8 @@ Route::middleware(['auth:sanctum', 'throttle:authenticated-api'])->group(functio
         Route::get('/tickets', [ClientPortalController::class, 'tickets'])->name('tickets.index');
         Route::post('/tickets', [ClientPortalController::class, 'storeTicket'])->name('tickets.store');
         Route::get('/tickets/{ticket}', [ClientPortalController::class, 'ticket'])->name('tickets.show');
+        Route::post('/tickets/{ticket}/repair-approval', [ClientPortalController::class, 'respondToRepairApproval'])
+            ->name('tickets.repair-approval');
         Route::get('/tickets/{ticket}/attachments', [AttachmentController::class, 'clientTicketIndex'])->name('tickets.attachments.index');
         Route::post('/tickets/{ticket}/attachments', [AttachmentController::class, 'clientTicketStore'])
             ->middleware('throttle:attachment-upload')

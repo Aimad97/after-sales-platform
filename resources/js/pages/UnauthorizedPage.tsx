@@ -1,5 +1,6 @@
 import { ArrowLeft, LockKeyhole } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { BrandLogo } from '@/components/BrandLogo';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { buttonVariants } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,6 +18,7 @@ export function UnauthorizedPage() {
             />
             <Card className="relative w-full max-w-lg shadow-xl shadow-slate-950/5 dark:shadow-black/20">
                 <CardContent className="flex flex-col items-center px-6 py-10 sm:px-10 sm:py-12">
+                    <BrandLogo frameClassName="mb-7 w-full max-w-[13rem]" />
                     <span
                         className="grid size-14 place-items-center rounded-2xl bg-rose-100 text-destructive dark:bg-rose-950/60 dark:text-rose-300"
                         aria-hidden="true"

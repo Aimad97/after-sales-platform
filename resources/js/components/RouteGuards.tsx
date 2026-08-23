@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Navigate } from 'react-router-dom';
+import { BrandLoader } from '@/components/BrandLogo';
 import { useAuth } from '@/hooks/useAuth';
 import { usePermissions } from '@/hooks/usePermissions';
 
@@ -9,19 +10,12 @@ interface ChildrenProps {
 
 export function LoadingScreen() {
     return (
-        <main className="grid min-h-screen place-items-center bg-background px-6 text-foreground" role="status">
-            <div className="flex flex-col items-center text-center">
-                <span
-                    className="grid size-11 place-items-center rounded-xl bg-primary text-lg font-black text-primary-foreground shadow-sm"
-                    aria-hidden="true"
-                >
-                    U
-                </span>
-                <span className="mt-4 text-sm font-semibold">Loading UltraPC Desk...</span>
-                <span className="mt-3 h-1 w-32 overflow-hidden rounded-full bg-muted" aria-hidden="true">
-                    <span className="block h-full w-1/2 animate-pulse rounded-full bg-primary" />
-                </span>
-            </div>
+        <main className="relative grid min-h-screen place-items-center overflow-hidden bg-background px-6 text-foreground">
+            <div
+                className="pointer-events-none absolute inset-x-0 top-0 h-80 bg-gradient-to-b from-primary/10 to-transparent"
+                aria-hidden="true"
+            />
+            <BrandLoader className="relative" />
         </main>
     );
 }

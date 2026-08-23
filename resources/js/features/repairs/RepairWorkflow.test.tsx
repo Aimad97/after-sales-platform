@@ -80,10 +80,46 @@ describe('TechnicianRepairWorkflow', () => {
                 diagnosis: 'Power board failure confirmed.',
                 root_cause: 'Power surge.',
                 customer_notes: null,
+                labor_cost: '0.00',
+                parts_cost: '0.00',
                 next_status: 'awaiting_part',
             }),
         );
         expect(onUpdated).toHaveBeenCalledWith(diagnosedRepair);
+    });
+
+    it('submits the diagnosis and customer quote together before requesting approval', async () => {
+        const user = userEvent.setup();
+        const quotedRepair: Repair = {
+            ...baseRepair,
+            diagnosis: 'The paper-feed rollers need replacement.',
+            labor_cost: '120.00',
+            parts_cost: '280.00',
+            total_cost: '400.00',
+            ticket: { ...baseRepair.ticket!, status: 'awaiting_customer_approval' },
+        };
+        mockedRecordDiagnosis.mockResolvedValue(quotedRepair);
+        renderWithProviders(<TechnicianRepairWorkflow repair={baseRepair} onUpdated={vi.fn()} />);
+
+        await user.type(screen.getByRole('textbox', { name: 'Diagnosis' }), 'The paper-feed rollers need replacement.');
+        await user.clear(screen.getByRole('textbox', { name: 'Quoted labor cost (MAD)' }));
+        await user.type(screen.getByRole('textbox', { name: 'Quoted labor cost (MAD)' }), '120.00');
+        await user.clear(screen.getByRole('textbox', { name: 'Quoted parts cost (MAD)' }));
+        await user.type(screen.getByRole('textbox', { name: 'Quoted parts cost (MAD)' }), '280.00');
+        await user.selectOptions(screen.getByRole('combobox', { name: 'Next ticket status' }), 'awaiting_customer_approval');
+        await user.click(screen.getByRole('button', { name: 'Save diagnosis' }));
+
+        await waitFor(() =>
+            expect(mockedRecordDiagnosis).toHaveBeenCalledWith(
+                baseRepair.id,
+                expect.objectContaining({
+                    diagnosis: 'The paper-feed rollers need replacement.',
+                    labor_cost: '120.00',
+                    parts_cost: '280.00',
+                    next_status: 'awaiting_customer_approval',
+                }),
+            ),
+        );
     });
 
     it('starts work only from the awaiting-part step', async () => {
@@ -157,7 +193,8 @@ describe('TechnicianRepairWorkflow', () => {
         );
 
         await user.type(screen.getByRole('textbox', { name: 'Final customer-visible notes' }), 'Ready for collection.');
-        await user.click(screen.getByRole('button', { name: 'Complete repair' }));
+        await user.click(screen.getByRole('button', { name: 'Review completion' }));
+        await user.click(await screen.findByRole('button', { name: 'Complete repair' }));
 
         await waitFor(() =>
             expect(mockedCompleteRepair).toHaveBeenCalledWith(baseRepair.id, {

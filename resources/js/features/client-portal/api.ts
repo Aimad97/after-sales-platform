@@ -4,6 +4,7 @@ import type {
     PortalProductFilters,
     PortalProfile,
     PortalPurchasedProduct,
+    PortalRepairApprovalPayload,
     PortalTicket,
     PortalTicketFilters,
     PortalTicketPayload,
@@ -36,6 +37,12 @@ export async function listPortalTickets(filters: PortalTicketFilters): Promise<P
 
 export async function getPortalTicket(uuid: string): Promise<PortalTicket> {
     const response = await apiClient.get<DataResponse<PortalTicket>>(`/client/tickets/${uuid}`);
+    return response.data.data;
+}
+
+export async function respondToPortalRepairApproval(uuid: string, payload: PortalRepairApprovalPayload): Promise<PortalTicket> {
+    const response = await apiClient.post<DataResponse<PortalTicket>>(`/client/tickets/${uuid}/repair-approval`, payload);
+
     return response.data.data;
 }
 

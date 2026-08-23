@@ -258,6 +258,91 @@ class TicketManagementService
         return $updatedTicket;
     }
 
+    /** @param array{decision: string, quote_version: string, notes?: string|null} $data */
+    public function recordCustomerRepairDecision(Ticket $ticket, array $data, User $actor): Ticket
+    {
+        $from = null;
+        $updatedTicket = DB::transaction(function () use ($ticket, $data, $actor, &$from): Ticket {
+            $ticket = $this->lockedTicket($ticket);
+            if ($ticket->status !== TicketStatus::AwaitingCustomerApproval) {
+                throw ValidationException::withMessages([
+                    'decision' => 'This repair quote is no longer awaiting customer approval.',
+                ]);
+            }
+
+            $repair = $ticket->repair()->lockForUpdate()->first();
+            if ($repair === null || ! filled($repair->diagnosis) || $repair->updated_at === null) {
+                throw ValidationException::withMessages([
+                    'quote' => 'The technician must submit a complete diagnosis and repair quote before it can be approved.',
+                ]);
+            }
+
+            if (! hash_equals($repair->quoteVersion(), $data['quote_version'])) {
+                throw ValidationException::withMessages([
+                    'quote_version' => 'The repair quote changed after this page was loaded. Review the latest costs before responding.',
+                ]);
+            }
+
+            $decision = $data['decision'];
+            $notes = filled($data['notes'] ?? null) ? trim((string) $data['notes']) : null;
+            $event = $decision === 'approved' ? 'customer_repair_approved' : 'customer_repair_changes_requested';
+            $description = $decision === 'approved'
+                ? 'Customer approved the repair quote.'
+                : 'Customer requested changes to the repair quote.';
+            $quotedCosts = [
+                'labor_cost' => $repair->labor_cost,
+                'parts_cost' => $repair->parts_cost,
+                'total_cost' => $repair->total_cost,
+                'currency' => 'MAD',
+                'quote_version' => $repair->quoteVersion(),
+            ];
+
+            if ($repair->completed_at !== null) {
+                $quotedCosts['previous_result'] = $repair->result?->value;
+                $quotedCosts['previous_completed_at'] = $repair->completed_at->toISOString();
+                $repair->forceFill(['result' => null, 'completed_at' => null])->save();
+            }
+
+            $repair->history()->create([
+                'event' => $event,
+                'changes' => [...$quotedCosts, 'notes' => $notes],
+                'changed_by' => $actor->id,
+                'occurred_at' => now(),
+            ]);
+
+            $from = $ticket->status;
+            $to = TicketStatus::Diagnosing;
+            $this->workflow->assertTransition($from, $to);
+            $ticket->status = $to;
+            $ticket->save();
+            $ticket->statusHistory()->create([
+                'from_status' => $from,
+                'to_status' => $to,
+                'transitioned_by' => $actor->id,
+                'notes' => $description,
+                'transitioned_at' => now(),
+            ]);
+            $this->history->record($ticket, $event, $description, $actor, [...$quotedCosts, 'notes' => $notes]);
+
+            return $this->loadTicket($ticket);
+        });
+
+        if (! $from instanceof TicketStatus) {
+            throw new \LogicException('The previous ticket status could not be resolved.');
+        }
+
+        TicketStatusChanged::dispatch(
+            $updatedTicket,
+            $from,
+            TicketStatus::Diagnosing,
+            $actor,
+            $this->realtimeAudience->ticketRecipientUserIds($updatedTicket),
+            $this->realtimePayloads->ticket($updatedTicket),
+        );
+
+        return $updatedTicket;
+    }
+
     public function cancel(Ticket $ticket, User $actor, string $reason): Ticket
     {
         $from = null;

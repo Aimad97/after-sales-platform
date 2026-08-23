@@ -14,13 +14,22 @@ class ClientPortalTicketResource extends JsonResource
     /** @return array<string, mixed> */
     public function toArray(Request $request): array
     {
+        $status = $this->enumValue($this->status);
+        $awaitingApproval = $status === 'awaiting_customer_approval';
+        $repair = $this->relationLoaded('repair') ? $this->repair : null;
+        $quoteReady = $awaitingApproval
+            && $repair !== null
+            && filled($repair->diagnosis)
+            && $repair->updated_at !== null;
+
         return [
+            'id' => $this->id,
             'uuid' => $this->uuid,
             'ticket_number' => $this->ticket_number,
             'title' => $this->title,
             'problem_description' => $this->problem_description,
             'priority' => $this->enumValue($this->priority),
-            'status' => $this->enumValue($this->status),
+            'status' => $status,
             'source' => $this->enumValue($this->source),
             'warranty_eligible' => $this->warranty_eligible,
             'received_at' => $this->received_at?->toISOString(),
@@ -44,6 +53,7 @@ class ClientPortalTicketResource extends JsonResource
             ] : null,
             'status_timeline' => $this->relationLoaded('statusHistory')
                 ? $this->statusHistory->map(fn (TicketStatusHistory $history): array => [
+                    'id' => $history->id,
                     'from_status' => $this->enumValue($history->from_status),
                     'to_status' => $this->enumValue($history->to_status),
                     'transitioned_at' => $history->transitioned_at?->toISOString(),
@@ -52,13 +62,25 @@ class ClientPortalTicketResource extends JsonResource
             'attachments' => $this->relationLoaded('attachments')
                 ? AttachmentResource::collection($this->attachments)
                 : [],
-            'repair_outcome' => $this->relationLoaded('repair') && $this->repair !== null ? [
+            'approval_required' => $awaitingApproval,
+            'can_respond_to_repair_approval' => $quoteReady,
+            'repair_quote' => $awaitingApproval && $repair !== null ? [
+                'diagnosis' => $repair->diagnosis,
+                'customer_notes' => $repair->customer_notes,
+                'labor_cost' => $repair->labor_cost,
+                'parts_cost' => $repair->parts_cost,
+                'total_cost' => $repair->total_cost,
+                'currency' => 'MAD',
+                'version' => $quoteReady ? $repair->quoteVersion() : null,
+                'is_complete' => $quoteReady,
+            ] : null,
+            'repair_outcome' => $repair !== null ? [
                 // Diagnosis and repair actions are technician-facing notes. A
                 // client receives only the customer-safe outcome fields.
-                'customer_notes' => $this->repair->customer_notes,
-                'result' => $this->enumValue($this->repair->result),
-                'started_at' => $this->repair->started_at?->toISOString(),
-                'completed_at' => $this->repair->completed_at?->toISOString(),
+                'customer_notes' => $repair->customer_notes,
+                'result' => $this->enumValue($repair->result),
+                'started_at' => $repair->started_at?->toISOString(),
+                'completed_at' => $repair->completed_at?->toISOString(),
             ] : null,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

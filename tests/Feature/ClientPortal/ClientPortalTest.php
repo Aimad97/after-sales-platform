@@ -173,6 +173,134 @@ class ClientPortalTest extends TestCase
         $this->actingAs($clientUser)->getJson('/api/audit-logs')->assertForbidden();
     }
 
+    public function test_client_can_review_and_approve_the_current_repair_quote(): void
+    {
+        $admin = $this->user('admin');
+        $client = Client::factory()->create();
+        $clientUser = $this->clientUser($client);
+        $technician = $this->technician();
+        $ticket = $this->ticket($client, $admin, $this->warranty($client, $this->product('PORTAL-QUOTE'), 'QUOTE-OWN'));
+        $ticket->forceFill([
+            'assigned_technician_id' => $technician->id,
+            'status' => 'awaiting_customer_approval',
+        ])->save();
+        $repair = Repair::query()->create([
+            'ticket_id' => $ticket->id,
+            'technician_id' => $technician->id,
+            'diagnosis' => 'The paper-feed rollers are worn and must be replaced.',
+            'root_cause' => 'Internal wear analysis.',
+            'customer_notes' => 'The quote includes replacement rollers and installation.',
+            'labor_cost' => '125.00',
+            'parts_cost' => '300.00',
+            'total_cost' => '425.00',
+        ]);
+
+        $quote = $this->actingAs($clientUser)->getJson("/api/client/tickets/{$ticket->uuid}")
+            ->assertOk()
+            ->assertJsonPath('data.approval_required', true)
+            ->assertJsonPath('data.can_respond_to_repair_approval', true)
+            ->assertJsonPath('data.repair_quote.diagnosis', 'The paper-feed rollers are worn and must be replaced.')
+            ->assertJsonPath('data.repair_quote.labor_cost', '125.00')
+            ->assertJsonPath('data.repair_quote.parts_cost', '300.00')
+            ->assertJsonPath('data.repair_quote.total_cost', '425.00')
+            ->assertJsonPath('data.repair_quote.currency', 'MAD')
+            ->assertJsonMissingPath('data.repair_quote.root_cause')
+            ->json('data.repair_quote');
+
+        $this->actingAs($clientUser)->postJson("/api/client/tickets/{$ticket->uuid}/repair-approval", [
+            'decision' => 'approved',
+            'quote_version' => $quote['version'],
+            'notes' => 'Please proceed with the repair.',
+        ])->assertOk()
+            ->assertJsonPath('data.status', 'diagnosing')
+            ->assertJsonPath('data.approval_required', false)
+            ->assertJsonPath('data.can_respond_to_repair_approval', false)
+            ->assertJsonPath('data.repair_quote', null);
+
+        $this->assertDatabaseHas('repair_histories', [
+            'repair_id' => $repair->id,
+            'event' => 'customer_repair_approved',
+            'changed_by' => $clientUser->id,
+        ]);
+        $history = DB::table('repair_histories')
+            ->where('repair_id', $repair->id)
+            ->where('event', 'customer_repair_approved')
+            ->first();
+        $changes = json_decode((string) $history->changes, true, flags: JSON_THROW_ON_ERROR);
+        $this->assertSame('425.00', $changes['total_cost']);
+        $this->assertSame('Please proceed with the repair.', $changes['notes']);
+
+        $this->actingAs($clientUser)->postJson("/api/client/tickets/{$ticket->uuid}/repair-approval", [
+            'decision' => 'approved',
+            'quote_version' => $quote['version'],
+        ])->assertUnprocessable()->assertJsonValidationErrors('decision');
+
+        $this->actingAs($technician->user)->postJson("/api/repairs/{$repair->id}/diagnosis", [
+            'diagnosis' => 'The paper-feed rollers are worn and must be replaced.',
+            'customer_notes' => 'Customer approved the quoted repair.',
+            'labor_cost' => '125.00',
+            'parts_cost' => '300.00',
+            'next_status' => 'repairing',
+        ])->assertOk()->assertJsonPath('data.ticket.status', 'repairing');
+
+        $this->assertNotNull($repair->fresh()->started_at);
+    }
+
+    public function test_repair_quote_response_is_owner_scoped_requires_change_notes_and_rejects_stale_quotes(): void
+    {
+        $admin = $this->user('admin');
+        $client = Client::factory()->create();
+        $otherClient = Client::factory()->create();
+        $clientUser = $this->clientUser($client);
+        $technician = $this->technician();
+        $ticket = $this->ticket($client, $admin, $this->warranty($client, $this->product('PORTAL-CHANGE'), 'QUOTE-CHANGE'));
+        $foreignTicket = $this->ticket($otherClient, $admin, $this->warranty($otherClient, $this->product('PORTAL-FOREIGN-QUOTE'), 'QUOTE-FOREIGN'));
+        foreach ([$ticket, $foreignTicket] as $quotedTicket) {
+            $quotedTicket->forceFill([
+                'assigned_technician_id' => $technician->id,
+                'status' => 'awaiting_customer_approval',
+            ])->save();
+            Repair::query()->create([
+                'ticket_id' => $quotedTicket->id,
+                'technician_id' => $technician->id,
+                'diagnosis' => 'A customer-safe diagnosis.',
+                'labor_cost' => '50.00',
+                'parts_cost' => '25.00',
+                'total_cost' => '75.00',
+            ]);
+        }
+
+        $repair = $ticket->repair()->firstOrFail();
+        $version = $repair->quoteVersion();
+        $this->actingAs($clientUser)->postJson("/api/client/tickets/{$foreignTicket->uuid}/repair-approval", [
+            'decision' => 'approved',
+            'quote_version' => $foreignTicket->repair()->firstOrFail()->quoteVersion(),
+        ])->assertNotFound();
+
+        $this->actingAs($clientUser)->postJson("/api/client/tickets/{$ticket->uuid}/repair-approval", [
+            'decision' => 'changes_requested',
+            'quote_version' => $version,
+        ])->assertUnprocessable()->assertJsonValidationErrors('notes');
+
+        $repair->forceFill(['parts_cost' => '40.00', 'total_cost' => '90.00'])->save();
+        $this->actingAs($clientUser)->postJson("/api/client/tickets/{$ticket->uuid}/repair-approval", [
+            'decision' => 'approved',
+            'quote_version' => $version,
+        ])->assertUnprocessable()->assertJsonValidationErrors('quote_version');
+
+        $this->actingAs($clientUser)->postJson("/api/client/tickets/{$ticket->uuid}/repair-approval", [
+            'decision' => 'changes_requested',
+            'quote_version' => $repair->fresh()->quoteVersion(),
+            'notes' => 'Please explain the increased parts cost.',
+        ])->assertOk()->assertJsonPath('data.status', 'diagnosing');
+
+        $this->assertDatabaseHas('repair_histories', [
+            'repair_id' => $repair->id,
+            'event' => 'customer_repair_changes_requested',
+            'changed_by' => $clientUser->id,
+        ]);
+    }
+
     public function test_client_uploads_are_private_and_staff_attachments_are_not_visible_in_the_portal(): void
     {
         $admin = $this->user('admin');

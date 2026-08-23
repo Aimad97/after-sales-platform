@@ -176,6 +176,40 @@ class RepairWorkflowTest extends TestCase
         $this->assertSame(TicketStatus::AwaitingCustomerApproval, $ticket->fresh()->status);
     }
 
+    public function test_customer_approval_status_requires_and_saves_the_quote_with_the_diagnosis(): void
+    {
+        [$technicianUser, $technician] = $this->technician();
+        $repair = $this->repairFor($technician);
+
+        $this->actingAs($technicianUser)
+            ->postJson("/api/repairs/{$repair->id}/diagnosis", [
+                'diagnosis' => 'The paper-feed assembly needs replacement.',
+                'next_status' => 'awaiting_customer_approval',
+            ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['labor_cost', 'parts_cost']);
+
+        $this->actingAs($technicianUser)
+            ->postJson("/api/repairs/{$repair->id}/diagnosis", [
+                'diagnosis' => 'The paper-feed assembly needs replacement.',
+                'customer_notes' => 'The estimate includes installation and testing.',
+                'labor_cost' => '125.50',
+                'parts_cost' => '300.25',
+                'next_status' => 'awaiting_customer_approval',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.labor_cost', '125.50')
+            ->assertJsonPath('data.parts_cost', '300.25')
+            ->assertJsonPath('data.total_cost', '425.75')
+            ->assertJsonPath('data.ticket.status', 'awaiting_customer_approval');
+
+        $repair->refresh();
+        $this->assertSame('425.75', $repair->total_cost);
+        $history = $repair->history()->where('event', 'diagnosis_recorded')->latest('id')->firstOrFail();
+        $this->assertSame('425.75', $history->changes['quote']['total_cost']);
+        $this->assertSame('MAD', $history->changes['quote']['currency']);
+    }
+
     private function repairFor(Technician $technician): Repair
     {
         $ticket = Ticket::factory()

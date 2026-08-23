@@ -8,6 +8,7 @@ import {
     getPortalProduct,
     getPortalTicket,
     listPortalProducts,
+    respondToPortalRepairApproval,
     uploadPortalTicketAttachment,
 } from '@/features/client-portal/api';
 import type { PortalPurchasedProduct, PortalTicket } from '@/features/client-portal/types';
@@ -20,6 +21,7 @@ vi.mock('@/features/client-portal/api', () => ({
     getPortalTicket: vi.fn(),
     listPortalProducts: vi.fn(),
     listPortalTickets: vi.fn(),
+    respondToPortalRepairApproval: vi.fn(),
     uploadPortalTicketAttachment: vi.fn(),
 }));
 vi.mock('@/hooks/useRealtime', () => ({ useTicketRealtime: vi.fn() }));
@@ -73,6 +75,9 @@ const createdTicket: PortalTicket = {
     assigned_technician: null,
     status_timeline: [],
     attachments: [],
+    approval_required: false,
+    can_respond_to_repair_approval: false,
+    repair_quote: null,
     repair_outcome: null,
     created_at: '2026-08-17T10:00:00Z',
     updated_at: '2026-08-17T10:00:00Z',
@@ -83,6 +88,7 @@ const mockedGetProduct = vi.mocked(getPortalProduct);
 const mockedCreateTicket = vi.mocked(createPortalTicket);
 const mockedUpload = vi.mocked(uploadPortalTicketAttachment);
 const mockedGetTicket = vi.mocked(getPortalTicket);
+const mockedRespondToApproval = vi.mocked(respondToPortalRepairApproval);
 
 describe('client ticket flows', () => {
     beforeEach(() => {
@@ -106,6 +112,7 @@ describe('client ticket flows', () => {
             uploaded_by: null,
         });
         mockedGetTicket.mockResolvedValue(createdTicket);
+        mockedRespondToApproval.mockReset();
     });
 
     it('lists purchased products, submits a request, and uploads its attachment', async () => {
@@ -148,8 +155,6 @@ describe('client ticket flows', () => {
                 { id: 3, from_status: 'repaired', to_status: 'ready_for_pickup', transitioned_at: '2026-08-17T14:00:00Z' },
             ],
             repair_outcome: {
-                diagnosis: 'The power board failed.',
-                repair_action: 'Power board replaced and tested.',
                 customer_notes: 'Device is ready for collection.',
                 result: 'repaired',
                 started_at: '2026-08-17T11:00:00Z',
@@ -166,9 +171,61 @@ describe('client ticket flows', () => {
 
         expect(await screen.findByText('Repair outcome')).toBeInTheDocument();
         expect(screen.getAllByText('Ready For Pickup').length).toBeGreaterThan(0);
-        expect(screen.getByText('The power board failed.')).toBeInTheDocument();
-        expect(screen.getByText('Power board replaced and tested.')).toBeInTheDocument();
         expect(screen.getByText('Device is ready for collection.')).toBeInTheDocument();
         expect(screen.queryByText(/internal technician/i)).not.toBeInTheDocument();
+    });
+
+    it('shows the diagnosis and cost breakdown and requires cost confirmation before approval', async () => {
+        const user = userEvent.setup();
+        const quotedTicket: PortalTicket = {
+            ...createdTicket,
+            status: 'awaiting_customer_approval',
+            approval_required: true,
+            can_respond_to_repair_approval: true,
+            repair_quote: {
+                diagnosis: 'The power board must be replaced.',
+                customer_notes: 'The estimate includes installation and testing.',
+                labor_cost: '120.00',
+                parts_cost: '380.00',
+                total_cost: '500.00',
+                currency: 'MAD',
+                version: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+                is_complete: true,
+            },
+        };
+        mockedGetTicket.mockResolvedValue(quotedTicket);
+        mockedRespondToApproval.mockResolvedValue({
+            ...quotedTicket,
+            status: 'diagnosing',
+            approval_required: false,
+            can_respond_to_repair_approval: false,
+            repair_quote: null,
+        });
+
+        renderWithProviders(
+            <Routes>
+                <Route path="/client/tickets/:uuid" element={<ClientTicketDetailsPage />} />
+            </Routes>,
+            { route: `/client/tickets/${createdTicket.uuid}` },
+        );
+
+        expect(await screen.findByText('Review and approve the repair quote')).toBeInTheDocument();
+        expect(screen.getByText('The power board must be replaced.')).toBeInTheDocument();
+        expect(screen.getByText('The estimate includes installation and testing.')).toBeInTheDocument();
+        const approveButton = screen.getByRole('button', { name: 'Approve repair' });
+        expect(approveButton).toBeDisabled();
+
+        await user.click(screen.getByRole('checkbox', { name: /confirm the total cost/i }));
+        expect(approveButton).toBeEnabled();
+        await user.click(approveButton);
+
+        await waitFor(() =>
+            expect(mockedRespondToApproval).toHaveBeenCalledWith(createdTicket.uuid, {
+                decision: 'approved',
+                quote_version: '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+                notes: null,
+            }),
+        );
+        await waitFor(() => expect(screen.queryByText('Review and approve the repair quote')).not.toBeInTheDocument());
     });
 });

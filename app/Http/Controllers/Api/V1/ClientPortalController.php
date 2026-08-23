@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\ClientPortal\IndexPortalProductsRequest;
 use App\Http\Requests\ClientPortal\IndexPortalTicketsRequest;
+use App\Http\Requests\ClientPortal\RespondToRepairApprovalRequest;
 use App\Http\Requests\ClientPortal\StorePortalTicketRequest;
 use App\Http\Resources\ClientPortalProductResource;
 use App\Http\Resources\ClientPortalProfileResource;
@@ -66,5 +67,22 @@ class ClientPortalController extends Controller
         $this->authorize('viewPortal', $ticket);
 
         return new ClientPortalTicketResource($this->portal->ticket($request->user(), $ticket));
+    }
+
+    public function respondToRepairApproval(RespondToRepairApprovalRequest $request, Ticket $ticket): JsonResponse
+    {
+        $this->authorize('respondToRepairApproval', $ticket);
+        $data = $request->validated();
+
+        return response()->json([
+            'message' => $data['decision'] === 'approved'
+                ? 'Repair quote approved successfully.'
+                : 'Requested changes sent to the service team.',
+            'data' => new ClientPortalTicketResource($this->portal->respondToRepairApproval(
+                $request->user(),
+                $ticket,
+                $data,
+            )),
+        ]);
     }
 }

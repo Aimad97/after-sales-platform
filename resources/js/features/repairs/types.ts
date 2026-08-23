@@ -59,6 +59,8 @@ export interface RepairDiagnosisPayload {
     diagnosis: string;
     root_cause: string | null;
     customer_notes: string | null;
+    labor_cost: string;
+    parts_cost: string;
     next_status: 'awaiting_customer_approval' | 'awaiting_part' | 'repairing';
 }
 

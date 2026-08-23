@@ -1,12 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation } from '@tanstack/react-query';
-import { ArrowLeft, CheckCircle2, Eye, EyeOff, LoaderCircle, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Eye, EyeOff, LoaderCircle } from 'lucide-react';
 import { forwardRef, type InputHTMLAttributes, type ReactNode, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { z } from 'zod';
 import { apiClient } from '@/api/client';
 import { ApiErrorAlert as ErrorMessage } from '@/components/ApiErrorAlert';
+import { BrandLogo } from '@/components/BrandLogo';
 import { FormField } from '@/components/FormField';
 import { PageHeader } from '@/components/PageHeader';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -50,17 +51,9 @@ function AuthCard({ children }: { children: ReactNode }) {
             <div className="relative w-full max-w-md">
                 <Card className="overflow-hidden shadow-xl shadow-slate-950/5 dark:shadow-black/20">
                     <CardHeader className="border-b border-border bg-muted/35 pb-5">
-                        <div className="flex items-center gap-3">
-                            <span
-                                className="grid size-10 place-items-center rounded-xl bg-primary text-primary-foreground shadow-sm"
-                                aria-hidden="true"
-                            >
-                                <ShieldCheck size={21} />
-                            </span>
-                            <div>
-                                <p className="text-sm font-bold tracking-[0.12em] text-primary">ULTRAPC</p>
-                                <p className="text-xs text-muted-foreground">After-sales service desk</p>
-                            </div>
+                        <div>
+                            <BrandLogo frameClassName="w-full max-w-[15rem]" />
+                            <p className="mt-2 text-xs text-muted-foreground">UltraPC Care - After-sales service desk</p>
                         </div>
                     </CardHeader>
                     <CardContent className="pt-6">{children}</CardContent>

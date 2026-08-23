@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { BrowserRouter, Link, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { AppShell, type AppShellNavigationItem } from '@/components/AppShell';
+import { BrandLogo } from '@/components/BrandLogo';
 import { ClientRoute, GuestRoute, LoadingScreen, PermissionRoute, ProtectedRoute } from '@/components/RouteGuards';
 import { ThemeProvider } from '@/components/ThemeProvider';
 import { useAuth } from '@/hooks/useAuth';
@@ -173,6 +174,7 @@ function NotFoundPage() {
     return (
         <main className="grid min-h-screen place-items-center bg-background p-6 text-center text-foreground">
             <section className="w-full max-w-md rounded-2xl border border-border bg-card p-8 shadow-sm">
+                <BrandLogo frameClassName="mx-auto mb-7 w-full max-w-[13rem]" />
                 <span className="mx-auto grid size-12 place-items-center rounded-xl bg-muted text-muted-foreground" aria-hidden="true">
                     <FileQuestion />
                 </span>

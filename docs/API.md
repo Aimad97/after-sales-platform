@@ -126,6 +126,7 @@ Invoice totals and warranty dates are calculated by the server. Clients must not
 | `GET`       | `/api/client/tickets`              | Client owner     | Portal-safe ticket history; filters search/status/page, max 50 per page.                                                                                                |
 | `POST`      | `/api/client/tickets`              | Client owner     | Required owned `purchased_product_uuid`, title (3–255), problem (10–10,000). Returns 201; unowned purchase is hidden as 404.                                            |
 | `GET`       | `/api/client/tickets/{ticket}`     | Client owner     | Portal-safe progress/history/repair outcome; internal technician notes are never serialized.                                                                            |
+| `POST`      | `/api/client/tickets/{ticket}/repair-approval` | Client owner | Approves the current repair quote or requests changes. Requires `decision`, the 64-character `quote_version`, and notes for change requests. Stale quotes return 422. |
 
 ## Repairs
 
@@ -139,6 +140,8 @@ Invoice totals and warranty dates are calculated by the server. Clients must not
 | `POST`      | `/api/repairs/{repair}/diagnosis`        | Assigned technician / admin override                           | Diagnosis required (3–10,000), optional root cause/customer notes, and next status awaiting approval/part or repairing. |
 | `POST`      | `/api/repairs/{repair}/start`            | Assigned technician / admin override                           | Starts repair; no body.                                                                                                 |
 | `POST`      | `/api/repairs/{repair}/complete`         | Assigned technician / admin override                           | Required result; optional customer notes. Invalid workflow state returns 422.                                           |
+
+When diagnosis moves a ticket to `awaiting_customer_approval`, `labor_cost` and `parts_cost` are required in the same request and `total_cost` is calculated by the server. The portal exposes that exact customer-safe diagnosis and quote until the client responds.
 
 ## Attachments
 

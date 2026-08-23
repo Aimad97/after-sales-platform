@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     AlertTriangle,
     ArrowLeft,
+    CheckCircle2,
     FileText,
     LoaderCircle,
+    MessageSquareText,
     PackageCheck,
     PackageSearch,
     Plus,
@@ -36,11 +38,13 @@ import {
     getPortalTicket,
     listPortalProducts,
     listPortalTickets,
+    respondToPortalRepairApproval,
     uploadPortalTicketAttachment,
 } from '@/features/client-portal/api';
 import type {
     PortalProductFilters,
     PortalPurchasedProduct,
+    PortalRepairApprovalPayload,
     PortalTicket,
     PortalTicketFilters,
     PortalTicketPayload,
@@ -759,8 +763,9 @@ export function ClientTicketDetailsPage() {
                     </Detail>
                 </div>
             </Card>
+            {ticket.approval_required && <RepairApproval ticket={ticket} />}
             <TicketProgress ticket={ticket} />
-            {ticket.repair_outcome && <RepairOutcome ticket={ticket} />}
+            {!ticket.approval_required && ticket.repair_outcome && <RepairOutcome ticket={ticket} />}
             <AttachmentPanel
                 resourceType="client/tickets"
                 resourceKey={ticket.uuid}
@@ -771,6 +776,131 @@ export function ClientTicketDetailsPage() {
             />
         </section>
     );
+}
+
+function RepairApproval({ ticket }: { ticket: PortalTicket }) {
+    const queryClient = useQueryClient();
+    const [costConfirmed, setCostConfirmed] = useState(false);
+    const [notes, setNotes] = useState('');
+    const quote = ticket.repair_quote;
+    const mutation = useMutation({
+        mutationFn: (decision: PortalRepairApprovalPayload['decision']) => {
+            if (!quote?.version) throw new Error('The repair quote is incomplete. Refresh the page or contact the service team.');
+
+            return respondToPortalRepairApproval(ticket.uuid, {
+                decision,
+                quote_version: quote.version,
+                notes: notes.trim() || null,
+            });
+        },
+        onSuccess: (updatedTicket) => {
+            queryClient.setQueryData(['client-portal', 'tickets', ticket.uuid], updatedTicket);
+            void queryClient.invalidateQueries({ queryKey: ['client-portal', 'tickets'], refetchType: 'none' });
+        },
+    });
+
+    if (!quote || !ticket.can_respond_to_repair_approval) {
+        return (
+            <Card className="border-amber-300 bg-amber-50/70 p-5 dark:border-amber-900 dark:bg-amber-950/30 sm:p-6">
+                <h2 className="text-lg font-bold text-foreground">Repair approval pending</h2>
+                <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                    The technician must finish the customer-visible diagnosis and cost estimate before you can respond. The service team has
+                    been asked to complete the quote.
+                </p>
+            </Card>
+        );
+    }
+
+    const total = formatPortalAmount(quote.total_cost, quote.currency);
+
+    return (
+        <Card className="overflow-hidden border-amber-300 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/25">
+            <CardHeader className="border-b border-amber-200 dark:border-amber-900">
+                <SectionHeader
+                    title="Review and approve the repair quote"
+                    description="Confirm the technician's diagnosis and quoted cost before repair work continues."
+                />
+            </CardHeader>
+            <CardContent className="space-y-6 pt-5 sm:pt-6">
+                <div className="grid gap-5 md:grid-cols-2">
+                    <div className="md:col-span-2">
+                        <Detail label="Technician diagnosis">
+                            <p className="whitespace-pre-wrap">{quote.diagnosis}</p>
+                        </Detail>
+                    </div>
+                    <div className="md:col-span-2">
+                        <Detail label="Details for you">
+                            <p className="whitespace-pre-wrap">{quote.customer_notes ?? 'No additional customer notes were added.'}</p>
+                        </Detail>
+                    </div>
+                </div>
+
+                <dl className="grid gap-3 rounded-lg border border-amber-200 bg-card p-4 dark:border-amber-900 sm:grid-cols-3">
+                    <QuoteAmount label="Labor" value={formatPortalAmount(quote.labor_cost, quote.currency)} />
+                    <QuoteAmount label="Parts" value={formatPortalAmount(quote.parts_cost, quote.currency)} />
+                    <QuoteAmount label="Total to confirm" value={total} emphasized />
+                </dl>
+
+                <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-border bg-card p-4 text-sm text-foreground">
+                    <input
+                        className="mt-0.5 size-4 rounded border-input accent-primary"
+                        type="checkbox"
+                        checked={costConfirmed}
+                        onChange={(event) => setCostConfirmed(event.target.checked)}
+                    />
+                    <span>
+                        I approve the proposed repair and confirm the total cost of <strong>{total}</strong>.
+                    </span>
+                </label>
+
+                <FormField label="Message to the service team" hint="Required when requesting changes; optional when approving.">
+                    <Textarea
+                        rows={3}
+                        maxLength={2000}
+                        value={notes}
+                        onChange={(event) => setNotes(event.target.value)}
+                        placeholder="Ask a question or explain what should be changed in the quote."
+                    />
+                </FormField>
+
+                <ErrorMessage error={mutation.error} />
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        disabled={mutation.isPending || notes.trim().length < 3}
+                        onClick={() => mutation.mutate('changes_requested')}
+                    >
+                        <MessageSquareText aria-hidden="true" />
+                        Request changes
+                    </Button>
+                    <Button type="button" disabled={mutation.isPending || !costConfirmed} onClick={() => mutation.mutate('approved')}>
+                        {mutation.isPending ? (
+                            <LoaderCircle className="animate-spin" aria-hidden="true" />
+                        ) : (
+                            <CheckCircle2 aria-hidden="true" />
+                        )}
+                        {mutation.isPending ? 'Sending response...' : 'Approve repair'}
+                    </Button>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}
+
+function QuoteAmount({ label, value, emphasized = false }: { label: string; value: string; emphasized?: boolean }) {
+    return (
+        <div>
+            <dt className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label}</dt>
+            <dd className={cn('mt-1 text-base text-foreground', emphasized && 'text-lg font-bold text-primary')}>{value}</dd>
+        </div>
+    );
+}
+
+function formatPortalAmount(value: string, currency: string): string {
+    const amount = Number(value);
+
+    return Number.isFinite(amount) ? new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount) : `-- ${currency}`;
 }
 
 function TicketProgress({ ticket }: { ticket: PortalTicket }) {
@@ -830,12 +960,6 @@ function RepairOutcome({ ticket }: { ticket: PortalTicket }) {
                 {outcome.result && <StatusBadge value={outcome.result} />}
             </div>
             <div className="mt-5 grid gap-5 md:grid-cols-2">
-                <Detail label="Diagnosis">
-                    <p className="whitespace-pre-wrap">{outcome.diagnosis ?? 'Diagnosis pending.'}</p>
-                </Detail>
-                <Detail label="Repair action">
-                    <p className="whitespace-pre-wrap">{outcome.repair_action ?? 'Repair action pending.'}</p>
-                </Detail>
                 <div className="md:col-span-2">
                     <Detail label="Customer notes">
                         <p className="whitespace-pre-wrap">{outcome.customer_notes ?? 'No customer notes have been added.'}</p>

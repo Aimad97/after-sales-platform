@@ -1,5 +1,6 @@
 import { AlertTriangle, Inbox, RefreshCw, type LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { BrandLoader } from '@/components/BrandLogo';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/utils/cn';
@@ -85,8 +86,8 @@ export function TableSkeleton({ rows = 5, columns = 4 }: { rows?: number; column
 
 export function PageSkeleton() {
     return (
-        <div className="space-y-6" role="status" aria-label="Loading page">
-            <span className="sr-only">Loading page...</span>
+        <div className="space-y-6">
+            <BrandLoader className="items-start text-left" compact showLogo={false} label="Preparing your workspace..." />
             <div className="space-y-2">
                 <Skeleton className="h-8 w-52" />
                 <Skeleton className="h-4 w-full max-w-md" />

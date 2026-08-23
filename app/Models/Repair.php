@@ -39,4 +39,15 @@ class Repair extends Model
     {
         return $this->morphMany(Attachment::class, 'attachable')->latest();
     }
+
+    public function quoteVersion(): string
+    {
+        return hash('sha256', json_encode([
+            'diagnosis' => $this->diagnosis,
+            'customer_notes' => $this->customer_notes,
+            'labor_cost' => $this->labor_cost,
+            'parts_cost' => $this->parts_cost,
+            'total_cost' => $this->total_cost,
+        ], JSON_THROW_ON_ERROR));
+    }
 }
