@@ -141,6 +141,78 @@ class UserAndTechnicianManagementTest extends TestCase
             ->assertJsonValidationErrors('user_id');
     }
 
+    public function test_a_technician_can_view_and_update_their_own_profile_and_availability(): void
+    {
+        $user = $this->userWithRole('technician');
+        $technician = Technician::factory()->for($user)->create([
+            'employee_code' => 'TECH-SELF-01',
+            'specialization' => 'Computers',
+            'skill_level' => 4,
+            'availability_status' => 'available',
+            'notes' => 'Admin-only note.',
+        ]);
+
+        $this->assertTrue($user->fresh()->can('technicians.profile.view'));
+        $this->assertTrue($user->fresh()->can('technicians.profile.update'));
+
+        $this->actingAs($user)->getJson('/api/technicians/me')
+            ->assertOk()
+            ->assertJsonPath('data.id', $technician->id)
+            ->assertJsonPath('data.user.email', $user->email)
+            ->assertJsonPath('data.availability_status', 'available');
+
+        $this->actingAs($user)->patchJson('/api/technicians/me', [
+            'first_name' => 'Updated',
+            'last_name' => 'Technician',
+            'email' => 'updated.technician@example.test',
+            'phone' => '+212600112233',
+            'specialization' => 'Laptop and desktop repairs',
+            'availability_status' => 'busy',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.user.first_name', 'Updated')
+            ->assertJsonPath('data.user.email', 'updated.technician@example.test')
+            ->assertJsonPath('data.specialization', 'Laptop and desktop repairs')
+            ->assertJsonPath('data.availability_status', 'busy');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $user->id,
+            'first_name' => 'Updated',
+            'email' => 'updated.technician@example.test',
+            'phone' => '+212600112233',
+        ]);
+        $this->assertDatabaseHas('technicians', [
+            'id' => $technician->id,
+            'employee_code' => 'TECH-SELF-01',
+            'skill_level' => 4,
+            'availability_status' => 'busy',
+            'notes' => 'Admin-only note.',
+        ]);
+    }
+
+    public function test_a_technician_cannot_change_admin_fields_or_another_technician_profile(): void
+    {
+        $user = $this->userWithRole('technician');
+        $technician = Technician::factory()->for($user)->create();
+        $otherTechnician = Technician::factory()->create();
+
+        $this->actingAs($user)->patchJson('/api/technicians/me', [
+            'employee_code' => 'TECH-HACKED',
+            'skill_level' => 5,
+            'notes' => 'Changed by technician.',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors(['employee_code', 'skill_level', 'notes']);
+
+        $this->actingAs($user)->patchJson("/api/technicians/{$technician->id}", [
+            'availability_status' => 'busy',
+        ])->assertForbidden();
+
+        $this->actingAs($user)->patchJson("/api/technicians/{$otherTechnician->id}", [
+            'availability_status' => 'busy',
+        ])->assertForbidden();
+    }
+
     private function userWithRole(string $role): User
     {
         $user = User::factory()->create();

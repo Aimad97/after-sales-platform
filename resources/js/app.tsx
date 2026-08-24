@@ -63,6 +63,9 @@ const TechnicianFormPage = lazy(() =>
 const TechnicianDetailsPage = lazy(() =>
     import('@/features/technicians/TechnicianPages').then((module) => ({ default: module.TechnicianDetailsPage })),
 );
+const TechnicianSelfProfilePage = lazy(() =>
+    import('@/features/technicians/TechnicianPages').then((module) => ({ default: module.TechnicianSelfProfilePage })),
+);
 const TicketsPage = lazy(() => import('@/features/tickets/TicketPages').then((module) => ({ default: module.TicketsPage })));
 const TicketFormPage = lazy(() => import('@/features/tickets/TicketPages').then((module) => ({ default: module.TicketFormPage })));
 const TicketDetailsPage = lazy(() => import('@/features/tickets/TicketPages').then((module) => ({ default: module.TicketDetailsPage })));
@@ -106,6 +109,7 @@ const queryClient = new QueryClient({
 
 interface PermissionNavigationItem extends AppShellNavigationItem {
     permission: string;
+    roles?: readonly string[];
 }
 
 const adminNavigationItems: readonly PermissionNavigationItem[] = [
@@ -116,6 +120,14 @@ const adminNavigationItems: readonly PermissionNavigationItem[] = [
     { label: 'Warranties', to: '/admin/warranties', icon: ShieldCheck, group: 'Workspace', permission: 'warranties.view' },
     { label: 'Invoices', to: '/admin/invoices', icon: ReceiptText, group: 'Workspace', permission: 'invoices.view' },
     { label: 'Repairs', to: '/admin/repairs', icon: Wrench, group: 'Operations', permission: 'repairs.view' },
+    {
+        label: 'My profile',
+        to: '/admin/profile',
+        icon: UserRound,
+        group: 'Operations',
+        permission: 'technicians.profile.view',
+        roles: ['technician'],
+    },
     { label: 'Technicians', to: '/admin/technicians', icon: HardHat, group: 'Operations', permission: 'users.view' },
     { label: 'Reports', to: '/admin/reports', icon: BarChart3, group: 'Insights', permission: 'reports.view' },
     { label: 'Users', to: '/admin/users', icon: Users, group: 'Administration', permission: 'users.view' },
@@ -135,7 +147,9 @@ const clientNavigationItems: readonly AppShellNavigationItem[] = [
 function AdminLayout() {
     const { user, logout } = useAuth();
     const { can } = usePermissions();
-    const visibleNavigationItems = adminNavigationItems.filter((item) => can(item.permission));
+    const visibleNavigationItems = adminNavigationItems.filter(
+        (item) => can(item.permission) && (item.roles === undefined || item.roles.some((role) => user?.roles.includes(role))),
+    );
 
     return (
         <AppShell
@@ -263,6 +277,14 @@ function App() {
                     }
                 >
                     <Route index element={<DashboardPage />} />
+                    <Route
+                        path="profile"
+                        element={
+                            <PermissionRoute permission="technicians.profile.view">
+                                <TechnicianSelfProfilePage />
+                            </PermissionRoute>
+                        }
+                    />
                     <Route
                         path="users"
                         element={

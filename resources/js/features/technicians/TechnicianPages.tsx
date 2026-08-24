@@ -1,5 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { CheckCircle2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -12,16 +13,31 @@ import { PageHeader } from '@/components/PageHeader';
 import { ErrorState, PageSkeleton, TableSkeleton } from '@/components/PageStates';
 import { Pagination } from '@/components/Pagination';
 import { StatusBadge } from '@/components/StatusBadge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { listUsers } from '@/features/users/api';
-import { archiveTechnician, createTechnician, getTechnician, listTechnicians, updateTechnician } from '@/features/technicians/api';
-import type { TechnicianAvailabilityStatus, TechnicianFilters, TechnicianPayload, TechnicianProfile } from '@/features/technicians/types';
+import {
+    archiveTechnician,
+    createTechnician,
+    getOwnTechnicianProfile,
+    getTechnician,
+    listTechnicians,
+    updateOwnTechnicianProfile,
+    updateTechnician,
+} from '@/features/technicians/api';
+import type {
+    TechnicianAvailabilityStatus,
+    TechnicianFilters,
+    TechnicianPayload,
+    TechnicianProfile,
+    TechnicianSelfProfilePayload,
+} from '@/features/technicians/types';
 import { Can } from '@/hooks/usePermissions';
-import { formatDate } from '@/utils/format';
+import { formatDate, humanize } from '@/utils/format';
 
 const availabilityStatuses: TechnicianAvailabilityStatus[] = ['available', 'busy', 'unavailable', 'leave'];
 
@@ -202,6 +218,145 @@ interface TechnicianFormValues {
     skill_level: number;
     availability_status: TechnicianAvailabilityStatus;
     notes: string;
+}
+
+const technicianSelfProfileSchema = z.object({
+    first_name: z.string().trim().min(1, 'First name is required.').max(100),
+    last_name: z.string().trim().min(1, 'Last name is required.').max(100),
+    email: z.string().trim().email('Enter a valid email address.').max(255),
+    phone: z.string().trim().max(30),
+    specialization: z.string().trim().max(150),
+    availability_status: z.enum(['available', 'busy', 'unavailable', 'leave']),
+});
+
+type TechnicianSelfProfileFormValues = z.infer<typeof technicianSelfProfileSchema>;
+
+export function TechnicianSelfProfilePage() {
+    const queryClient = useQueryClient();
+    const [wasSaved, setWasSaved] = useState(false);
+    const profileQuery = useQuery({ queryKey: ['technicians', 'me'], queryFn: getOwnTechnicianProfile });
+    const form = useForm<TechnicianSelfProfileFormValues>({
+        resolver: zodResolver(technicianSelfProfileSchema),
+        defaultValues: {
+            first_name: '',
+            last_name: '',
+            email: '',
+            phone: '',
+            specialization: '',
+            availability_status: 'available',
+        },
+    });
+
+    useEffect(() => {
+        const profile = profileQuery.data;
+        if (!profile?.user) return;
+
+        form.reset({
+            first_name: profile.user.first_name,
+            last_name: profile.user.last_name,
+            email: profile.user.email,
+            phone: profile.user.phone ?? '',
+            specialization: profile.specialization ?? '',
+            availability_status: profile.availability_status,
+        });
+    }, [form, profileQuery.data]);
+
+    const saveMutation = useMutation({
+        mutationFn: (values: TechnicianSelfProfileFormValues) => {
+            const payload: TechnicianSelfProfilePayload = {
+                ...values,
+                phone: values.phone || null,
+                specialization: values.specialization || null,
+            };
+
+            return updateOwnTechnicianProfile(payload);
+        },
+        onMutate: () => setWasSaved(false),
+        onSuccess: (profile) => {
+            queryClient.setQueryData(['technicians', 'me'], profile);
+            void queryClient.invalidateQueries({ queryKey: ['auth', 'user'] });
+            setWasSaved(true);
+        },
+    });
+
+    if (profileQuery.isLoading) return <PageSkeleton />;
+    if (!profileQuery.data?.user) {
+        return (
+            <ErrorState
+                title="Technician profile unavailable"
+                description={
+                    getApiErrorMessage(profileQuery.error, 'Your technician profile could not be loaded.') ??
+                    'Your technician profile could not be loaded.'
+                }
+                onRetry={() => void profileQuery.refetch()}
+            />
+        );
+    }
+
+    const profile = profileQuery.data;
+
+    return (
+        <section className="max-w-4xl space-y-6">
+            <PageHeader
+                title="My technician profile"
+                description="Keep your contact information, specialization, and current availability up to date."
+            />
+            {wasSaved && (
+                <Alert className="border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/40" role="status">
+                    <CheckCircle2 className="text-emerald-600 dark:text-emerald-400" aria-hidden="true" />
+                    <AlertDescription className="text-emerald-800 dark:text-emerald-200">
+                        Your profile was updated successfully.
+                    </AlertDescription>
+                </Alert>
+            )}
+            <form className="space-y-6" noValidate onSubmit={form.handleSubmit((values) => saveMutation.mutate(values))}>
+                <Card className="grid gap-4 p-5 sm:p-6 md:grid-cols-2">
+                    <Detail label="Employee code" value={profile.employee_code} />
+                    <Detail label="Skill level" value={`Level ${profile.skill_level}`} />
+                    <p className="text-xs leading-5 text-muted-foreground md:col-span-2">
+                        Employee code, skill level, and internal notes are managed by an administrator.
+                    </p>
+                </Card>
+                <Card className="grid gap-5 p-5 sm:p-6 md:grid-cols-2">
+                    <FormField required label="First name" error={form.formState.errors.first_name?.message}>
+                        <Input autoComplete="given-name" {...form.register('first_name')} />
+                    </FormField>
+                    <FormField required label="Last name" error={form.formState.errors.last_name?.message}>
+                        <Input autoComplete="family-name" {...form.register('last_name')} />
+                    </FormField>
+                    <FormField required label="Email" error={form.formState.errors.email?.message}>
+                        <Input type="email" autoComplete="email" {...form.register('email')} />
+                    </FormField>
+                    <FormField label="Phone" error={form.formState.errors.phone?.message}>
+                        <Input type="tel" autoComplete="tel" {...form.register('phone')} />
+                    </FormField>
+                    <FormField label="Specialization" error={form.formState.errors.specialization?.message}>
+                        <Input placeholder="e.g. Consumer electronics" {...form.register('specialization')} />
+                    </FormField>
+                    <FormField
+                        required
+                        label="Availability"
+                        hint="This status helps SAV agents assign work to technicians who are ready."
+                        error={form.formState.errors.availability_status?.message}
+                    >
+                        <Select {...form.register('availability_status')}>
+                            {availabilityStatuses.map((status) => (
+                                <option key={status} value={status}>
+                                    {humanize(status)}
+                                </option>
+                            ))}
+                        </Select>
+                    </FormField>
+                </Card>
+                <ErrorMessage error={saveMutation.error} />
+                <div className="flex justify-end">
+                    <Button type="submit" disabled={saveMutation.isPending}>
+                        {saveMutation.isPending ? 'Saving...' : 'Save changes'}
+                    </Button>
+                </div>
+            </form>
+        </section>
+    );
 }
 
 export function TechnicianFormPage() {

@@ -27,6 +27,16 @@ class TechnicianPolicy
         return $user->can('users.update');
     }
 
+    public function viewOwn(User $user, Technician $technician): bool
+    {
+        return $user->can('technicians.profile.view') && $technician->user_id === $user->getKey();
+    }
+
+    public function updateOwn(User $user, Technician $technician): bool
+    {
+        return $user->can('technicians.profile.update') && $technician->user_id === $user->getKey();
+    }
+
     public function delete(User $user, Technician $technician): bool
     {
         return $user->can('users.delete');

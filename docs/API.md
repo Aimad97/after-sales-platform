@@ -53,6 +53,8 @@ The tables below name the effective policy requirement. `Client owner` means the
 | ----------- | ------------------------------- | -------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `GET`       | `/api/technicians`              | `users.view`   | Filters: search, availability, skill 1–5, sort, direction, pagination.                                           |
 | `POST`      | `/api/technicians`              | `users.create` | Required user ID, unique ASCII alpha-dash employee code, skill 1–5, availability; optional specialization/notes. |
+| `GET`       | `/api/technicians/me`           | `technicians.profile.view` | Returns the authenticated technician's own profile. |
+| `PATCH`     | `/api/technicians/me`           | `technicians.profile.update` | Updates the authenticated technician's name, email, phone, specialization, and availability. Administrative fields are prohibited. |
 | `GET`       | `/api/technicians/{technician}` | `users.view`   | Returns one technician.                                                                                          |
 | `PUT/PATCH` | `/api/technicians/{technician}` | `users.update` | Updates technician metadata; employee code remains unique.                                                       |
 | `DELETE`    | `/api/technicians/{technician}` | `users.delete` | Soft-deletes the technician.                                                                                     |

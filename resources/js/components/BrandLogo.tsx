@@ -1,7 +1,7 @@
 import type { ImgHTMLAttributes } from 'react';
 import { cn } from '@/utils/cn';
 
-const logoPath = '/images/ultrapc-logo.jpg';
+const logoPath = '/images/ultrapc-logo.png';
 const stripeColors = ['#ef3b24', '#f5a623', '#68a747', '#258ac1', '#748995'] as const;
 
 interface BrandLogoProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'src' | 'width' | 'height'> {
@@ -16,7 +16,7 @@ export function BrandLogo({
     ...props
 }: BrandLogoProps) {
     return (
-        <span className={cn('inline-flex overflow-hidden rounded-lg bg-[#05080c] p-1.5 shadow-sm', frameClassName)}>
+        <span className={cn('inline-flex', frameClassName)}>
             <img
                 className={cn('block h-auto w-full object-contain', className)}
                 src={logoPath}

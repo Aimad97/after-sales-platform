@@ -6,7 +6,7 @@ describe('UltraPC branding', () => {
     it('renders the locally hosted official logo with useful alternative text', () => {
         render(<BrandLogo />);
 
-        expect(screen.getByRole('img', { name: 'UltraPC.MA Hardware Solutions' })).toHaveAttribute('src', '/images/ultrapc-logo.jpg');
+        expect(screen.getByRole('img', { name: 'UltraPC.MA Hardware Solutions' })).toHaveAttribute('src', '/images/ultrapc-logo.png');
     });
 
     it('identifies the active application workspace', () => {

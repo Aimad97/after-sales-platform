@@ -42,3 +42,12 @@ export interface TechnicianPayload {
     availability_status: TechnicianAvailabilityStatus;
     notes: string | null;
 }
+
+export interface TechnicianSelfProfilePayload {
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone: string | null;
+    specialization: string | null;
+    availability_status: TechnicianAvailabilityStatus;
+}

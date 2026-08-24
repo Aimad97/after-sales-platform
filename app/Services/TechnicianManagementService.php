@@ -7,6 +7,7 @@ use App\Models\User;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class TechnicianManagementService
@@ -78,6 +79,31 @@ class TechnicianManagementService
         $technician->fill($data)->save();
 
         return $technician->load(['user.roles']);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     */
+    public function updateOwnProfile(Technician $technician, array $data): Technician
+    {
+        return DB::transaction(function () use ($technician, $data): Technician {
+            $userData = Arr::only($data, ['first_name', 'last_name', 'email', 'phone']);
+            $technicianData = Arr::only($data, ['specialization', 'availability_status']);
+
+            if (array_key_exists('email', $userData)) {
+                $userData['email'] = Str::lower((string) $userData['email']);
+            }
+
+            if ($userData !== []) {
+                $technician->user()->firstOrFail()->fill($userData)->save();
+            }
+
+            if ($technicianData !== []) {
+                $technician->fill($technicianData)->save();
+            }
+
+            return $technician->refresh()->load(['user.roles']);
+        });
     }
 
     public function delete(Technician $technician): void

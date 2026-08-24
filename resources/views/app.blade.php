@@ -6,7 +6,7 @@
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="color-scheme" content="light dark">
     <title>{{ config('app.name', 'UltraPC Care') }}</title>
-    <link rel="preload" as="image" href="{{ asset('images/ultrapc-logo.jpg') }}">
+    <link rel="preload" as="image" href="{{ asset('images/ultrapc-logo.png') }}">
     <script src="{{ asset('theme-init.js') }}"></script>
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.tsx'])

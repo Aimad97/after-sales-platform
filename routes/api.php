@@ -99,5 +99,7 @@ Route::middleware(['auth:sanctum', 'throttle:authenticated-api'])->group(functio
     Route::apiResource('invoices', InvoiceController::class)->except(['destroy']);
     Route::get('/users/roles', [UserController::class, 'roles']);
     Route::apiResource('users', UserController::class);
+    Route::get('/technicians/me', [TechnicianController::class, 'own'])->name('technicians.own.show');
+    Route::patch('/technicians/me', [TechnicianController::class, 'updateOwn'])->name('technicians.own.update');
     Route::apiResource('technicians', TechnicianController::class);
 });

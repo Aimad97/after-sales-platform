@@ -292,6 +292,31 @@ paths:
                 '403': { $ref: '#/components/responses/Forbidden' }
                 '422': { $ref: '#/components/responses/ValidationError' }
 
+    /api/technicians/me:
+        get:
+            tags: [Technicians]
+            summary: Get the authenticated technician profile
+            operationId: getOwnTechnicianProfile
+            x-required-permission: technicians.profile.view
+            responses:
+                '200':
+                    { description: Own technician profile., content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } } }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+        patch:
+            tags: [Technicians]
+            summary: Update the authenticated technician profile
+            operationId: updateOwnTechnicianProfile
+            x-required-permission: technicians.profile.update
+            requestBody:
+                { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/TechnicianSelfProfileUpdate' } } } }
+            responses:
+                '200':
+                    { description: Updated own technician profile., content: { application/json: { schema: { $ref: '#/components/schemas/DataEnvelope' } } } }
+                '403': { $ref: '#/components/responses/Forbidden' }
+                '404': { $ref: '#/components/responses/NotFound' }
+                '422': { $ref: '#/components/responses/ValidationError' }
+
     /api/technicians/{technician}:
         parameters: [{ $ref: '#/components/parameters/TechnicianId' }]
         get:
@@ -1992,6 +2017,17 @@ components:
                 skill_level: { type: integer, minimum: 1, maximum: 5 }
                 availability_status: { $ref: '#/components/schemas/TechnicianAvailability' }
                 notes: { type: string, nullable: true, maxLength: 5000 }
+        TechnicianSelfProfileUpdate:
+            type: object
+            additionalProperties: false
+            description: Self-service fields available only to the authenticated technician. All properties are optional.
+            properties:
+                first_name: { type: string, maxLength: 100 }
+                last_name: { type: string, maxLength: 100 }
+                email: { type: string, format: email, maxLength: 255, description: Unique. }
+                phone: { type: string, nullable: true, maxLength: 30 }
+                specialization: { type: string, nullable: true, maxLength: 150 }
+                availability_status: { $ref: '#/components/schemas/TechnicianAvailability' }
 
         Client:
             type: object

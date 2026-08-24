@@ -5,11 +5,13 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Technicians\IndexTechniciansRequest;
 use App\Http\Requests\Technicians\StoreTechnicianRequest;
+use App\Http\Requests\Technicians\UpdateOwnTechnicianProfileRequest;
 use App\Http\Requests\Technicians\UpdateTechnicianRequest;
 use App\Http\Resources\TechnicianResource;
 use App\Models\Technician;
 use App\Services\TechnicianManagementService;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 
 class TechnicianController extends Controller
 {
@@ -32,6 +34,34 @@ class TechnicianController extends Controller
             'message' => 'Technician profile created successfully.',
             'data' => new TechnicianResource($technician),
         ], 201);
+    }
+
+    public function own(Request $request): TechnicianResource
+    {
+        $technician = Technician::query()
+            ->with(['user.roles'])
+            ->where('user_id', $request->user()->getAuthIdentifier())
+            ->firstOrFail();
+
+        $this->authorize('viewOwn', $technician);
+
+        return new TechnicianResource($technician);
+    }
+
+    public function updateOwn(UpdateOwnTechnicianProfileRequest $request): JsonResponse
+    {
+        $technician = Technician::query()
+            ->where('user_id', $request->user()->getAuthIdentifier())
+            ->firstOrFail();
+
+        $this->authorize('updateOwn', $technician);
+
+        $technician = $this->technicians->updateOwnProfile($technician, $request->validated());
+
+        return response()->json([
+            'message' => 'Your technician profile was updated successfully.',
+            'data' => new TechnicianResource($technician),
+        ]);
     }
 
     public function show(Technician $technician): TechnicianResource
