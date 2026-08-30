@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\ClientType;
 use Database\Factories\ClientFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -43,6 +44,16 @@ class Client extends Model
         return [
             'type' => ClientType::class,
         ];
+    }
+
+    /**
+     * @return Attribute<string, never>
+     */
+    protected function displayName(): Attribute
+    {
+        return Attribute::get(fn (): string => $this->type === ClientType::Company && filled($this->company_name)
+            ? (string) $this->company_name
+            : trim("{$this->first_name} {$this->last_name}"));
     }
 
     public function getRouteKeyName(): string

@@ -16,15 +16,12 @@ class ClientResource extends JsonResource
     public function toArray(Request $request): array
     {
         $type = $this->type instanceof ClientType ? $this->type->value : $this->type;
-        $displayName = $type === ClientType::Company->value && filled($this->company_name)
-            ? $this->company_name
-            : trim("{$this->first_name} {$this->last_name}");
 
         return [
             'id' => $this->id,
             'uuid' => $this->uuid,
             'type' => $type,
-            'display_name' => $displayName,
+            'display_name' => $this->display_name,
             'company_name' => $this->company_name,
             'first_name' => $this->first_name,
             'last_name' => $this->last_name,

@@ -2,9 +2,15 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getOwnTechnicianProfile, updateOwnTechnicianProfile } from '@/features/technicians/api';
-import { TechnicianSelfProfilePage } from '@/features/technicians/TechnicianPages';
+import { TechnicianFormPage, TechnicianSelfProfilePage } from '@/features/technicians/TechnicianPages';
 import type { TechnicianProfile } from '@/features/technicians/types';
+import { listUsers } from '@/features/users/api';
+import type { ManagedUser } from '@/features/users/types';
 import { renderWithProviders } from '@/test/render';
+
+vi.mock('@/features/users/api', () => ({
+    listUsers: vi.fn(),
+}));
 
 vi.mock('@/features/technicians/api', () => ({
     archiveTechnician: vi.fn(),
@@ -18,6 +24,7 @@ vi.mock('@/features/technicians/api', () => ({
 
 const mockedGetOwnProfile = vi.mocked(getOwnTechnicianProfile);
 const mockedUpdateOwnProfile = vi.mocked(updateOwnTechnicianProfile);
+const mockedListUsers = vi.mocked(listUsers);
 
 const profile: TechnicianProfile = {
     id: 7,
@@ -88,5 +95,67 @@ describe('TechnicianSelfProfilePage', () => {
             }),
         );
         expect(await screen.findByRole('status')).toHaveTextContent('Your profile was updated successfully.');
+    });
+});
+
+const candidate: ManagedUser = {
+    id: 18,
+    uuid: '44dc4630-f558-4144-a297-e26fc23867a4',
+    first_name: 'Youssef',
+    last_name: 'Amrani',
+    email: 'youssef@example.test',
+    phone: null,
+    locale: 'fr',
+    timezone: 'Africa/Casablanca',
+    client_id: null,
+    status: 'active',
+    last_login_at: null,
+    roles: ['technician'],
+    permissions: [],
+    technician: null,
+};
+
+function candidateResponse(users: ManagedUser[]) {
+    return {
+        data: users,
+        links: {},
+        meta: {
+            current_page: 1,
+            from: users.length === 0 ? null : 1,
+            last_page: 1,
+            per_page: 100,
+            to: users.length === 0 ? null : users.length,
+            total: users.length,
+        },
+    };
+}
+
+describe('TechnicianFormPage', () => {
+    beforeEach(() => mockedListUsers.mockReset());
+
+    it('loads technician-role users without profiles into the candidate selector', async () => {
+        mockedListUsers.mockResolvedValue(candidateResponse([candidate]));
+
+        renderWithProviders(<TechnicianFormPage />, { route: '/admin/technicians/new' });
+
+        expect(await screen.findByRole('option', { name: /Youssef Amrani.*youssef@example\.test/ })).toBeInTheDocument();
+        expect(mockedListUsers).toHaveBeenCalledWith({
+            role: 'technician',
+            technician: false,
+            per_page: 100,
+            sort: 'first_name',
+            direction: 'asc',
+        });
+        expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    });
+
+    it('shows guidance and disables creation when every technician user already has a profile', async () => {
+        mockedListUsers.mockResolvedValue(candidateResponse([]));
+
+        renderWithProviders(<TechnicianFormPage />, { route: '/admin/technicians/new' });
+
+        expect(await screen.findByRole('alert')).toHaveTextContent('No eligible technician users are available.');
+        expect(screen.getByRole('link', { name: 'Create a technician user' })).toHaveAttribute('href', '/admin/users/new');
+        expect(screen.getByRole('button', { name: 'Save profile' })).toBeDisabled();
     });
 });

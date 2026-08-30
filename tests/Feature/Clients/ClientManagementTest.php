@@ -67,9 +67,11 @@ class ClientManagementTest extends TestCase
 
         $this->assertSame(ClientType::Individual, $individual->type);
         $this->assertNull($individual->company_name);
+        $this->assertSame(trim("{$individual->first_name} {$individual->last_name}"), $individual->display_name);
         $this->assertSame(ClientType::Company, $company->type);
         $this->assertNotNull($company->company_name);
         $this->assertNotNull($company->tax_identifier);
+        $this->assertSame($company->company_name, $company->display_name);
     }
 
     public function test_a_company_client_requires_its_company_identity_and_tax_identifier(): void

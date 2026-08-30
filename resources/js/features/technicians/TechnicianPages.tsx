@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useParams } from 'react-router-dom';
@@ -370,6 +370,8 @@ export function TechnicianFormPage() {
         queryFn: () => listUsers({ role: 'technician', technician: false, per_page: 100, sort: 'first_name', direction: 'asc' }),
         enabled: !isEditing,
     });
+    const eligibleUsers = eligibleUsersQuery.data?.data ?? [];
+    const hasNoEligibleUsers = !isEditing && eligibleUsersQuery.isSuccess && eligibleUsers.length === 0;
     const schema = useMemo(
         () =>
             z.object({
@@ -463,11 +465,18 @@ export function TechnicianFormPage() {
                     <FormField required label="Technician user" error={form.formState.errors.user_id?.message}>
                         <Select
                             required
+                            disabled={eligibleUsersQuery.isLoading || eligibleUsersQuery.isError || hasNoEligibleUsers}
                             value={form.watch('user_id')}
                             onChange={(event) => form.setValue('user_id', Number(event.target.value), { shouldValidate: true })}
                         >
-                            <option value={0}>Select a user</option>
-                            {eligibleUsersQuery.data?.data.map((user) => (
+                            <option value={0}>
+                                {eligibleUsersQuery.isLoading
+                                    ? 'Loading technician users...'
+                                    : hasNoEligibleUsers
+                                      ? 'No eligible technician users'
+                                      : 'Select a user'}
+                            </option>
+                            {eligibleUsers.map((user) => (
                                 <option key={user.id} value={user.id}>
                                     {user.first_name} {user.last_name} — {user.email}
                                 </option>
@@ -476,6 +485,19 @@ export function TechnicianFormPage() {
                     </FormField>
                 )}
                 {!isEditing && <ErrorMessage error={eligibleUsersQuery.error} />}
+                {hasNoEligibleUsers && (
+                    <Alert className="border-amber-200 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/40" role="alert">
+                        <AlertTriangle className="text-amber-600 dark:text-amber-400" aria-hidden="true" />
+                        <AlertDescription className="text-amber-800 dark:text-amber-200">
+                            No eligible technician users are available. Every technician-role user already has a profile, or a technician
+                            user must be created first.{' '}
+                            <Link className="font-semibold underline underline-offset-2" to="/admin/users/new">
+                                Create a technician user
+                            </Link>
+                            .
+                        </AlertDescription>
+                    </Alert>
+                )}
                 <div className="grid gap-4 md:grid-cols-2">
                     <FormField required label="Employee code" error={form.formState.errors.employee_code?.message}>
                         <Input required {...form.register('employee_code')} />
@@ -517,7 +539,13 @@ export function TechnicianFormPage() {
                     >
                         Cancel
                     </Link>
-                    <Button type="submit" disabled={saveMutation.isPending}>
+                    <Button
+                        type="submit"
+                        disabled={
+                            saveMutation.isPending ||
+                            (!isEditing && (eligibleUsersQuery.isLoading || eligibleUsersQuery.isError || hasNoEligibleUsers))
+                        }
+                    >
                         {saveMutation.isPending ? 'Saving…' : 'Save profile'}
                     </Button>
                 </div>

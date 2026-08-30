@@ -88,6 +88,31 @@ class UserAndTechnicianManagementTest extends TestCase
         $this->actingAs($agent)->getJson('/api/users')->assertForbidden();
     }
 
+    public function test_user_index_accepts_boolean_strings_when_filtering_technician_candidates(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $eligibleUser = $this->userWithRole('technician');
+        $profiledUser = $this->userWithRole('technician');
+        Technician::factory()->for($profiledUser)->create();
+
+        $this->actingAs($admin)
+            ->getJson('/api/users?role=technician&technician=false&sort=first_name&direction=asc')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $eligibleUser->id);
+
+        $this->actingAs($admin)
+            ->getJson('/api/users?role=technician&technician=true&sort=first_name&direction=asc')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $profiledUser->id);
+
+        $this->actingAs($admin)
+            ->getJson('/api/users?technician=not-a-boolean')
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('technician');
+    }
+
     public function test_an_admin_can_manage_a_technician_profile_only_for_a_technician_user(): void
     {
         $admin = $this->userWithRole('admin');

@@ -46,6 +46,7 @@ class TicketWorkflowTest extends TestCase
         ])->assertCreated()
             ->assertJsonPath('data.status', 'opened')
             ->assertJsonPath('data.priority', 'high')
+            ->assertJsonPath('data.client.display_name', trim("{$client->first_name} {$client->last_name}"))
             ->assertJsonPath('data.warranty_eligible', true)
             ->assertJsonPath('data.status_history.0.to_status', 'opened');
 
@@ -57,7 +58,9 @@ class TicketWorkflowTest extends TestCase
 
         $this->actingAs($agent)->getJson('/api/tickets?search=leak&status=opened&priority=high&source=phone')
             ->assertOk()
-            ->assertJsonPath('data.0.uuid', $ticket->uuid);
+            ->assertJsonPath('data.0.uuid', $ticket->uuid)
+            ->assertJsonPath('data.0.client.id', $client->id)
+            ->assertJsonPath('data.0.client.display_name', trim("{$client->first_name} {$client->last_name}"));
 
         $this->actingAs($agent)->patchJson("/api/tickets/{$ticket->uuid}", [
             'title' => 'Leak under dishwasher door',

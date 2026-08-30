@@ -8,6 +8,15 @@ use Illuminate\Validation\Rule;
 
 class IndexUsersRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $technician = $this->input('technician');
+
+        if (is_string($technician) && in_array(strtolower($technician), ['true', 'false'], true)) {
+            $this->merge(['technician' => strtolower($technician) === 'true']);
+        }
+    }
+
     public function authorize(): bool
     {
         return $this->user()?->can('viewAny', User::class) ?? false;
